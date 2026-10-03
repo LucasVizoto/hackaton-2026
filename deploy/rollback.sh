@@ -20,5 +20,11 @@ if set(loader.applied_migrations) - set(loader.disk_migrations):
 PY
 ln -sfn "$release" /srv/cocapec/current.next
 mv -Tf /srv/cocapec/current.next /srv/cocapec/current
+python3 "$release/deploy/render-caddy.py"
+runuser -u caddy -- env HOME=/var/lib/caddy XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+cp "$release/deploy/supervisor.conf" /etc/supervisor/conf.d/cocapec.conf
+supervisorctl reread
+supervisorctl update
 supervisorctl restart cocapec-api
+supervisorctl restart cocapec-web
 supervisorctl status

@@ -79,6 +79,7 @@ try {
     $taskState.pendingMain = $taskTarget
     $taskState.pendingRelease = $taskRelease
     $taskState.status = 'running'
+    $taskState.failure = $null
     Save-State
     $taskPhase = 'checkpoint'
     Invoke-Remote '/srv/cocapec/current/backend/.venv/bin/python /srv/cocapec/current/scripts/verify_api.py --base-url https://cocapec.lucasvizoto.com/api/v1 --checkpoint'
@@ -95,7 +96,9 @@ try {
         if (!(Test-Path -LiteralPath $taskApk)) { throw 'Signed APK was not produced.' }
     }
     $taskPhase = 'web_deploy'
-    & (Join-Path $taskCheckout 'scripts/deploy.ps1') -SshHost $SshHost
+    if ($taskPrevious -ne $taskRelease) {
+        & (Join-Path $taskCheckout 'scripts/deploy.ps1') -SshHost $SshHost
+    }
     $taskPhase = 'acceptance'
     Invoke-Remote "/srv/cocapec/current/backend/.venv/bin/python /srv/cocapec/releases/$taskPrevious/scripts/verify_api.py --base-url https://cocapec.lucasvizoto.com/api/v1 --verify-persistence"
     & (Join-Path $taskCheckout 'scripts/verify-deploy.ps1') -SshHost $SshHost -Checkpoint
@@ -110,14 +113,20 @@ try {
     }
     $taskCurrent = (Invoke-Remote 'basename "$(readlink -f /srv/cocapec/current)"').Trim()
     if ($taskCurrent -ne $taskRelease) { throw 'Current release changed during acceptance.' }
-    $taskState.lastSuccessfulMain = $taskTarget
-    $taskState.lastSuccessfulRelease = $taskRelease
-    $taskState.lastSuccessfulIntegration = $taskIntegration
-    $taskState.status = 'succeeded'
-    $taskState.failure = $null
-    Save-State
-    Invoke-Checked scp $taskStatePath "${SshHost}:/srv/cocapec/shared/deployment-state.next.json"
+    $taskAcceptedState = $taskState.Clone()
+    $taskAcceptedState.lastSuccessfulMain = $taskTarget
+    $taskAcceptedState.lastSuccessfulRelease = $taskRelease
+    $taskAcceptedState.lastSuccessfulIntegration = $taskIntegration
+    $taskAcceptedState.status = 'succeeded'
+    $taskAcceptedState.failure = $null
+    $taskAcceptedState.updatedAt = [DateTime]::UtcNow.ToString('o')
+    $taskAcceptedPath = Join-Path $taskPrivate 'accepted-next.json'
+    $taskAcceptedState | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $taskAcceptedPath -Encoding utf8NoBOM
+    $taskPhase = 'record_state'
+    Invoke-Checked scp $taskAcceptedPath "${SshHost}:/srv/cocapec/shared/deployment-state.next.json"
     Invoke-Remote 'chmod 600 /srv/cocapec/shared/deployment-state.next.json && mv /srv/cocapec/shared/deployment-state.next.json /srv/cocapec/shared/deployment-state.json'
+    $taskState = $taskAcceptedState
+    Save-State
     Write-Output (@{ status = 'deployed'; mainCommit = $taskTarget; release = $taskRelease; apk = $taskState.lastPublishedApk } | ConvertTo-Json -Compress)
 } catch {
     $taskFailure = $_.Exception.Message
@@ -127,7 +136,14 @@ try {
         Save-State
     }
     if ($taskPrevious -and $taskPhase -in @('web_deploy', 'acceptance', 'apk_publish')) {
-        try { Invoke-Remote "bash /srv/cocapec/releases/$taskPrevious/deploy/rollback.sh /srv/cocapec/releases/$taskPrevious" } catch { Write-Warning 'Rollback could not be verified; inspect schema compatibility and repair forward.' }
+        try {
+            $taskLiveRelease = (Invoke-Remote 'basename "$(readlink -f /srv/cocapec/current)"').Trim()
+            $taskApiStatus = Invoke-Remote 'supervisorctl status cocapec-api'
+            if ($taskLiveRelease -ne $taskPrevious -or $taskApiStatus -notmatch '^cocapec-api\s+RUNNING\s') {
+                Invoke-Remote "bash /srv/cocapec/releases/$taskPrevious/deploy/rollback.sh /srv/cocapec/releases/$taskPrevious"
+                Invoke-Remote "python3 /srv/cocapec/releases/$taskPrevious/deploy/render-caddy.py && runuser -u caddy -- env HOME=/var/lib/caddy XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && supervisorctl restart cocapec-web"
+            }
+        } catch { Write-Warning 'Rollback could not be verified; inspect schema compatibility and repair forward.' }
     }
     throw $taskFailure
 } finally {
