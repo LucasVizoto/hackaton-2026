@@ -62,6 +62,8 @@ try {
     }
     if ($Deploy -and $ReviewedCommit -ne $taskTarget) { throw 'Deploy requires the full SHA reviewed by the agent after fetching main.' }
     if (Invoke-Checked git -C $taskCheckout status --porcelain) { throw 'Isolated checkout has pending changes or merge conflicts; review and commit them before deploying.' }
+    Invoke-Checked git -C $taskCheckout fetch --no-tags $taskRoot codex/deploy-contabo
+    Invoke-Checked git -C $taskCheckout merge --no-edit FETCH_HEAD
     Invoke-Checked git -C $taskCheckout merge --no-edit origin/main
     $taskIntegration = (Invoke-Checked git -C $taskCheckout rev-parse HEAD).Trim()
     $taskRelease = $taskIntegration.Substring(0, 12)
@@ -72,7 +74,15 @@ try {
         previousMainCommit = $taskState.lastSuccessfulMain; integrationCommit = $taskIntegration
         release = $taskRelease; checkout = $taskCheckout; apkNeeded = $taskApkNeeded; changedFiles = $taskChanges
     }
-    $taskReview | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $taskPrivate 'review.json') -Encoding utf8NoBOM
+    $taskReviewPath = Join-Path $taskPrivate 'review.json'
+    if ($Deploy) {
+        if (!(Test-Path -LiteralPath $taskReviewPath)) { throw 'Inspect and review the integration before deploying.' }
+        $taskInspected = Get-Content -LiteralPath $taskReviewPath -Raw | ConvertFrom-Json
+        if ($taskInspected.mainCommit -ne $taskTarget -or $taskInspected.integrationCommit -ne $taskIntegration) {
+            throw 'Integration changed after inspection; inspect and review again before deploying.'
+        }
+    }
+    $taskReview | ConvertTo-Json -Depth 5 | Set-Content $taskReviewPath -Encoding utf8NoBOM
     if (!$Deploy) { Write-Output ($taskReview | ConvertTo-Json -Depth 5); return }
     $taskPrevious = (Invoke-Remote 'basename "$(readlink -f /srv/cocapec/current)"').Trim()
     if ($taskPrevious -notmatch '^[a-f0-9]{12}$') { throw 'Unexpected current release identity.' }
