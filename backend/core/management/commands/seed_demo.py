@@ -244,6 +244,7 @@ class Command(BaseCommand):
             {"file": SimpleUploadedFile(number + ".xml", content, content_type="application/xml")},
             format="multipart",
             HTTP_HOST="localhost",
+            secure=True,
         )
         if response.status_code != 201:
             raise CommandError(
