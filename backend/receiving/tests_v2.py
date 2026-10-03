@@ -80,13 +80,94 @@ class ReceivingV2Tests(TestCase):
         with self.assertRaises(ValidationError):
             self.create(invoice_ids=[self.invoice, self.invoice], time="10:00")
 
-    def test_machine_is_exclusive_and_holds_preserve_exclusivity(self):
+    def test_only_supplier_can_create_through_either_api_including_admin(self):
+        admin = User.objects.create_superuser("admin-booking", password="synthetic-only")
+        payload = {"supplier": str(self.supplier.pk), "invoice": str(self.invoice.pk),
+                   "invoice_ids": [str(self.invoice.pk)], "date": str(DAY), "time": "08:00",
+                   "packaging": "paletizada", "vehicle_plate": "TEST123"}
+        for user in [self.operator, self.purchaser, self.gate, admin]:
+            self.client.force_authenticate(user)
+            for version in [1, 2]:
+                result = self.client.post(f"/api/v{version}/appointments/", payload, format="json")
+                self.assertEqual(result.status_code, 403, (user.username, version, result.data))
+        self.assertFalse(Appointment.objects.exists())
+
+    def test_machine_alias_is_canonical_and_range_matches_each_day(self):
+        self.client.force_authenticate(self.external)
+        result = self.client.post("/api/v2/appointments/", {
+            "invoice_ids": [str(self.invoice.pk)], "date": str(DAY), "time": "08:00",
+            "packaging": "maquina_implemento", "vehicle_plate": "TEST123"}, format="json")
+        self.assertEqual(result.status_code, 201, result.data)
+        self.assertEqual(result.data["packaging"], "machine_implement")
+        url = "/api/v2/slots/availability/"
+        end = DAY + timedelta(days=6)
+        result = self.client.get(f"{url}?date_from={DAY}&date_to={end}&packaging=maquina_implemento")
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(len(result.data["days"]), 7)
+        for day in result.data["days"]:
+            single = self.client.get(f"{url}?date={day['date']}&packaging=machine_implement")
+            self.assertEqual(day, single.data)
+        self.assertTrue(result.data["days"][0]["slots"][0]["eligible"])
+        self.assertFalse(result.data["days"][-1]["calendar_open"])
+        for query in [f"date_from={end}&date_to={DAY}", f"date_from={DAY}",
+                      f"date_from={DAY}&date_to={DAY + timedelta(days=62)}",
+                      f"date={DAY}&date_from={DAY}&date_to={end}"]:
+            self.assertEqual(self.client.get(f"{url}?{query}").status_code, 400)
+
+    def test_forward_preserves_arrival_visits_and_reservation_then_requires_both_reviews(self):
+        ap = self.create(invoice_ids=[self.invoice, self.second_invoice()])
+        self.approve(ap)
+        self.arrive(ap)
+        visit_id = ap.visits.get().pk
+        ap.refresh_from_db()
+        command = {"reason": "Documento exige nova conferência", "expected_revision": ap.revision,
+                   "idempotency_key": str(uuid.uuid4())}
+        self.client.force_authenticate(self.operator)
+        url = f"/api/v2/appointments/{ap.pk}/forward-to-purchasing/"
+        first = self.client.post(url, command, format="json")
+        self.assertEqual(first.status_code, 200, first.data)
+        self.assertEqual(self.client.post(url, command, format="json").status_code, 200)
+        ap.refresh_from_db()
+        self.assertEqual((ap.purchase_status, ap.warehouse_status), ("pending", "pending"))
+        self.assertTrue(ap.capacity_reserved)
+        self.assertEqual(ap.gate_checked_in_at, AT)
+        self.assertEqual(ap.visits.get().pk, visit_id)
+        self.assertEqual(ap.events.filter(kind="forwarded_to_purchasing").count(), 1)
+        self.assertEqual(InternalNotification.objects.filter(appointment=ap, kind="invoice_divergence").count(), 1)
+        with self.assertRaises(services.DomainConflict):
+            self.command(ap, "check-in", {"visit_id": visit_id, "occurred_at": AT})
+        self.client.force_authenticate(self.gate)
+        details = self.client.get(f"/api/v2/appointments/{ap.pk}/").data
+        self.assertNotIn("divergence_notes", details)
+        self.assertEqual(self.client.post(url, command, format="json").status_code, 403)
+        self.approve(ap)
+        self.assertEqual(ap.visits.get().pk, visit_id)
+        self.command(ap, "check-in", {"visit_id": visit_id, "occurred_at": AT + timedelta(minutes=10)})
+        with self.assertRaises(services.DomainConflict):
+            self.command(ap, "forward-to-purchasing", {"reason": "Tarde demais"})
+        self.assertEqual(ap.visits.get().checked_in_at, AT + timedelta(minutes=10))
+
+    def test_optional_key_and_manual_number_remain_required_and_consistent(self):
+        self.client.force_authenticate(self.external)
+        for number, key, expected in [("", "", 400), ("9001", "", 201),
+                ("9001", "35261000000000000000550010000090011000000019", 201),
+                ("9002", "35261000000000000000550010000090011000000019", 400),
+                ("9001", "35261000000000000000550010000090011000000010", 400)]:
+            result = self.client.post("/api/v2/invoices/upload/", {
+                "file": SimpleUploadedFile("manual.pdf", b"%PDF-synthetic-" + uuid.uuid4().bytes),
+                "number": number, "access_key": key}, format="multipart")
+            self.assertEqual(result.status_code, expected, result.data)
+
+    def test_machine_shares_and_held_unit_does_not_become_exclusive(self):
         ap = self.create(packaging="machine_implement")
-        self.assertEqual(services.occupancy(ap.slot)["occupied_units"], 2)
+        self.assertEqual(services.occupancy(ap.slot)["occupied_units"], 1)
+        self.create(packaging="big_bag")
         with self.assertRaises(services.DomainConflict):
             self.create()
         self.command(ap, "cancel", {"reason": "Teste"})
-        self.assertTrue(ap.capacity_holds.get().exclusive)
+        hold = ap.capacity_holds.get()
+        self.assertFalse(hold.exclusive)
+        self.assertEqual(hold.units, 1)
         with self.assertRaises(services.DomainConflict):
             self.create()
 
@@ -101,8 +182,8 @@ class ReceivingV2Tests(TestCase):
         with self.assertRaises(ValidationError):
             self.create()
 
-    def test_assisted_booking_and_articulated_validation(self):
-        self.client.force_authenticate(self.operator)
+    def test_supplier_booking_and_articulated_validation(self):
+        self.client.force_authenticate(self.external)
         payload = {"supplier": str(self.supplier.pk), "invoice_ids": [str(self.invoice.pk)],
                    "date": str(DAY), "time": "08:00", "packaging": "machine_implement",
                    "vehicle_plate": "CARRETA", "articulated": True, "booking_kind": "spontaneous"}
@@ -110,7 +191,7 @@ class ReceivingV2Tests(TestCase):
         response = self.client.post("/api/v2/appointments/", {**payload, "tractor_plate": "CAVALO",
                    "carrier_name": "Transportadora sintética"}, format="json")
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertTrue(response.data["assisted"])
+        self.assertFalse(response.data["assisted"])
         self.assertEqual(response.data["booking_kind"], "spontaneous")
 
     def test_create_and_command_idempotence_replays_stale_revision_without_duplicate(self):
@@ -311,7 +392,7 @@ class ReceivingV2Tests(TestCase):
         ap = self.create()
         self.client.force_authenticate(self.operator)
         result = self.client.get(f"/api/v2/slots/availability/?date={DAY}&packaging=machine_implement")
-        self.assertFalse(result.data["slots"][0]["eligible"])
+        self.assertTrue(result.data["slots"][0]["eligible"])
         result = self.client.get(f"/api/v2/slots/availability/?date={DAY}&packaging=machine_implement&exclude_appointment={ap.pk}")
         self.assertTrue(result.data["slots"][0]["eligible"])
         self.client.force_authenticate(self.external)

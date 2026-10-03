@@ -21,7 +21,7 @@ from . import services
 from .models import Appointment, CapacityHold, GlobalSlot, Holiday, Invoice, NonReceipt
 from .xml_parser import parse_invoice_xml
 
-XML = b"""<?xml version="1.0"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe"><NFe><infNFe Id="NFe11111111111111111111111111111111111111111111"><ide><nNF>9001</nNF><dhEmi>2026-10-05T08:00:00-03:00</dhEmi></ide><emit><xNome>Fornecedor sintetico</xNome><CNPJ>00000000000000</CNPJ></emit><det nItem="1"><prod><cProd>EXTERNAL</cProd><xProd>Item demonstracao</xProd><uCom>UN</uCom><qCom>10</qCom><vUnCom>1.25</vUnCom></prod></det><transp><vol><qVol>2</qVol><esp>Volumes declarados</esp><pesoB>100</pesoB></vol><vol><qVol>3</qVol><esp>Outra especie</esp></vol></transp></infNFe></NFe></nfeProc>"""
+XML = b"""<?xml version="1.0"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe"><NFe><infNFe Id="NFe35261000000000000000550010000090011000000019"><ide><nNF>9001</nNF><dhEmi>2026-10-05T08:00:00-03:00</dhEmi></ide><emit><xNome>Fornecedor sintetico</xNome><CNPJ>00000000000000</CNPJ></emit><det nItem="1"><prod><cProd>EXTERNAL</cProd><xProd>Item demonstracao</xProd><uCom>UN</uCom><qCom>10</qCom><vUnCom>1.25</vUnCom></prod></det><transp><vol><qVol>2</qVol><esp>Volumes declarados</esp><pesoB>100</pesoB></vol><vol><qVol>3</qVol><esp>Outra especie</esp></vol></transp></infNFe></NFe></nfeProc>"""
 DAY = date(2026, 10, 5)
 AT = datetime(2026, 10, 5, 8, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
 RESOURCES = {"worker_count": 2, "equipment_ids": [], "resources_confirmed": True}
@@ -52,6 +52,8 @@ def fixtures(instance):
     instance.invoice = Invoice.objects.create(
         supplier=instance.supplier,
         file=ContentFile(XML, name="synthetic.xml"),
+        number="9001",
+        access_key="35261000000000000000550010000090011000000019",
         original_name="synthetic.xml",
         media_type="application/xml",
         sha256=hashlib.sha256(XML).hexdigest(),
@@ -306,9 +308,11 @@ class ReceivingTests(TestCase):
         hold.refresh_from_db()
         self.assertFalse(hold.active)
         self.assertEqual(hold.assigned_to_id, replacement.id)
-        self.assertTrue(
+        # Moving into the held slot releases the replacement's previous slot.
+        self.assertFalse(
             CapacityHold.objects.filter(source_appointment=replacement, active=True).exists()
         )
+        self.appointment("batida", time="10:00")
 
     def test_nature_reagendamento_exceeds_numeric_capacity_but_not_batida(self):
         old = self.appointment(time="08:00")
@@ -450,13 +454,13 @@ class ReceivingTests(TestCase):
                 "file": SimpleUploadedFile(
                     "manual.pdf", b"%PDF-1.4\nsynthetic demonstration\n%%EOF"
                 ),
-                "number": "DEMO-PDF",
+                "number": "9003",
             },
             format="multipart",
         )
         self.assertEqual(pdf_response.status_code, 201)
         self.assertEqual(pdf_response.data["extraction_status"], "manual")
-        self.assertEqual(pdf_response.data["number"], "DEMO-PDF")
+        self.assertEqual(pdf_response.data["number"], "9003")
         self.assertNotIn("file", pdf_response.data)
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.get(pdf_response.data["download_url"]).status_code, 401)
@@ -506,6 +510,121 @@ class ReceivingTests(TestCase):
         self.client.force_authenticate(self.external)
         supplier = self.client.get("/api/v1/slots/availability/", {"date": str(DAY)}).data
         self.assertEqual(supplier["slots"][0]["holds"], [])
+
+    def test_availability_range_matches_single_day(self):
+        self.appointment("batida", time="10:00")
+        response = self.client.get(
+            "/api/v1/slots/availability/",
+            {"date_from": str(DAY), "date_to": str(DAY + timedelta(days=6))},
+        )
+        self.assertEqual(response.status_code, 200)
+        days = response.data["days"]
+        self.assertEqual([d["date"] for d in days][:2], [str(DAY), str(DAY + timedelta(days=1))])
+        self.assertEqual(len(days), 7)
+        self.assertEqual(days[0]["slots"][1]["available_units"], 0)
+        self.assertEqual(days[1]["slots"][1]["available_units"], 2)
+        self.assertFalse(days[5]["calendar_open"])  # Saturday
+        too_long = self.client.get(
+            "/api/v1/slots/availability/",
+            {"date_from": str(DAY), "date_to": str(DAY + timedelta(days=90))},
+        )
+        self.assertEqual(too_long.status_code, 400)
+
+    def test_reschedule_releases_source_slot(self):
+        moved = self.appointment("batida", time="10:00")
+        services.reschedule(
+            self.operator,
+            moved.id,
+            {
+                "date": DAY + timedelta(days=1),
+                "time": "10:00",
+                "reason": "Chuva registrada",
+                "nature_exception": True,
+            },
+        )
+        self.assertFalse(CapacityHold.objects.filter(active=True).exists())
+        # The source slot is free again for any supplier, including an exclusive load.
+        self.appointment("batida", time="10:00")
+        with self.assertRaises(services.DomainConflict):
+            self.appointment(time="10:00", day=DAY + timedelta(days=1))
+
+    def test_warehouse_cannot_schedule_but_forwards_divergence_to_purchasing(self):
+        response = self.client.post(
+            "/api/v1/appointments/",
+            {
+                "supplier": str(self.supplier.id),
+                "invoice": str(self.invoice.id),
+                "date": str(DAY),
+                "time": "08:00",
+                "packaging": "paletizada",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        appointment = self.appointment()
+        self.approve(appointment)
+        response = self.client.post(
+            f"/api/v1/appointments/{appointment.id}/forward-to-purchasing/",
+            {"reason": "Quantidade física difere da nota"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["purchase_status"], "pending")
+        self.assertEqual(response.data["warehouse_status"], "pending")
+        self.assertEqual(response.data["divergence_notes"], "Quantidade física difere da nota")
+        self.assertTrue(response.data["capacity_reserved"])
+        self.assertEqual(response.data["events"][-1]["kind"], "forwarded_to_purchasing")
+        with self.assertRaises(Exception):
+            services.forward_to_purchasing(self.purchaser, appointment.id, {"reason": "x"})
+        self.approve(appointment)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.divergence_notes, "")
+        self.assertIsNone(appointment.divergence_reported_at)
+
+    def test_machine_or_implement_occupies_one_unit(self):
+        self.appointment("maquina_implemento")
+        self.assertEqual(services.occupancy(GlobalSlot.objects.get())["occupied_units"], 1)
+        self.appointment("paletizada")
+        with self.assertRaises(services.DomainConflict):
+            self.appointment("maquina_implemento")
+
+    def test_upload_rejects_number_that_differs_from_access_key(self):
+        self.client.force_authenticate(self.other_external)
+        before = Invoice.objects.count()
+        mismatched_xml = XML.replace(b"<nNF>9001</nNF>", b"<nNF>9002</nNF>")
+        bad_digit = XML.replace(b"0000090011000000019", b"0000090011000000018")
+        pdf = b"%PDF-1.4\nsynthetic demonstration\n%%EOF"
+        key = "35261000000000000000550010000090011000000019"
+        cases = [
+            ({"file": SimpleUploadedFile("mismatch.xml", mismatched_xml)}, "number"),
+            ({"file": SimpleUploadedFile("digit.xml", bad_digit)}, "access_key"),
+            ({"file": SimpleUploadedFile("typed.xml", XML), "number": "9002"}, "number"),
+            (
+                {"file": SimpleUploadedFile("m.pdf", pdf), "number": "9002", "access_key": key},
+                "number",
+            ),
+            (
+                {"file": SimpleUploadedFile("s.pdf", pdf), "number": "9001", "access_key": "123"},
+                "access_key",
+            ),
+        ]
+        for payload, field in cases:
+            response = self.client.post("/api/v1/invoices/upload/", payload, format="multipart")
+            self.assertEqual(response.status_code, 400, payload)
+            self.assertIn(field, str(response.data))
+        self.assertEqual(Invoice.objects.count(), before)
+        formatted_key = " ".join(key[i : i + 4] for i in range(0, 44, 4))
+        response = self.client.post(
+            "/api/v1/invoices/upload/",
+            {
+                "file": SimpleUploadedFile("ok.pdf", pdf),
+                "number": "9001",
+                "access_key": formatted_key,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["access_key"], key)
 
     def test_synthetic_origin_cannot_be_relabelled_operational_or_historical(self):
         with self.assertRaises(ValidationError):
@@ -717,4 +836,4 @@ class PostgreSQLConcurrencyTests(TransactionTestCase):
             appointment.refresh_from_db()
             self.assertEqual(appointment.slot.time, time)
             self.assertEqual(appointment.events.filter(kind="rescheduled").count(), 1)
-        self.assertEqual(CapacityHold.objects.filter(active=True).count(), 2)
+        self.assertEqual(CapacityHold.objects.filter(active=True).count(), 0)

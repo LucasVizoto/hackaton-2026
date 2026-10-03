@@ -20,6 +20,8 @@ def main():
     parser.add_argument("mode", choices=["snapshot", "verify"])
     parser.add_argument("--database", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--richardy-policy", action="store_true",
+                        help="Snapshot expected canonical machine and source-hold transformations.")
     args = parser.parse_args()
     os.environ["DB_NAME"] = args.database
     import django
@@ -30,6 +32,8 @@ def main():
     prior = json.loads(args.output.read_text(encoding="utf-8")) if args.mode == "verify" else None
     result = {}
     with connection.cursor() as cursor:
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE app='receiving' AND name='0005_release_rescheduled_source_holds')")
+        release_already_applied = cursor.fetchone()[0]
         tables = connection.introspection.table_names(cursor)
         selected = prior["tables"] if prior else {
             table: {"columns": [col.name for col in connection.introspection.get_table_description(cursor, table)]}
@@ -40,7 +44,19 @@ def main():
                 result[table] = {"error": "table missing"}
                 continue
             columns = metadata["columns"]
-            projection = ", ".join(quote(col) for col in columns)
+            expressions = {col: quote(col) for col in columns}
+            if args.mode == "snapshot" and args.richardy_policy:
+                if table == "receiving_appointment":
+                    expressions["packaging"] = "CASE WHEN packaging = 'maquina_implemento' THEN 'machine_implement' ELSE packaging END AS packaging"
+                if table == "receiving_capacityhold":
+                    released = "(active AND assigned_to_id IS NULL AND (reason LIKE 'Vaga de origem de reagendamento%' OR reason LIKE 'Vaga de origem da atribuição administrativa%'))"
+                    if release_already_applied:
+                        released = "false"
+                    machine = "(active AND NOT " + released + " AND source_appointment_id IN (SELECT id FROM receiving_appointment WHERE packaging IN ('machine_implement', 'maquina_implemento')))"
+                    expressions["active"] = f"CASE WHEN {released} THEN false ELSE active END AS active"
+                    expressions["units"] = f"CASE WHEN {machine} THEN 1 ELSE units END AS units"
+                    expressions["exclusive"] = f"CASE WHEN {machine} THEN false ELSE exclusive END AS exclusive"
+            projection = ", ".join(expressions[col] for col in columns)
             cursor.execute(f"SELECT row_to_json(t)::text FROM (SELECT {projection} FROM {quote(table)}) t")
             digests = sorted(hashlib.sha256(row[0].encode()).hexdigest() for row in cursor)
             result[table] = {

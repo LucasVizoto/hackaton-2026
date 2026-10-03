@@ -1,4 +1,6 @@
 import hashlib
+import re
+from datetime import timedelta
 from pathlib import Path
 
 from django.db import transaction
@@ -12,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from catalog.models import Supplier
-from core.permissions import require_role, user_role
+from core.permissions import require_role, user_role, require_supplier_booking
 
 from . import services
 from .models import (
@@ -43,6 +45,7 @@ from .serializers import (
     WarehouseVisitSerializer,
 )
 from .xml_parser import parse_invoice_xml, validate_invoice_number
+from .invoice_key import validate_invoice_identity
 
 
 def supplier_scoped(queryset, user, field="supplier_id"):
@@ -72,7 +75,7 @@ def _payload(serializer_class, request):
 
 
 class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
-    strict_identity = False
+    strict_identity = True
     queryset = (
         Invoice.objects.select_related("supplier").prefetch_related("items").order_by("-created_at")
     )
@@ -118,12 +121,13 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
         elif len(number) > 50:
             raise ValidationError({"number": "Número da nota excede 50 caracteres."})
         declared_key = extracted.get("access_key", "")
-        supplied_key = str(request.data.get("access_key", "")).strip()
+        supplied_key = re.sub(r"[\s.-]", "", str(request.data.get("access_key", "")))
         if declared_key and supplied_key and declared_key != supplied_key:
             raise ValidationError({"access_key": "A chave informada diverge da chave declarada no XML."})
         access_key = declared_key or supplied_key
         if access_key and (len(access_key) != 44 or not access_key.isascii() or not access_key.isdigit()):
             raise ValidationError({"access_key": "Chave deve conter exatamente 44 dígitos."})
+        validate_invoice_identity(number, access_key)
         digest = hashlib.sha256(content).hexdigest()
         existing = Invoice.objects.filter(supplier=supplier, sha256=digest).first()
         if existing:
@@ -205,7 +209,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        require_role(request.user, "supplier", "purchasing", "warehouse")
+        require_supplier_booking(request.user)
         data = _payload(AppointmentCreateSerializer, request)
         if data["packaging"] == "machine_implement" or "invoice_ids" in request.data:
             raise services.DomainConflict("Máquinas e múltiplas notas exigem o aplicativo atualizado (API v2).")
@@ -217,6 +221,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             supplier = data.get("supplier")
             if not supplier:
                 raise ValidationError({"supplier": "Informe o fornecedor."})
+        validate_invoice_number(data["invoice"].number)
         appointment = services.create_appointment(
             request.user,
             supplier=supplier,
@@ -263,6 +268,10 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="warehouse-review")
     def warehouse_review(self, request, pk=None):
         return self._apply(request, WarehouseReviewSerializer, services.warehouse_review)
+
+    @action(detail=True, methods=["post"], url_path="forward-to-purchasing")
+    def forward_to_purchasing(self, request, pk=None):
+        return self._apply(request, CancelSerializer, services.forward_to_purchasing)
 
     @action(detail=True, methods=["post"])
     def arrive(self, request, pk=None):
@@ -333,11 +342,36 @@ class NonReceiptViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(result).data, status=status.HTTP_201_CREATED)
 
 
+AVAILABILITY_POLICY = "Capacidade global. Solicitação reserva; vaga cancelada exige atribuição nominal pelo armazém. Agendados têm prioridade; sem agendamento só entram após agendar e validar."
+MAX_AVAILABILITY_DAYS = 62
+
+
 class AvailabilityView(APIView):
     def get(self, request):
         from rest_framework import serializers
 
-        day = serializers.DateField().run_validation(request.query_params.get("date"))
+        params = request.query_params
+        if params.get("date_from") or params.get("date_to"):
+            start = serializers.DateField().run_validation(params.get("date_from"))
+            end = serializers.DateField().run_validation(params.get("date_to"))
+            if end < start or (end - start).days >= MAX_AVAILABILITY_DAYS:
+                raise ValidationError(
+                    {"date_to": f"Informe um período de até {MAX_AVAILABILITY_DAYS} dias."}
+                )
+            days = [start + timedelta(days=n) for n in range((end - start).days + 1)]
+            return Response(
+                {
+                    "global_capacity": 2,
+                    "days": [self._day(request, day) for day in days],
+                    "policy": AVAILABILITY_POLICY,
+                }
+            )
+        day = serializers.DateField().run_validation(params.get("date"))
+        return Response(
+            {**self._day(request, day), "global_capacity": 2, "policy": AVAILABILITY_POLICY}
+        )
+
+    def _day(self, request, day):
         blocked = day.weekday() >= 5 or Holiday.objects.filter(date=day).exists()
         result = []
         for time, _ in TIMES:
@@ -370,15 +404,7 @@ class AvailabilityView(APIView):
                     "holds": CapacityHoldSerializer(holds, many=True).data,
                 }
             )
-        return Response(
-            {
-                "date": str(day),
-                "calendar_open": not blocked,
-                "global_capacity": 2,
-                "slots": result,
-                "policy": "Capacidade global. Solicitação reserva; vaga cancelada exige atribuição nominal pelo armazém. Agendados têm prioridade; sem agendamento só entram após agendar e validar.",
-            }
-        )
+        return {"date": str(day), "calendar_open": not blocked, "slots": result}
 
 
 class AssignCapacityView(APIView):

@@ -94,7 +94,7 @@ def main():
 
     assert len(ap["invoices"]) == 2
     availability = call("supplier", "slots/availability/?"+urlencode({"date": args.date, "packaging": "paletizada"}))
-    assert not next(item for item in availability["slots"] if item["time"] == "10:00")["eligible"]
+    assert next(item for item in availability["slots"] if item["time"] == "10:00")["eligible"]
     def timestamp(hhmm):
         return args.date+"T"+hhmm+":00-03:00"
     action("gatehouse", "gate-check-in", {"occurred_at": timestamp("09:50")})

@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from catalog.models import Supplier
-from core.permissions import require_role, user_role
+from core.permissions import require_role, user_role, require_supplier_booking
 from . import services as legacy
 from .models import (Appointment, AppointmentInvoice, InternalNotification, Invoice, InvoiceItem,
                      ReceiptLine, ReceivingCommand, WarehouseVisit, ReceivingException, PurchaseOrderLine)
@@ -48,7 +48,7 @@ def documents(supplier, invoices):
 
 @transaction.atomic
 def create(user, data):
-    require_role(user, "supplier", "warehouse", "purchasing")
+    require_supplier_booking(user)
     supplier = data.get("supplier")
     if user_role(user) == "supplier":
         own = user.profile.supplier
@@ -147,6 +147,7 @@ def available_actions(ap, user):
     editable = ap.operation_status in {"waiting", "arrived"}
     result = [
         action("edit", ap.workflow_version == 2 and editable and (warehouse or purchaser or role == "supplier"), "Alteração v2 somente antes da descarga, pelo fornecedor, Compras ou Armazém; legado conserva o contrato v1."),
+        action("forward-to-purchasing", warehouse and editable, "Somente Armazém antes da descarga."),
         action("purchase-review", purchaser and editable, "Somente Compras, antes da descarga."),
         action("warehouse-review", warehouse and editable and ap.purchase_status == "approved", "Exige Compras aprovada, antes da descarga."),
         action("cancel", (warehouse or role == "supplier") and editable, "Cancelamento somente antes da descarga."),
@@ -454,6 +455,7 @@ ROLES = {
     "gate-check-in": ("gatehouse",), "gate-check-out": ("gatehouse",),
     "check-in": ("warehouse",), "check-out": ("warehouse",),
     "receipt-lines": ("warehouse",), "receipt-review": ("purchasing",),
+    "forward-to-purchasing": ("warehouse",),
     "purchase-review": ("purchasing",), "warehouse-review": ("warehouse",),
     "cancel": ("warehouse", "supplier"), "reschedule": ("warehouse",),
     "edit": ("warehouse", "purchasing", "supplier"), "correct-time": ("warehouse", "gatehouse"),
@@ -537,7 +539,7 @@ def perform(user, appointment_id, code, data):
                 setattr(ap, field, data[field])
         legacy._event(ap, user, "updated", {"fields": sorted(k for k in data if k not in {"idempotency_key", "expected_revision"})})
     else:
-        functions = {"purchase-review": legacy.purchase_review, "warehouse-review": legacy.warehouse_review,
+        functions = {"forward-to-purchasing": legacy.forward_to_purchasing, "purchase-review": legacy.purchase_review, "warehouse-review": legacy.warehouse_review,
                      "cancel": legacy.cancel, "reschedule": legacy.reschedule}
         ap = functions[code](user, ap.pk, data)
         if code == "reschedule" and ap.gate_checked_in_at:

@@ -2,7 +2,7 @@
 
 Base local: `/api/v2/`. Rotas terminam em `/`; IDs de domínio são UUID; datas usam `YYYY-MM-DD` e horários ISO 8601 com fuso. Valores monetários são strings decimais. O código de referência está em `backend/receiving/urls_v2.py`, `labor/urls_v2.py`, `analytics/urls_v2.py` e `integrations/urls.py`.
 
-Autenticação mantém `POST auth/login/`, `GET auth/me/`, `POST auth/logout/` e `Authorization: Token <token>`. O cliente pode recuperar o token do cookie local e confirmar sua validade em `auth/me/`; logout revoga o token no servidor e limpa a sessão local. Perfis v2: fornecedor (`supplier`), Compras (`purchasing`), Armazém (`warehouse`), Portaria (`gatehouse`), Gestão (`management`) e administrador (`admin`). A autenticação v1 conserva o nome `portaria`; as duas identidades persistidas têm o mesmo escopo de Portaria, sem renomear registros históricos. Portaria não acessa boletins, pessoas, folha ou indicadores financeiros. Fornecedor consulta somente seus documentos e recebimentos. Administrador pode executar as ações autorizadas dos demais perfis.
+Autenticação mantém `POST auth/login/`, `GET auth/me/`, `POST auth/logout/` e `Authorization: Token <token>`. O cliente pode recuperar o token do cookie local e confirmar sua validade em `auth/me/`; logout revoga o token no servidor e limpa a sessão local. Perfis v2: fornecedor (`supplier`), Compras (`purchasing`), Armazém (`warehouse`), Portaria (`gatehouse`), Gestão (`management`) e administrador (`admin`). A autenticação v1 conserva o nome `portaria`; as duas identidades persistidas têm o mesmo escopo de Portaria, sem renomear registros históricos. Portaria não acessa boletins, pessoas, folha ou indicadores financeiros. Fornecedor consulta somente seus documentos e recebimentos. Administrador pode executar as ações autorizadas dos demais perfis, exceto criar agendamentos: essa ação pertence somente a Fornecedor vinculado, na v1 e na v2.
 
 Listas paginadas usam `count`, `next`, `previous`, `results`. Erros usam `error.code` e `error.details`. Mutações de recebimento v2 exigem `expected_revision`; as de boletim exigem `revision`. Conflito de estado da agenda retorna 409; conflito de revisão do boletim retorna 400. O cliente deve recuperar a versão atual e preservar os dados não salvos. `available_actions` contém `{code,allowed,reason}` por ação e é calculado pelo servidor.
 
@@ -17,7 +17,7 @@ Listas paginadas usam `count`, `next`, `previous`, `results`. Erros usam `error.
 | `GET invoices/`, `GET invoices/:id/`, `POST invoices/upload/` | Documento privado XML/PDF; upload autenticado multipart `file`, fornecedor quando interno; até 10 MB |
 | `GET attachments/:id/download/` | Original privado, sem URL pública |
 
-Cadastros inativos continuam disponíveis para consultar o histórico; novas atividades, participantes e recursos recusam inativos. O filtro `is_active=true/false` restringe catálogos. A origem histórica exige importação rastreável. Número de NF precisa ser numérico e válido, sem truncamento; extração não equivale a aprovação fiscal.
+Cadastros inativos continuam disponíveis para consultar o histórico; novas atividades, participantes e recursos recusam inativos. O filtro `is_active=true/false` restringe catálogos. A origem histórica exige importação rastreável. Número de NF precisa ser numérico e válido, sem truncamento; extração não equivale a aprovação fiscal. Chave é opcional; quando informada, exige 44 dígitos ASCII, dígito verificador e número correspondente. Número ausente na leitura deve ser preenchido manualmente. Novos uploads v1/v2 seguem essa regra; documentos históricos não são reescritos.
 
 ## Aviso avulso da Portaria
 
@@ -35,9 +35,10 @@ A lista é paginada em 50 itens e retorna `count`, `next`, `previous`, `results`
 
 | Método e rota | Entrada e efeito |
 |---|---|
-| `GET slots/availability/?date=...&packaging=...` | Capacidade global e disponibilidade compatível com acondicionamento |
-| `GET/POST appointments/`; `GET/PATCH appointments/:id/` | Criação: `invoice_ids` de 1 a 30 notas distintas do mesmo fornecedor, `date`, `time`, `packaging`, `vehicle_plate`; internos informam `supplier`; opcionais `articulated`, `tractor_plate`, `carrier_name`, `driver_name`, `booking_kind`, `notes`, `idempotency_key` |
+| `GET slots/availability/?date=...&packaging=...` | Capacidade global e disponibilidade compatível com acondicionamento; alternativamente `date_from` + `date_to`, até 62 dias inclusivos, retorna `days` com os mesmos dados diários |
+| `GET/POST appointments/`; `GET/PATCH appointments/:id/` | Criação: `invoice_ids` de 1 a 30 notas distintas do mesmo fornecedor, `date`, `time`, `packaging`, `vehicle_plate`; somente Fornecedor cria, usando seu próprio vínculo; opcionais `articulated`, `tractor_plate`, `carrier_name`, `driver_name`, `booking_kind`, `notes`, `idempotency_key` |
 | `POST appointments/:id/purchase-review/` | Compras: `decision`, referência/evidência de conferência, revisão |
+| `POST appointments/:id/forward-to-purchasing/` | Armazém antes da descarga: `reason`, `expected_revision`, `idempotency_key`; mantém reserva/chegada/etapas, reinicia ambas aprovações, audita e notifica Compras |
 | `POST appointments/:id/warehouse-review/` | Armazém: `warehouse_ids` em sequência, notas e revisão; exige Compras aprovada |
 | `POST appointments/:id/gate-check-in/` | Portaria: chegada à unidade; `occurred_at` opcional, revisão; independe de aprovação |
 | `POST warehouse-visits/:id/check-in/` | Armazém: entrada no local; exige chegada, ambas aprovações e etapas anteriores concluídas |
@@ -45,13 +46,13 @@ A lista é paginada em 50 itens e retorna `count`, `next`, `previous`, `results`
 | `POST appointments/:id/gate-check-out/` | Portaria: saída da unidade; exige chegada e descarga concluída, cancelamento ou não recebimento |
 | `POST appointments/:id/correct-time/` | `target`, `occurred_at`, `reason`, revisão e `visit_id` quando local; cada perfil corrige os próprios marcos com auditoria |
 | `POST appointments/:id/cancel/` | Motivo e revisão; antes da descarga; gera retenção de capacidade |
-| `POST appointments/:id/reschedule/` | Data/horário, motivo, `nature_exception=true`, revisão; preserva chegada já observada |
-| `POST slots/assign-cancelled-capacity/` | Atribuição nominal de retenção para outro recebimento, por responsável |
+| `POST appointments/:id/reschedule/` | Data/horário, motivo, `nature_exception=true`, revisão; preserva chegada já observada e libera a vaga de origem |
+| `POST slots/assign-cancelled-capacity/` | Atribuição nominal de retenção para outro recebimento, por responsável; libera a vaga anterior do destinatário |
 | `GET/POST non-receipts/` | Ocorrência vinculada ou avulsa; motivo, descrição e autor |
 | `POST appointments/:id/exceptions/` | `kind`, descrição, horário e revisão; atraso, ausência, natureza, divergência ou outra ocorrência |
 | `GET notifications/`; `POST notifications/:id/acknowledge/` | Caixa interna por perfil, com deduplicação e ciência |
 
-A origem do recebimento é derivada pelo servidor; não enviar `origin`. Trocar notas ou acondicionamento invalida aprovações aplicáveis. `articulated=true` exige placa do cavalo. `machine_implement` é exclusivo, assim como `batida`; `paletizada` e `big_bag` compartilham até duas unidades do horário. `booking_kind=spontaneous` identifica chegada espontânea, sem dispensar a capacidade. Cadastro por usuário interno fica marcado como assistido.
+A origem do recebimento é derivada pelo servidor; não enviar `origin`. Trocar notas ou acondicionamento invalida aprovações aplicáveis. `articulated=true` exige placa do cavalo. `machine_implement`, `paletizada` e `big_bag` ocupam uma unidade cada, até duas por horário. Apenas `batida` é exclusiva. A entrada `maquina_implemento` é aceita como alias e normalizada para `machine_implement`. `booking_kind=spontaneous` identifica chegada espontânea, sem dispensar a capacidade. Cadastros assistidos anteriores preservam essa identificação; usuários internos não criam novos agendamentos.
 
 Nas ações, `idempotency_key` opcional permite repetir o mesmo comando sem repetir seu efeito. Reutilizar a chave com outro ator, conteúdo ou ação é conflito. Recursos da etapa usam `worker_count`, `equipment_ids` e `resources_confirmed=true`; ausência de registro não vira zero. O status de operação `completed` indica descarga concluída; o marco de saída da Portaria é separado.
 

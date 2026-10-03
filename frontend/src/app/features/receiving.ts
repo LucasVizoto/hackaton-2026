@@ -48,6 +48,8 @@ interface ReceivingEvent {
   actor_name?: string;
 }
 export interface Appointment {
+  divergence_notes?:string; divergence_reported_at?:string|null;
+  comparison_notes?:string;
   workflow_version?: number;
   articulated?: boolean;
   booking_kind?: string;
@@ -160,16 +162,16 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
   imports: [RouterLink, IonButton, PageHeader, LoadingState, FeedbackState, ScheduleCalendar, Notifications, PurchaseOrders],
   template: `<div class="page">
     <app-page-header [title]="title" [subtitle]="subtitle">
-      @if(api.can('supplier','warehouse','purchasing')){<ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>}
+      @if(api.user()?.role==='supplier'){<ion-button routerLink="/agenda/novo">Agendar entrega</ion-button>}
       @if(api.can('gatehouse')){<ion-button routerLink="/portaria/avisos" fill="outline">Avisar chegada com foto</ion-button>}
     </app-page-header>
     @if(api.can('purchasing')){<app-purchase-orders />}
     @if(api.can('warehouse','purchasing','gatehouse')){<app-notifications />}
-    <p class="notice">Capacidade global por horário: uma carga batida ou máquina / implemento exclusivos, ou até duas cargas paletizadas / big bag. A entrada na portaria pode ocorrer com aprovações pendentes.</p>
+    <details class="help-box"><summary>Como funciona a agenda?</summary><ul><li>Cada horário recebe até dois caminhões. Carga batida ocupa o horário inteiro.</li><li>Somente Fornecedor agenda. A disponibilidade considera toda a unidade.</li><li>A Portaria registra entrada e saída; o Armazém registra cada etapa da descarga.</li><li>A descarga exige aprovação de Compras e confirmação dos destinos. Divergências podem ser encaminhadas a Compras.</li></ul></details>
     @if(api.user()?.role==='supplier'){<p class="notice">Você visualiza os recebimentos do seu cadastro. A disponibilidade considera a ocupação global da unidade.</p>}
     @if(error()){<div app-feedback tone="error">{{error()}}</div>}
     @if(busy()&&!rows().length){<app-loading-state label="Carregando agenda…" />}
-    <app-schedule-calendar [appointments]="rows()" [warehouses]="warehouses()" [mode]="mode" [busy]="busy()" (rangeChange)="onRange($event)" />
+    <app-schedule-calendar [appointments]="rows()" [warehouses]="warehouses()" [mode]="mode" [busy]="busy()" [canSchedule]="api.user()?.role==='supplier'" (rangeChange)="onRange($event)" />
   </div>`,
 })
 export class AppointmentList implements OnInit {
@@ -178,6 +180,7 @@ export class AppointmentList implements OnInit {
   title='Agenda de recebimento'; subtitle='Consulte reservas e validações no calendário diário, semanal ou mensal.';
   mode:'agenda'|'compras'|'operacao'|'portaria'='agenda';
   ngOnInit(){
+    if(this.api.user()?.role==='supplier'){this.title='Minhas entregas';this.subtitle='Escolha um horário livre ou use Agendar entrega.';}
     const mode=this.route.snapshot.data['mode'];
     if(mode==='compras'){this.mode=mode;this.title='Conferência de Compras';this.subtitle='Compare a nota e o pedido antes de registrar a decisão.';}
     if(mode==='operacao'){this.mode=mode;this.title='Operação do armazém';this.subtitle='Acompanhe os destinos, as entradas e saídas e a conferência da carga.';}
@@ -219,7 +222,7 @@ export class AppointmentList implements OnInit {
       <app-loading-state label="Carregando recebimento…" />
     }
     @if (a(); as item) {
-      <app-origin [value]="item.origin" />
+      <app-origin [value]="item.origin" /><p class="notice">{{nextStep(item)}}</p>@if(item.divergence_reported_at){<div class="notice"><strong>Divergência encaminhada a Compras</strong><p>{{item.divergence_notes}}</p><small>{{dt(item.divergence_reported_at)}}</small></div>}
       <section class="panel receiving-summary" aria-labelledby="receiving-summary-title">
         <div class="summary-identity">
           <div>
@@ -230,15 +233,15 @@ export class AppointmentList implements OnInit {
         </div>
         <dl class="metadata approval-states" aria-label="Situação independente de cada área">
           <div>
-            <dt>Compras</dt>
+            <dt>Conferência de Compras</dt>
             <dd><app-status [value]="item.purchase_status" /></dd>
           </div>
           <div>
-            <dt>Armazém</dt>
+            <dt>Destino no armazém</dt>
             <dd><app-status [value]="item.warehouse_status" /></dd>
           </div>
           <div>
-            <dt>Operação</dt>
+            <dt>Caminhão</dt>
             <dd><app-status [value]="item.operation_status" /></dd>
           </div>
         </dl>
@@ -276,8 +279,9 @@ export class AppointmentList implements OnInit {
             <p>{{ item.notes }}</p>
           </div>
         }
-        @if(api.can('supplier','warehouse','purchasing')&&(item.purchase_status==='rejected'||['cancelled','not_received'].includes(item.operation_status))){<a class="section" routerLink="/agenda/novo" [queryParams]="{previous_appointment:item.id}">Criar nova solicitação vinculada</a>}
-        <h3 class="section">Próxima etapa</h3>
+        @if(api.user()?.role==='supplier'&&(item.purchase_status==='rejected'||['cancelled','not_received'].includes(item.operation_status))){<a class="section" routerLink="/agenda/novo" [queryParams]="{previous_appointment:item.id}">Criar nova solicitação vinculada</a>}
+        @if(item.purchase_status==='rejected' && item.comparison_notes){<p class="notice">{{item.comparison_notes}}</p>}
+        <h3 class="section">Próximo passo</h3>
         @if(primaryCommand(); as command) {
           <ion-button [disabled]="busy() || !loaded()" (click)="open(command.code, command.visitId)">{{command.label}}</ion-button>
         } @else {<p class="muted">Não há uma etapa operacional disponível para seu perfil neste momento.</p>}
@@ -475,10 +479,9 @@ export class AppointmentList implements OnInit {
             </div>
           }
           @if(action() === "correct-time") {<div class="form-grid"><label>Marco<select formControlName="target"><option value="gate_check_in">Entrada na portaria</option><option value="gate_check_out">Saída da portaria</option><option value="warehouse_check_in">Entrada no armazém</option><option value="warehouse_check_out">Saída do armazém</option></select></label><label>Etapa do armazém<select formControlName="visit_id"><option value="">Não se aplica à portaria</option>@for(visit of item.visits;track visit.id){<option [value]="visit.id">{{visit.warehouse_name}}</option>}</select></label><label class="wide">Motivo da correção<textarea formControlName="reason" required></textarea></label></div>}
-          @if (action() === "cancel") {
+          @if (action() === "cancel" || action() === "forward-to-purchasing") {
             <div class="notice">
-              A capacidade ficará retida para decisão do armazém sobre quem
-              ocupa a vaga. O cancelamento preserva o histórico.
+              {{action() === "forward-to-purchasing" ? "A reserva será mantida. Compras deverá conferir novamente, seguida da confirmação de destinos pelo Armazém." : "A capacidade ficará retida para decisão do armazém. O cancelamento preserva o histórico."}}
             </div>
             <label
               >Motivo<textarea formControlName="reason" required></textarea>
@@ -583,8 +586,8 @@ export class AppointmentList implements OnInit {
         </p>
       </section>
       @if(item.exceptions?.length){<section class="panel"><h2>Exceções registradas</h2>@for(exception of item.exceptions;track exception.id){<p><strong>{{exceptionLabel(exception.kind)}}</strong> · {{dt(exception.occurred_at)}}</p><p>{{exception.description}}</p>}</section>}
-      <section class="panel">
-        <h2>Histórico de decisões</h2>
+      <details class="panel history-panel">
+        <summary><h2>Histórico de decisões</h2></summary>
         @if (item.events.length) {
           <ol class="audit" aria-label="Eventos registrados no recebimento">
             @for (e of item.events; track e.id) {
@@ -606,7 +609,7 @@ export class AppointmentList implements OnInit {
         } @else {
           <p class="muted">Sem eventos retornados pela API.</p>
         }
-      </section>
+      </details>
     }
   </div>`,
 })
@@ -636,7 +639,7 @@ export class AppointmentDetail implements OnInit {
   date = appointmentDate;
   packaging = packagingLabel;
   private readonly operationalCodes = ['gate-check-in','gate-check-out','purchase-review','warehouse-review','arrive','start','finish'];
-  private readonly exceptionalCodes = ['non-receipt','cancel','reschedule','assign-cancelled','correct-time','exceptions'];
+  private readonly exceptionalCodes = ['forward-to-purchasing','non-receipt','cancel','reschedule','assign-cancelled','correct-time','exceptions'];
   primaryCommand(): {code:string;label:string;visitId:string} | undefined {
     const item=this.a();
     if(!item)return;
@@ -650,6 +653,17 @@ export class AppointmentDetail implements OnInit {
     const item=this.a();if(!item||['completed','cancelled','not_received'].includes(item.operation_status))return [];
     const own=this.api.can('gatehouse')?['gate-check-in','gate-check-out']:this.api.can('warehouse')?['warehouse-review','arrive','start','finish']:this.api.can('purchasing')?['purchase-review']:[];
     return (item.available_actions??[]).filter(c=>!c.allowed&&c.reason&&own.includes(c.code));
+  }
+  nextStep(item:Appointment){
+    if(item.workflow_version===2&&item.gate_checked_in_at&&!item.gate_checked_out_at&&['completed','not_received','cancelled'].includes(item.operation_status))return 'A operação está encerrada. Falta registrar a saída do veículo na Portaria.';
+    if(item.gate_checked_out_at)return 'Veículo saiu da unidade; consulte os documentos e o histórico.';
+    if(item.divergence_reported_at)return 'Compras deve conferir a divergência; depois o Armazém confirma os destinos novamente.';
+    if(item.operation_status==='in_progress')return 'Descarga em andamento. Registre cada etapa e confira as quantidades antes de concluir.';
+    if(['cancelled','not_received','completed'].includes(item.operation_status))return 'Operação encerrada. Consulte o histórico.';
+    if(item.purchase_status==='rejected')return 'Nota rejeitada por Compras. Consulte o motivo e solicite a correção.';
+    if(item.purchase_status!=='approved')return 'Aguardando conferência de Compras. A Portaria pode registrar a chegada.';
+    if(item.warehouse_status!=='approved')return 'O Armazém deve confirmar os destinos antes da descarga.';
+    return item.gate_checked_in_at||item.arrived_at?'Liberações registradas. O Armazém pode iniciar a etapa disponível.':'Aguardando chegada do caminhão à Portaria.';
   }
   invoiceNumbers(){return this.invoices().map(i=>i.number).join(', ')||this.a()?.invoice_number||'Número não informado';}
   printReceipt(){window.print();}
@@ -715,7 +729,7 @@ export class AppointmentDetail implements OnInit {
   }
   applyUpdated(item:Appointment){const selected=this.invoiceData()?.id;this.a.set(item);this.invoices.set(item.invoices??[]);this.invoiceData.set(item.invoices?.find(invoice=>invoice.id===selected)??item.invoices?.[0]??null);}
   rescheduleSelection(value:{time:string;ready:boolean}){this.form.controls.time.setValue(value.time);this.rescheduleReady.set(value.ready);}
-  commandLabel(code:string){return ({exceptions:'Registrar exceção',edit:'Corrigir documentos e transporte','gate-check-in':'Registrar entrada na portaria','gate-check-out':'Registrar saída da portaria','visit-check-in':'Registrar entrada no armazém','visit-check-out':'Registrar saída do armazém','correct-time':'Corrigir horário com motivo','purchase-review':'Conferir notas / pedido','warehouse-review':'Confirmar destinos',arrive:'Registrar chegada legada',start:'Iniciar recebimento legado',finish:'Concluir recebimento legado',cancel:'Cancelar agendamento',reschedule:'Postergar por natureza','assign-cancelled':'Atribuir vaga retida','visit-start':'Iniciar etapa legada','visit-finish':'Concluir etapa legada'} as Record<string,string>)[code]??code;}
+  commandLabel(code:string){return ({'forward-to-purchasing':'Encaminhar para Compras',exceptions:'Registrar exceção',edit:'Corrigir documentos e transporte','gate-check-in':'Registrar entrada na portaria','gate-check-out':'Registrar saída da portaria','visit-check-in':'Registrar entrada no armazém','visit-check-out':'Registrar saída do armazém','correct-time':'Corrigir horário com motivo','purchase-review':'Conferir notas / pedido','warehouse-review':'Confirmar destinos',arrive:'Registrar chegada legada',start:'Iniciar recebimento legado',finish:'Concluir recebimento legado',cancel:'Cancelar agendamento',reschedule:'Postergar por natureza','assign-cancelled':'Atribuir vaga retida','visit-start':'Iniciar etapa legada','visit-finish':'Concluir etapa legada'} as Record<string,string>)[code]??code;}
   actionTitle() {return this.commandLabel(this.action());}
   toggleWarehouse(id: string) {
     this.selectedWarehouses.update((v) =>
@@ -780,6 +794,7 @@ export class AppointmentDetail implements OnInit {
           visit_finished: "Etapa concluída",
           visit_start: "Etapa iniciada",
           visit_finish: "Etapa concluída",
+          forwarded_to_purchasing: "Divergência encaminhada a Compras",
           cancelled: "Agendamento cancelado",
           rescheduled: "Agendamento reagendado",
           capacity_assigned: "Vaga atribuída pelo armazém",
@@ -888,6 +903,7 @@ export class AppointmentDetail implements OnInit {
     let body: unknown = {};
     let endpoint = `appointments/${this.a()?.id}/${act}/`;
     try {
+      if(act==='forward-to-purchasing'){if(!v.reason.trim())throw new Error("Descreva a divergência.");body={reason:v.reason};}
       if(act==='exceptions'){if(!v.notes.trim())throw new Error('Descreva a exceção.');body={kind:v.exception_kind,description:v.notes,occurred_at:localTimestamp(v.occurred_at)};}
       if (act === "purchase-review") {
         if (!v.notes) throw new Error("Descreva a comparação nota/pedido.");

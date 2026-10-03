@@ -4,18 +4,18 @@ import { Api, apiError } from "../core/api";
 import { AvailableSlot, revalidatedTime } from "../core/workflow";
 
 @Component({ selector: "app-slot-picker", standalone: true, imports: [FormsModule], changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<label>Horário<select [ngModel]="selected()" [ngModelOptions]="{standalone: true}" [disabled]="loading() || !ready() || !hasEligible()" (ngModelChange)="choose($event)"><option [ngValue]="''">Selecione um horário disponível</option>@for (slot of slots(); track slot.time) { <option [ngValue]="slot.time.slice(0,5)" [disabled]="!slot.eligible">{{slot.time.slice(0,5)}}{{slot.eligible ? '' : ' — ' + (slot.reason || 'indisponível')}}</option> }</select></label>
+  template: `<fieldset class="slot-picker"><legend>Horário</legend><div class="slot-options">@for(slot of slots();track slot.time){<label class="slot-option" [class.is-disabled]="!slot.eligible || loading()" [class.is-selected]="selected()===slot.time.slice(0,5)"><input type="radio" name="slot-time" [value]="slot.time.slice(0,5)" [checked]="selected()===slot.time.slice(0,5)" [disabled]="loading() || !ready() || !slot.eligible" (change)="choose(slot.time.slice(0,5))" /><strong>{{slot.time.slice(0,5)}}</strong><span>{{slot.eligible?'Disponível':slot.reason || 'Indisponível'}}</span></label>}</div></fieldset>
   @if (loading()) { <p class="field-help" role="status">Consultando disponibilidade…</p> }
   @if (error()) { <p class="error" role="alert">{{error()}}</p><button type="button" (click)="refresh()">Consultar novamente</button> }
   @if (ready() && !hasEligible()) { <p class="notice">Nenhum horário elegível para esta carga e data.</p> }
   <p class="field-help">A reserva é confirmada ao salvar. A escolha é mantida apenas enquanto houver disponibilidade.</p>`,
 })
 export class SlotPicker implements OnDestroy {
-  date = input.required<string>(); packaging = input.required<string>(); exclude = input(""); natureException = input(false);
+  date = input.required<string>(); packaging = input.required<string>(); exclude = input(""); natureException = input(false); initialTime=input("");
   selection = output<{time:string; ready:boolean}>();
   private api = inject(Api); private controller?: AbortController; private generation = 0; private preferred = "";
   slots = signal<AvailableSlot[]>([]); selected = signal(""); loading = signal(false); ready = signal(false); error = signal("");
-  constructor() { effect(() => { const date=this.date(), packaging=this.packaging(), exclude=this.exclude(), nature=this.natureException(); untracked(() => void this.load(date,packaging,exclude,nature)); }); }
+  constructor() { effect(() => { const date=this.date(), packaging=this.packaging(), exclude=this.exclude(), nature=this.natureException(), initial=this.initialTime(); if(!this.generation)this.preferred=initial; untracked(() => void this.load(date,packaging,exclude,nature)); }); }
   hasEligible() { return this.slots().some(slot => slot.eligible); }
   refresh() { void this.load(this.date(),this.packaging(),this.exclude(),this.natureException()); }
   async load(date:string, packaging:string, exclude:string, nature:boolean) {

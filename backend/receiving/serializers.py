@@ -18,6 +18,14 @@ from .models import (
 )
 
 
+class PackagingField(serializers.ChoiceField):
+    def __init__(self, **kwargs):
+        super().__init__(choices=PACKAGING, **kwargs)
+
+    def to_internal_value(self, data):
+        return super().to_internal_value("machine_implement" if data == "maquina_implemento" else data)
+
+
 class InvoiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvoiceItem
@@ -129,7 +137,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         request = self.context.get("request")
         if request and user_role(request.user) == "gatehouse":
-            for field in ("order_reference", "comparison_notes", "purchase_reviewed_at", "notes", "resubmission_reason"):
+            for field in ("order_reference", "comparison_notes", "purchase_reviewed_at", "divergence_notes", "divergence_reported_at", "notes", "resubmission_reason"):
                 data.pop(field, None)
             # Status is sufficient for access control. Internal purchase decisions
             # and receipt analyses do not become visible through the audit trail.
@@ -169,6 +177,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "purchase_reviewed_at",
             "warehouse_status",
             "warehouse_reviewed_at",
+            "divergence_notes",
+            "divergence_reported_at",
             "operation_status",
             "arrived_at",
             "started_at",
@@ -193,7 +203,7 @@ class AppointmentCreateSerializer(serializers.Serializer):
     invoice = serializers.PrimaryKeyRelatedField(queryset=Invoice.objects.all())
     date = serializers.DateField()
     time = serializers.ChoiceField(choices=TIMES)
-    packaging = serializers.ChoiceField(choices=PACKAGING)
+    packaging = PackagingField()
     vehicle_plate = serializers.CharField(max_length=30, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
     origin = serializers.ChoiceField(
@@ -203,7 +213,7 @@ class AppointmentCreateSerializer(serializers.Serializer):
 
 class AppointmentUpdateSerializer(serializers.Serializer):
     invoice = serializers.PrimaryKeyRelatedField(queryset=Invoice.objects.all(), required=False)
-    packaging = serializers.ChoiceField(choices=PACKAGING, required=False)
+    packaging = PackagingField( required=False)
     vehicle_plate = serializers.CharField(max_length=30, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
     expected_revision = serializers.IntegerField(min_value=1, required=False)

@@ -62,7 +62,7 @@ export class BarChart {
 export class Status {
   value = input("pending");
   label() {
-    return ({ pending: "Pendente", approved: "Aprovada", rejected: "Rejeitada", waiting: "Aguardando", scheduled: "Agendado", arrived: "Chegou", unloading: "Em descarga", in_progress: "Em descarga", completed: "Concluído", cancelled: "Cancelado", not_received: "Não recebido", draft: "Rascunho", closed: "Fechado" } as Record<string, string>)[this.value().toLowerCase()] ?? this.value();
+    return ({ pending: "Pendente", approved: "Aprovada", rejected: "Rejeitada", waiting: "Agendado", scheduled: "Agendado", arrived: "No pátio", unloading: "Em descarga", in_progress: "Em descarga", completed: "Concluído", cancelled: "Cancelado", not_received: "Não recebido", draft: "Rascunho", closed: "Fechado" } as Record<string, string>)[this.value().toLowerCase()] ?? this.value();
   }
 }
 

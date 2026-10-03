@@ -4,7 +4,7 @@
 
 Fontes: [draw.io](../fontes/recebimento-bpmn-v2.drawio) e [BPMN 2.0](../fontes/recebimento-v2.bpmn). O diagrama apresenta o percurso principal; as exceções abaixo completam o contrato. Os estados e responsáveis são verificados no servidor.
 
-1. Fornecedor ou operador autorizado anexa as notas e solicita um horário global. Cada carga reúne de 1 a 30 notas do mesmo fornecedor. Cadastro assistido e chegada espontânea ficam identificados. Batida e máquina/implemento exigem horário exclusivo.
+1. Somente Fornecedor anexa as notas e solicita um horário global. Cada carga reúne de 1 a 30 notas do mesmo fornecedor. Cadastro assistido legado e chegada espontânea ficam identificados. Batida exige horário exclusivo; máquina/implemento compartilha até duas unidades com cargas paletizadas/big bag.
 2. Compras confere documentos/pedido e decide; Armazém confirma os destinos após a aprovação de Compras. Em paralelo, a Portaria pode registrar a chegada física. Chegada não prova autorização para descarregar.
 3. Com chegada registrada, dupla aprovação e reserva válida, Armazém registra entrada no primeiro local. As visitas são sequenciais, com entrada/saída e recursos confirmados em cada uma.
 4. Armazém registra o observado, aceito e recusado por nota/item. Divergência suspende a conclusão até decisão documentada de Compras. Todos os itens precisam ser conferidos; notas manuais têm ao menos uma linha.
@@ -14,7 +14,7 @@ Fontes: [draw.io](../fontes/recebimento-bpmn-v2.drawio) e [BPMN 2.0](../fontes/r
 
 Há duas entradas distintas. Em `/portaria`, o operador consulta recebimentos e registra os marcos de chegada/saída. Em `/portaria/avisos`, registra um aviso avulso com foto, placas, motorista e número de NF; o Armazém consulta e dá ciência em `/chegadas`. A foto e a sugestão OCR auxiliam a comunicação, mas não criam agendamento, aprovação ou chegada de um recebimento. Uma carga recebida depois exige o fluxo próprio acima, sem vínculo inferido pelo número fotografado.
 
-O calendário da equipe oferece dia, semana e mês, com impressão diária e CSV. A disponibilidade vem da API global, incluindo exclusividade de máquina/implemento e indisponibilidade por calendário; contar apenas cartões visíveis não determina vagas. A impressão identifica o recorte e a origem e relaciona as notas da carga. Quantidades e valores de NF representam informação documental; não são remuneração de chapas nem total de pagamento. O diagrama representa o fluxo principal de recebimento; o aviso fotográfico é um fluxo de comunicação separado descrito nesta seção.
+O calendário da equipe oferece dia, semana e mês, com impressão diária e CSV. A disponibilidade vem da API global, incluindo exclusividade de batida, máquina compartilhada e indisponibilidade por calendário; contar apenas cartões visíveis não determina vagas. A impressão identifica o recorte e a origem e relaciona as notas da carga. Quantidades e valores de NF representam informação documental; não são remuneração de chapas nem total de pagamento. O diagrama representa o fluxo principal de recebimento; o aviso fotográfico é um fluxo de comunicação separado descrito nesta seção.
 
 ## Exceções e trilha
 

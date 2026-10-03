@@ -34,3 +34,9 @@ class HasProfile(BasePermission):
 
 role = user_role
 require_roles = require_role
+
+
+def require_supplier_booking(user):
+    """Creation belongs only to a linked supplier, including for administrators."""
+    if user_role(user) != "supplier" or not user.profile.supplier_id:
+        raise PermissionDenied("Somente Fornecedor vinculado pode criar agendamentos.")

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction, IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -10,7 +12,7 @@ from rest_framework.views import APIView
 from core.permissions import require_role, user_role
 from . import services, workflow
 from .models import Appointment, CapacityHold, GlobalSlot, Holiday, InternalNotification, TIMES, PurchaseOrder, PurchaseOrderLine
-from .serializers import AssignCapacitySerializer, NonReceiptSerializer
+from .serializers import AssignCapacitySerializer, NonReceiptSerializer, PackagingField
 from .serializers_v2 import (
     AppointmentInput, AppointmentEditInput, AppointmentV2Serializer, CommandInput, CorrectionInput,
     DestinationsInput, NotificationSerializer, PurchaseInput, ReasonInput, ReceiptLineInput,
@@ -64,6 +66,10 @@ class AppointmentsV2(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
     @action(detail=True, methods=["post"], url_path="purchase-review")
     def purchase_review(self, request, pk=None):
         return self.apply(request, "purchase-review", PurchaseInput, services.purchase_review)
+
+    @action(detail=True, methods=["post"], url_path="forward-to-purchasing")
+    def forward_to_purchasing(self, request, pk=None):
+        return self.apply(request, "forward-to-purchasing", ReasonInput, services.forward_to_purchasing)
 
     @action(detail=True, methods=["post"], url_path="warehouse-review")
     def warehouse_review(self, request, pk=None):
@@ -174,10 +180,24 @@ class NonReceiptsV2(NonReceiptViewSet):
 
 
 class AvailabilityInput(serializers.Serializer):
-    date = serializers.DateField()
-    packaging = serializers.ChoiceField(choices=["batida", "paletizada", "big_bag", "machine_implement"], default="paletizada")
+    date = serializers.DateField(required=False)
+    date_from = serializers.DateField(required=False)
+    date_to = serializers.DateField(required=False)
+    packaging = PackagingField(default="paletizada")
     exclude_appointment = serializers.UUIDField(required=False)
     nature_exception = serializers.BooleanField(default=False)
+
+    def validate(self, data):
+        if "date" in data:
+            if "date_from" in data or "date_to" in data:
+                raise serializers.ValidationError("Use data única ou intervalo, não ambos.")
+        else:
+            if "date_from" not in data or "date_to" not in data:
+                raise serializers.ValidationError("Informe date ou date_from e date_to.")
+            span = (data["date_to"] - data["date_from"]).days
+            if not 0 <= span < 62:
+                raise serializers.ValidationError("Intervalo deve conter entre 1 e 62 dias.")
+        return data
 
 
 class AvailabilityV2(APIView):
@@ -192,9 +212,15 @@ class AvailabilityV2(APIView):
             require_role(request.user, "warehouse")
             if not ap:
                 raise ValidationError("Exceção exige o agendamento a reagendar.")
-        day = data["date"]
+        if "date" in data:
+            return Response(self.day(data["date"], data, ap))
+        days = [self.day(data["date_from"] + timedelta(days=index), data, ap)
+                for index in range((data["date_to"] - data["date_from"]).days + 1)]
+        return Response({"global_capacity": 2, "days": days, "packaging": data["packaging"]})
+
+    def day(self, day, data, ap):
         blocked = day.weekday() >= 5 or Holiday.objects.filter(date=day).exists()
-        exclusive = data["packaging"] in {"batida", "machine_implement"}
+        exclusive = data["packaging"] == "batida"
         rows = []
         for time, _ in TIMES:
             slot = GlobalSlot.objects.filter(date=day, time=time).first()
@@ -205,12 +231,13 @@ class AvailabilityV2(APIView):
             eligible = can_exclusive if exclusive else not blocked and not state["has_batida"] and (free > 0 or data["nature_exception"])
             reason = "" if eligible else ("Calendário fechado." if blocked else "Horário indisponível para este acondicionamento.")
             rows.append({"slot_id": str(slot.pk) if slot else None, "time": time, **state,
-                         "available_units": free, "can_batida": can_exclusive, "can_machine_implement": can_exclusive,
+                         "available_units": free, "can_batida": can_exclusive,
+                         "can_machine_implement": not blocked and not state["has_batida"] and (free > 0 or data["nature_exception"]),
                          "can_paletizada": not blocked and not state["has_batida"] and (free > 0 or data["nature_exception"]),
                          "can_big_bag": not blocked and not state["has_batida"] and (free > 0 or data["nature_exception"]),
                          "eligible": eligible, "reason": reason})
-        return Response({"date": str(day), "calendar_open": not blocked, "global_capacity": 2,
-                         "slots": rows, "packaging": data["packaging"], "nature_exception": data["nature_exception"]})
+        return {"date": str(day), "calendar_open": not blocked, "global_capacity": 2,
+                "slots": rows, "packaging": data["packaging"], "nature_exception": data["nature_exception"]}
 
 
 class AssignCapacityV2(APIView):

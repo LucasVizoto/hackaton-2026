@@ -3,8 +3,8 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from catalog.models import Supplier
-from .models import Appointment, Invoice, PACKAGING, TIMES, ReceiptLine, InternalNotification, ReceivingException, PurchaseOrder, PurchaseOrderLine
-from .serializers import AppointmentSerializer, InvoiceSerializer, WarehouseVisitSerializer
+from .models import Appointment, Invoice, TIMES, ReceiptLine, InternalNotification, ReceivingException, PurchaseOrder, PurchaseOrderLine
+from .serializers import PackagingField, AppointmentSerializer, InvoiceSerializer, WarehouseVisitSerializer
 
 
 class CommandInput(serializers.Serializer):
@@ -27,7 +27,7 @@ class AppointmentInput(serializers.Serializer):
     invoice_ids = serializers.PrimaryKeyRelatedField(queryset=Invoice.objects.all(), many=True)
     date = serializers.DateField()
     time = serializers.ChoiceField(choices=TIMES)
-    packaging = serializers.ChoiceField(choices=PACKAGING)
+    packaging = PackagingField()
     vehicle_plate = serializers.CharField(max_length=30)
     tractor_plate = serializers.CharField(max_length=30, required=False, allow_blank=True)
     carrier_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
@@ -60,7 +60,7 @@ class AppointmentEditInput(CommandInput):
     driver_name = serializers.CharField(max_length=160, required=False, allow_blank=True)
     articulated = serializers.BooleanField(required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
-    packaging = serializers.ChoiceField(choices=PACKAGING, required=False)
+    packaging = PackagingField( required=False)
 
     def validate(self, data):
         allowed = set(self.fields)

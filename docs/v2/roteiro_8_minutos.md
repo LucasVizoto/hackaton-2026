@@ -5,7 +5,7 @@ Preparar banco separado, usuários por perfil, notas artificiais, dois locais e 
 | Tempo | Demonstração | Evidência observável |
 |---|---|---|
 | 00:00–00:40 | Apresentar problema, perfis e origem sintética | Escopo: recebimento, trabalho das pessoas e custo, com dados identificados |
-| 00:40–01:40 | Criar uma carga com duas notas artificiais; mostrar capacidade e máquina/implemento exclusivo | Várias notas em um caminhão; origem derivada e reserva no servidor |
+| 00:40–01:40 | Criar uma carga com duas notas artificiais; mostrar capacidade e máquina/implemento compartilhado | Várias notas em um caminhão; origem derivada e reserva no servidor |
 | 01:40–03:00 | Portaria registra chegada; mostrar aviso fotográfico previamente preparado; Compras confere; Armazém define dois locais e inicia visitas | Foto avulsa separada do recebimento; chegada independente de aprovação; quatro marcos e responsabilidades distintas |
 | 03:00–03:45 | Conferir itens, mostrar divergência preparada e decisão de Compras; concluir locais e registrar saída da Portaria | Declarado/observado/aceito/recusado; descarga diferente da saída física |
 | 03:45–05:15 | Registrar pessoa em dois locais e um boletim responsável; mostrar meia diária de serviço e fração separadas; fechar e abrir parcelas | Vínculo financeiro único; produção/piso preservados; centavos reconciliados |

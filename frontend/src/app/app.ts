@@ -14,7 +14,6 @@ const MODULES: NavigationItem[] = [
   { route: "/portaria", label: "Portaria", icon: "trail-sign-outline", roles: ["gatehouse"] },
   { route: "/portaria/avisos", label: "Aviso com foto", icon: "notifications-outline", roles: ["gatehouse"] },
   { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
-  { route: "/operacao", label: "Operação", icon: "trail-sign-outline", roles: ["warehouse"] },
   { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse"] },
   { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse"] },
   { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse"] },
@@ -58,7 +57,7 @@ export class AppComponent {
   });
   readonly primaryItems = computed(() => {
     const role = this.api.user()?.role;
-    const priority = role === "warehouse" || role === "admin" ? ["/agenda", "/operacao", "/boletins"] : ["gatehouse","portaria"].includes(role ?? "") ? ["/portaria", "/portaria/avisos", "/agenda"] : role === "purchasing" ? ["/agenda", "/compras", "/gestao"] : ["/agenda", "/gestao", "/qualidade"];
+    const priority = role === "warehouse" || role === "admin" ? ["/agenda", "/chegadas", "/boletins"] : ["gatehouse","portaria"].includes(role ?? "") ? ["/portaria", "/portaria/avisos", "/agenda"] : role === "purchasing" ? ["/agenda", "/compras", "/gestao"] : ["/agenda", "/gestao", "/qualidade"];
     return priority.map(route => this.navItems().find(item => item.route === route)).filter((item): item is NavigationItem => !!item);
   });
   readonly extraItems = computed(() => this.navItems().filter(item => !this.primaryItems().includes(item)));

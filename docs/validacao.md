@@ -1,3 +1,21 @@
+# Integração Richardy — 03/10/2026
+
+Integração de `richardy/fix-armazem-recebimento` (`4449592`, incluindo `490d04d`) à main `b7a28f3`. As decisões confirmadas substituem as regras anteriores: somente Fornecedor agenda; máquina/implemento compartilha uma unidade; movimentação libera a vaga de origem; chave de NF é opcional e o número é obrigatório. A API v2, MultiNF, quatro marcos, Portaria fotográfica e apuração individual foram preservados.
+
+**204 testes backend em PostgreSQL passaram** na rodada final (63,765 s), incluindo concorrência, permissões v1/v2 sem exceção de administrador para criar, alias de máquina, intervalo de disponibilidade, chave/número, encaminhamento idempotente, manutenção de chegada/etapas e bloqueio após início da descarga. Ruff, Django check e consistência de migrations passaram. **33 testes frontend**, ESLint e build Angular passaram. Avisos CommonJS de Tesseract/pdfmake permanecem; nenhuma dependência foi atualizada.
+
+As migrations originais foram mantidas; `receiving/0008` une as árvores e `0009` normaliza máquina e retenções ativas. Três bancos isolados receberam a atualização: main (57 tabelas, 130.785 registros), Richardy (38 tabelas, 130.772 registros) e base da produção (38 tabelas, 130.772 registros). Todos os hashes das colunas anteriores conferiram com a transformação esperada. O verificador calcula previamente apenas a normalização do código, a capacidade de retenções ativas de máquina e a liberação de retenções de origem quando a migration correspondente ainda não foi aplicada. Outras colunas, IDs, eventos, históricos e retenções permanecem na comparação. Os bancos original e de produção não receberam migrations nesta rodada.
+
+A jornada HTTP sintética percorreu duas NFs, dois armazéns, quatro marcos e pessoa com um único boletim financeiro; a apuração reconciliou. Após reiniciar a API isolada, recebimento e snapshot financeiro permaneceram idênticos. Evidências privadas: `.private/validation-richardy/migration-results.json`, `http-journey.json` e `persistence.json`.
+
+No navegador: PDF sem número foi recusado; PDF com número manual e sem chave foi reservado como máquina. Armazém não recebeu o botão de criar e a rota direta retornou à agenda. O encaminhamento a Compras gravou justificativa e notificação. Seleção inicial vazia, máquina compartilhada, mudança para batida incompatível, sábado fechado e troca rápida de datas foram exercitados. Com a API parada, o calendário exibiu erro e disponibilidade ausente, sem links de vagas fictícias; atualizar após o retorno recuperou os dados.
+
+Android: build `assembleDebug` e testes locais `testDebugUnitTest` passaram; APK instalado no `emulator-5554`, com backend isolado. Login de Fornecedor, agenda móvel, formulário em três etapas, opção máquina e seleção visual do horário foram exercitados. A asserção Maestro de `checked` falhou porque a hierarquia da WebView não expôs esse estado; a captura visual confirmou o destaque do horário. Não se declara sucesso integral dessa asserção. Aparelho físico e iOS não executados nesta rodada.
+
+APK local: `.private/validation-richardy/app-under-test.apk`, SHA-256 `c7f00b5faa815e4eee7cdfe2c2fb5f444aaf0afe4ec4b1f898e7275452e00100`. Capturas, logs, anexos sintéticos e cópias dos bancos ficam privados. Esta entrega publica código na main; não comprova deploy web ou distribuição de APK em produção. Na inspeção do servidor configurado, a base ativa era `6ff06af`, sem as migrations do Richardy.
+
+---
+
 # Validação da revisão conciliada com main
 
 Conciliação de 03/10/2026 entre o snapshot v2 `d4017da` e `origin/main` em `6ff06af`. O escopo preserva boletim/pessoa/dia e acrescenta as contribuições de Portaria avulsa com foto, calendário e impressão diária. Os resultados da implementação v2 registrados abaixo pertencem à rodada anterior e não certificam automaticamente esta revisão.

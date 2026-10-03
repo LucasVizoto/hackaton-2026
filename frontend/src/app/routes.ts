@@ -3,6 +3,7 @@ import { CanActivateFn, Router, Routes } from "@angular/router";
 import { Api } from "./core/api";
 function homeOf(api: Api) { return api.user()?.role === "gatehouse" || api.user()?.role === "portaria" ? "/portaria" : "/agenda"; }
 const auth: CanActivateFn = () => inject(Api).user() ? true : inject(Router).createUrlTree(["/login"], {queryParams:{perfil:"operador"}});
+const supplierBooking: CanActivateFn = () => inject(Api).user()?.role === "supplier" ? true : inject(Router).createUrlTree(["/agenda"]);
 const guest: CanActivateFn = () => { const api=inject(Api); return api.user() ? inject(Router).createUrlTree([homeOf(api)]) : true; };
 const roles = (...allowed:string[]):CanActivateFn => () => { const api=inject(Api); return api.can(...allowed) ? true : inject(Router).createUrlTree([homeOf(api)]); };
 export const routes: Routes = [
@@ -24,7 +25,7 @@ export const routes: Routes = [
   },
   {
     path: "agenda/novo",
-    canActivate: [auth, roles("supplier", "warehouse", "purchasing")],
+    canActivate: [auth, supplierBooking],
     loadComponent: () =>
       import("./features/appointment-create").then((m) => m.AppointmentCreate),
   },
@@ -41,13 +42,7 @@ export const routes: Routes = [
       import("./features/receiving").then((m) => m.AppointmentList),
     data: { mode: "compras" },
   },
-  {
-    path: "operacao",
-    canActivate: [auth, roles("warehouse")],
-    loadComponent: () =>
-      import("./features/receiving").then((m) => m.AppointmentList),
-    data: { mode: "operacao" },
-  },
+  {path: "operacao", redirectTo: "agenda"},
   {
     path: "nao-recebimentos",
     canActivate: [auth],

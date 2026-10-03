@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
 from catalog.models import Equipment, Warehouse
-from core.permissions import require_role
+from core.permissions import require_role, require_supplier_booking
 
 from .models import (
     Appointment,
@@ -153,13 +153,15 @@ def _reset_warehouse(appointment):
     appointment.warehouse_status = "pending"
     appointment.warehouse_reviewed_by = None
     appointment.warehouse_reviewed_at = None
-    appointment.visits.all().delete()
 
 
 @transaction.atomic
 def create_appointment(
     user, *, supplier, invoice, day, time, packaging, vehicle_plate="", notes="", origin=None
 ):
+    require_supplier_booking(user)
+    if user.profile.supplier_id != supplier.id:
+        raise ValidationError("Fornecedor diferente do usuário autenticado.")
     if invoice.supplier_id != supplier.id:
         raise ValidationError({"invoice": "Nota fiscal pertence a outro fornecedor."})
     actual_origin = (
@@ -269,6 +271,8 @@ def purchase_review(user, appointment_id, data):
     appointment.comparison_notes = notes
     appointment.purchase_reviewed_by = user
     appointment.purchase_reviewed_at = timezone.now()
+    appointment.divergence_notes = ""
+    appointment.divergence_reported_at = None
     _reset_warehouse(appointment)
     if decision == "rejected":
         _hold_capacity(appointment, user, "Rejeição de Compras: " + notes)
@@ -299,7 +303,17 @@ def warehouse_review(user, appointment_id, data):
     current = list(appointment.visits.order_by("sequence").values_list("warehouse_id", flat=True))
     if appointment.warehouse_status == "approved" and current == warehouse_ids:
         return appointment
-    appointment.visits.all().delete()
+    if appointment.visits.filter(started_at__isnull=False).exists():
+        raise DomainConflict("Etapas iniciadas não podem ser substituídas.")
+    if current != warehouse_ids:
+        appointment.visits.all().delete()
+    else:
+        # Preserve visit identities when merely reconfirming the same destinations.
+        appointment.warehouse_status = "approved"
+        appointment.warehouse_reviewed_by = user
+        appointment.warehouse_reviewed_at = timezone.now()
+        _event(appointment, user, "warehouse_review", {"warehouse_ids": [str(x) for x in warehouse_ids], "notes": data.get("notes", "")})
+        return appointment
     WarehouseVisit.objects.bulk_create(
         [
             WarehouseVisit(appointment=appointment, warehouse_id=warehouse_id, sequence=index)
@@ -315,6 +329,30 @@ def warehouse_review(user, appointment_id, data):
         "warehouse_review",
         {"warehouse_ids": [str(x) for x in warehouse_ids], "notes": data.get("notes", "")},
     )
+    return appointment
+
+
+@transaction.atomic
+def forward_to_purchasing(user, appointment_id, data):
+    """Warehouse reports an invoice divergence; Purchasing must review the appointment again."""
+    require_role(user, "warehouse")
+    appointment = _lock_appointment(appointment_id)
+    _expected_revision(appointment, data)
+    _editable(appointment)
+    reason = data["reason"].strip()
+    if not reason:
+        raise ValidationError({"reason": "Descreva a divergência encontrada na nota."})
+    if appointment.divergence_reported_at and appointment.divergence_notes == reason:
+        return appointment
+    appointment.divergence_notes = reason
+    appointment.divergence_reported_at = timezone.now()
+    appointment.purchase_status = "pending"
+    appointment.purchase_reviewed_by = None
+    appointment.purchase_reviewed_at = None
+    _reset_warehouse(appointment)
+    _event(appointment, user, "forwarded_to_purchasing", {"reason": reason})
+    from .workflow import notification
+    notification(appointment, "purchasing", "invoice_divergence", "Armazém encaminhou divergência para nova conferência.", str(appointment.revision))
     return appointment
 
 
@@ -577,8 +615,7 @@ def reschedule(user, appointment_id, data):
     )
     target_occupied_before = occupancy(target, exclude_appointment=appointment.id)["occupied_units"]
     source = appointment.slot
-    # Moving the reservation does not leave a second counted reservation at its source.
-    _hold_capacity(appointment, user, "Vaga de origem de reagendamento: " + reason)
+    # The reservation moves: the source slot is released, not held, so it is bookable again.
     appointment.slot = target
     appointment.capacity_reserved = True
     appointment.nature_exception = nature
@@ -627,8 +664,7 @@ def assign_cancelled_capacity(user, *, hold_id, appointment_id, expected_revisio
     validate_capacity(
         hold.slot, appointment.packaging, exclude_appointment=appointment.id, exclude_hold=hold.id
     )
-    if appointment.slot_id != hold.slot_id:
-        _hold_capacity(appointment, user, "Vaga de origem da atribuição administrativa")
+    # The appointment moves into the held slot; its previous slot is released, not held.
     appointment.slot_id = hold.slot_id
     appointment.capacity_reserved = True
     appointment.nature_exception = False

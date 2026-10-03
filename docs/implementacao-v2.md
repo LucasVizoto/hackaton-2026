@@ -5,7 +5,7 @@ Plano autorizado em 03/10/2026. Base de trabalho: `1ef6e68`.
 ## Regras que orientam a entrega
 
 - Dupla aprovação de Compras e Armazém; um caminhão/recebimento/reserva com várias NFs do mesmo fornecedor.
-- Máquina/implemento é carga própria e exclusiva, separada do equipamento usado na descarga.
+- Máquina/implemento é carga própria compartilhada (uma unidade, decisão atualizada na integração Richardy), separada do equipamento usado na descarga.
 - Portaria vê placas, transportadora, fornecedor, destinos e anexos das NFs; não acessa remuneração.
 - Quatro marcos: entrada e saída na portaria, entrada e saída em cada armazém. Descarga concluída não é saída da unidade.
 - Uma pessoa participa financeiramente de um boletim por dia. Atividades podem ocorrer em vários locais; o armazém responsável pelo custo é selecionado explicitamente.
@@ -40,7 +40,7 @@ Implementação local em Django/PostgreSQL, Angular/Ionic e Android. O contrato 
 
 | Frente | Implementado |
 |---|---|
-| Agenda e Pacheco | MultiNF com uma reserva; identidade documental validada; origem derivada; máquina exclusiva; seletor único revalidado; ações por perfil/etapa; exceções em menu próprio |
+| Agenda e Pacheco | MultiNF com uma reserva; identidade documental validada; origem derivada; máquina compartilhada; seletor único revalidado; ações por perfil/etapa; exceções em menu próprio |
 | Portaria | Placas e transportadora, anexos vinculados, entrada/saída da unidade, visitas sequenciais por armazém, correções justificadas, repetição idempotente, avisos persistidos com ciência |
 | Pessoas e boletins | Pessoa/data única, atividade multilocal, boletim responsável explícito, transferências auditadas, serviços de diária, parcelas exatas/centavos, pendências que bloqueiam fechamento, extrato e RH separados e paginados |
 | Conferência | Itens XML/manuais, quatro quantidades, divergência decidida por Compras, saldo de pedido confirmado, complemento, nova solicitação vinculada após rejeição |
