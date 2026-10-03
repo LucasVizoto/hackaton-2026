@@ -15,4 +15,4 @@ Documentos de apoio: [hipóteses e limitações](hipoteses.md), [contrato da API
 
 As fontes oficiais foram consultadas localmente: `REGULAMENTO - HACKATHON 2026.pdf`, `DOSSIE - HACKATHON 2026.pdf`, `DADOS_HACKATHON_2026/LEIA-ME.md` e arquivos pertinentes. Os originais não fazem parte desta documentação distribuível. Não há esclarecimento registrado da Cocapec que confirme as hipóteses técnicas.
 
-**Visibilidade GitHub: NOT RUN.** A abertura dos textos, imagens e fontes editáveis deve ser conferida após o envio; a existência local não substitui essa verificação. Originais, dados identificáveis, anexos, banco/dumps, credenciais e traces permanecem privados. Planos e auditorias não fazem parte da entrega.
+**Visibilidade GitHub: PASS em 03/10/2026.** Índice e quatro artefatos foram abertos no repositório público, com imagens carregadas e fontes editáveis disponíveis. Os 34 arquivos do pacote corresponderam aos hashes da revisão publicada. Originais, dados identificáveis, anexos, banco/dumps, credenciais e traces permanecem privados. Planos e auditorias não fazem parte da entrega.

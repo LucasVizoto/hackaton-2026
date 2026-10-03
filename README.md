@@ -64,7 +64,7 @@ Instalação isolada PASS: checkout arquivado, ambiente Python novo com dependê
 
 Artefatos de entrega: [relatório gerencial](docs/relatorio_gerencial.md), [UML de casos de uso](docs/casos_uso.md), [BPMN](docs/processo.md), [DER](docs/der.md). Fontes editáveis e imagens estão em `docs/fontes` e `docs/imagens`. [Hipóteses e limites](docs/hipoteses.md) e [origem/importação](docs/importacao.md) delimitam as conclusões.
 
-A documentação está no [índice da entrega](docs/README.md). Originais, dados identificáveis, anexos, banco/dumps, credenciais e traces devem permanecer privados. O `.gitignore` permite apenas os caminhos exatos dos documentos finais, mantendo planos e auditorias fora da entrega. A abertura dos artefatos no GitHub consta no relatório de validação e permanece NOT RUN até verificação. Não há integração real com SAP, machine learning, chatbot ou economia medida.
+A documentação está no [índice da entrega](docs/README.md). Originais, dados identificáveis, anexos, banco/dumps, credenciais e traces devem permanecer privados. O `.gitignore` permite apenas os caminhos exatos dos documentos finais, mantendo planos e auditorias fora da entrega. Índice e quatro artefatos foram abertos no GitHub em 03/10/2026; textos, imagens e fontes editáveis foram conferidos. Não há integração real com SAP, machine learning, chatbot ou economia medida.
 
 ## Backup e restauração da demonstração
 

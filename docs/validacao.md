@@ -31,7 +31,7 @@ Execute os comandos da raiz, exceto os comandos npm, executados em `frontend`, e
 | Persistência isolada | Checkpoint e reinício real da API/PostgreSQL | PASS |
 | Backup/restauração sintéticos | `pg_dump -Fc`; `pg_restore --exit-on-error` em outro banco | PASS; 37 tabelas, contagens e fingerprints iguais |
 | Restauração de produção | Recuperação de dados/serviço de produção | NOT RUN |
-| Abertura dos artefatos publicados no GitHub | Abrir textos, imagens e fontes editáveis após publicação | NOT RUN |
+| Abertura dos artefatos publicados no GitHub | Abrir índice, quatro textos e imagens; comparar fontes publicadas com Git local | PASS em 03/10/2026; 34 arquivos iguais à revisão publicada |
 | iOS | Build e execução reais em Mac/Xcode | NOT RUN |
 
 Os testes backend cobrem capacidade global/exclusividade e concorrência PostgreSQL, isolamento de fornecedores/anexos, extração XML segura, chegada independente de aprovações, dupla validação/destinos, etapas/recursos, cancelamento/atribuição/reagendamento, não recebimento avulso, matrículas/frações, precisão monetária, snapshot/reabertura/fechamento concorrente, importação idempotente, reconciliação das linhas, origem/cobertura e rastreabilidade dos indicadores. Testes de apresentação e instrumentação de contexto não substituem esses testes nem o percurso funcional.
@@ -80,6 +80,6 @@ O Windows da prova já possuía Docker, Python/uv, Node e ferramentas de desenvo
 
 Os quatro artefatos estão no [índice de documentação](README.md), com texto, imagens SVG/PNG e fontes editáveis `.drawio`/`.bpmn`. O BPMN inclui notação e coordenadas BPMN DI; é documental, sem execução em motor de workflow. A validação XSD confere estrutura; os testes verificam as regras do aplicativo.
 
-Fontes oficiais são citadas nominalmente, sem cópia dos originais. Dados identificáveis, anexos, checkpoints, banco/dumps, credenciais e traces permanecem privados. Planos e auditorias não integram a documentação final. A disponibilidade dos textos, imagens e fontes editáveis no GitHub permanece NOT RUN até conferência.
+Fontes oficiais são citadas nominalmente, sem cópia dos originais. Dados identificáveis, anexos, checkpoints, banco/dumps, credenciais e traces permanecem privados. Planos e auditorias não integram a documentação final. Em 03/10/2026, o índice e os quatro artefatos foram abertos no repositório público: texto e imagens carregados, fontes editáveis disponíveis e 34 arquivos com hashes iguais à revisão publicada `048da0c`. A revisão dos caminhos e conteúdos atuais/históricos não encontrou originais, credenciais, dumps ou anexos privados no Git.
 
 Limites: nenhum aparelho físico foi validado; iOS permanece NOT RUN sem Mac; instalação em sistema operacional vazio e restauração de produção permanecem NOT RUN. Remoção pós-evento permanece NOT RUN, prevista após o prazo de retenção e autorização do responsável. Não existe integração SAP real, economia real medida ou certificação de produção. As [hipóteses de domínio](hipoteses.md) continuam explícitas e reversíveis. O histórico não fornece série de boletins por local.

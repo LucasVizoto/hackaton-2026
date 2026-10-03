@@ -17,7 +17,7 @@ O roteiro usa dados já preparados, mas as ações demonstradas são reais e gra
 
 O APK atual passou em login, consulta e chegada com aprovações pendentes, refletida na web. O checkpoint posterior permaneceu igual após reiniciar API/PostgreSQL. O percurso Android anterior verificou SAF/anexo e recuperação visual nativa. A instrumentação agregada passou em AVD, com um teste de contexto do app. A falha de conexão foi conferida visualmente e pelo estado sem entrada; a asserção Maestro do alerta retornou FAIL por limitação da hierarquia WebView, conforme [relatório](validacao.md). Nenhum aparelho físico foi testado. iOS permanece **NOT RUN** e só recebe **PASS** após execução real em Mac/Xcode.
 
-Os dois exemplos monetários são sintéticos: a data 18/11/2025 é escolhida pelo seed para a variação com uma meia diária, sem afirmar que ela ocorreu na Cocapec. A reexecução preserva boletins existentes; conflito com outra origem aborta o seed. Confira a abertura dos quatro artefatos, imagens e fontes editáveis no GitHub; o estado é NOT RUN até verificação. Não apresentar a entrega como pronta para produção.
+Os dois exemplos monetários são sintéticos: a data 18/11/2025 é escolhida pelo seed para a variação com uma meia diária, sem afirmar que ela ocorreu na Cocapec. A reexecução preserva boletins existentes; conflito com outra origem aborta o seed. Índice, quatro artefatos, imagens e fontes editáveis foram conferidos no GitHub em 03/10/2026: PASS. Reconfira o acesso antes da apresentação. Não apresentar a entrega como pronta para produção.
 
 ## Contingência e encerramento
 
