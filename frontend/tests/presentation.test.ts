@@ -29,6 +29,21 @@ test("mensagem da regra negada pela API permanece legível sem código interno",
   });
   assert.equal(apiError(e), "Carga batida exige horário exclusivo.");
 });
+test("login recusado orienta corrigir credenciais e 401 autenticado indica sessão encerrada", () => {
+  const error = new HttpErrorResponse({ status: 401 });
+  assert.equal(
+    apiError(error, "login"),
+    "Usuário ou senha inválidos. Confira as credenciais e tente novamente.",
+  );
+  assert.equal(apiError(error), "Sessão encerrada. Entre novamente.");
+});
+test("falha de conexão no login continua informando indisponibilidade da API", () => {
+  const error = new HttpErrorResponse({ status: 0 });
+  assert.equal(
+    apiError(error, "login"),
+    "Não foi possível acessar a API. Confira a conexão e tente novamente.",
+  );
+});
 test("ausência de medição e ausência monetária não aparecem como zero", () => {
   assert.equal(money(null), "Não disponível");
   assert.equal(dateTime(null), "Não registrado");

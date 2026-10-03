@@ -59,7 +59,7 @@ export class Login {
       this.form.controls.password.reset();
       await this.router.navigateByUrl("/agenda");
     } catch (e) {
-      this.error.set(apiError(e));
+      this.error.set(apiError(e, "login"));
     } finally {
       this.busy.set(false);
     }

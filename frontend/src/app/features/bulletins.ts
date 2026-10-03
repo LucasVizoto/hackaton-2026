@@ -712,6 +712,7 @@ export class BulletinEditor implements OnInit {
     if (this.form.invalid) return;
     this.busy.set(true);
     this.error.set("");
+    this.success.set("");
     try {
       const b = this.bulletin();
       const payload = this.payload();
@@ -736,6 +737,7 @@ export class BulletinEditor implements OnInit {
     if (!b || this.dirty()) return;
     this.busy.set(true);
     this.error.set("");
+    this.success.set("");
     try {
       this.apply(
         await this.api.post<Bulletin>(`bulletins/${b.id}/close/`, {
@@ -756,6 +758,7 @@ export class BulletinEditor implements OnInit {
     if (!b) return;
     this.busy.set(true);
     this.error.set("");
+    this.success.set("");
     try {
       this.apply(
         await this.api.post<Bulletin>(`bulletins/${b.id}/reopen/`, {

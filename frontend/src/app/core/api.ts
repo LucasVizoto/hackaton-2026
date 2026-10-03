@@ -122,11 +122,14 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       : req,
   );
 };
-export function apiError(error: unknown): string {
+export function apiError(error: unknown, context?: "login"): string {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 0)
       return "Não foi possível acessar a API. Confira a conexão e tente novamente.";
-    if (error.status === 401) return "Sessão encerrada. Entre novamente.";
+    if (error.status === 401)
+      return context === "login"
+        ? "Usuário ou senha inválidos. Confira as credenciais e tente novamente."
+        : "Sessão encerrada. Entre novamente.";
     const body = error.error as unknown;
     if (typeof body === "string")
       return `Requisição recusada (${error.status}).`;
