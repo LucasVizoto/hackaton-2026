@@ -34,7 +34,10 @@ def official_payload(warehouse, workers, *, half=False, day=REFERENCE):
         "reference_date": str(day),
         "origin": "demo_sintetico",
         "lines": official_lines(),
-        "participants": [{"worker": str(worker.id), "fraction": "0.5" if half and index == 10 else "1.0"} for index, worker in enumerate(workers[:11])],
+        "participants": [
+            {"worker": str(worker.id), "fraction": "0.5" if half and index == 10 else "1.0"}
+            for index, worker in enumerate(workers[:11])
+        ],
     }
 
 
@@ -46,8 +49,17 @@ def labor_fixtures(instance):
     instance.external = User.objects.create_user("labor-supplier-test")
     UserProfile.objects.create(user=instance.external, role="supplier")
     instance.warehouse = Warehouse.objects.create(code="TEST-LAB-A", name="Armazém sintético A")
-    instance.other_warehouse = Warehouse.objects.create(code="TEST-LAB-B", name="Armazém sintético B")
-    instance.workers = [Worker.objects.create(registration=f"TEST-{index:02d}", name=f"Pessoa sintética {index:02d}", origin="demo_sintetico") for index in range(21)]
+    instance.other_warehouse = Warehouse.objects.create(
+        code="TEST-LAB-B", name="Armazém sintético B"
+    )
+    instance.workers = [
+        Worker.objects.create(
+            registration=f"TEST-{index:02d}",
+            name=f"Pessoa sintética {index:02d}",
+            origin="demo_sintetico",
+        )
+        for index in range(21)
+    ]
 
 
 def stored_bulletin(instance, *, warehouse=None, people=None, lines=None, day=REFERENCE):
@@ -56,12 +68,19 @@ def stored_bulletin(instance, *, warehouse=None, people=None, lines=None, day=RE
         "reference_date": str(day),
         "origin": "demo_sintetico",
         "lines": official_lines() if lines is None else lines,
-        "participants": people if people is not None else [{"worker": str(worker.id), "fraction": "1"} for worker in instance.workers[:11]],
+        "participants": people
+        if people is not None
+        else [{"worker": str(worker.id), "fraction": "1"} for worker in instance.workers[:11]],
     }
     serializer = BulletinInput(data=raw)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
-    bulletin = DailyBulletin.objects.create(warehouse=data["warehouse"], reference_date=data["reference_date"], origin=data["origin"], created_by=instance.operator)
+    bulletin = DailyBulletin.objects.create(
+        warehouse=data["warehouse"],
+        reference_date=data["reference_date"],
+        origin=data["origin"],
+        created_by=instance.operator,
+    )
     replace_contents(bulletin, data)
     return bulletin
 
@@ -75,8 +94,14 @@ class MoneyCalculationTests(SimpleTestCase):
         self.assertEqual(Decimal(result["total_payable"]), Decimal("991.9041"))
         self.assertEqual(Decimal(result["supplement"]), Decimal("73.7089"))
         self.assertEqual(result["people_count"], 11)
-        self.assertEqual(result["display"], {"production": "918.20", "total_payable": "991.90", "supplement": "73.71"})
-        self.assertNotEqual(Decimal(result["display"]["total_payable"]) - Decimal(result["display"]["production"]), Decimal(result["display"]["supplement"]))
+        self.assertEqual(
+            result["display"],
+            {"production": "918.20", "total_payable": "991.90", "supplement": "73.71"},
+        )
+        self.assertNotEqual(
+            Decimal(result["display"]["total_payable"]) - Decimal(result["display"]["production"]),
+            Decimal(result["display"]["supplement"]),
+        )
 
     def test_half_day_remains_eleven_people_and_ten_point_five_equivalents(self):
         lines = [{**line, "price": PRICES[line["category"]]} for line in official_lines()]
@@ -98,7 +123,10 @@ class MoneyCalculationTests(SimpleTestCase):
         empty_production = calculate([], [{"fraction": "1"}])
         self.assertEqual(Decimal(empty_production["total_payable"]), FLOOR)
         self.assertEqual(Decimal(empty_production["supplement"]), FLOOR)
-        self.assertNotEqual(Decimal(empty_production["total_payable"]), FLOOR + Decimal(empty_production["supplement"]))
+        self.assertNotEqual(
+            Decimal(empty_production["total_payable"]),
+            FLOOR + Decimal(empty_production["supplement"]),
+        )
 
     def test_zero_equivalents_has_no_division_and_half_up_is_presentation_only(self):
         result = calculate([], [])
@@ -108,10 +136,31 @@ class MoneyCalculationTests(SimpleTestCase):
         self.assertEqual(money_display(Decimal("0.0049")), "0.00")
 
     def test_all_three_modalities_and_fourteen_official_prices(self):
-        expected = ["0.1824", "0.2635", "0.3224", "1.1780", "2.3561", "0.3387", "0.3224", "0.3224", "0.3224", "0.3224", "0.3387", "0.3387", "0.3224", "0.3224"]
+        expected = [
+            "0.1824",
+            "0.2635",
+            "0.3224",
+            "1.1780",
+            "2.3561",
+            "0.3387",
+            "0.3224",
+            "0.3224",
+            "0.3224",
+            "0.3224",
+            "0.3387",
+            "0.3387",
+            "0.3224",
+            "0.3224",
+        ]
         self.assertEqual(len(RATE_TABLE), 14)
         self.assertEqual([price for _, _, price in RATE_TABLE], expected)
-        result = calculate([{"price": price, "unloading": "1", "removal": "2", "transfer": "3"} for price in expected], [{"fraction": "1"}])
+        result = calculate(
+            [
+                {"price": price, "unloading": "1", "removal": "2", "transfer": "3"}
+                for price in expected
+            ],
+            [{"fraction": "1"}],
+        )
         self.assertEqual(Decimal(result["production"]), sum(map(Decimal, expected)) * 6)
 
 
@@ -122,14 +171,25 @@ class BulletinPersistenceTests(TestCase):
         self.client.force_authenticate(self.operator)
 
     def test_api_official_examples_persist_full_lines_and_names(self):
-        for half, total, supplement in [(False, "991.9041", "73.7089"), (True, "946.81755", "28.62235")]:
+        for half, total, supplement in [
+            (False, "991.9041", "73.7089"),
+            (True, "946.81755", "28.62235"),
+        ]:
             day = REFERENCE + timedelta(days=int(half))
-            result = self.client.post("/api/v1/bulletins/", official_payload(self.warehouse, self.workers, half=half, day=day), format="json")
+            result = self.client.post(
+                "/api/v1/bulletins/",
+                official_payload(self.warehouse, self.workers, half=half, day=day),
+                format="json",
+            )
             self.assertEqual(result.status_code, 201)
             self.assertEqual(len(result.data["lines"]), 14)
             self.assertEqual(len(result.data["participants"]), 11)
             self.assertEqual(result.data["participants"][0]["name"], self.workers[0].name)
-            closed = self.client.post(f"/api/v1/bulletins/{result.data['id']}/close/", {"revision": result.data["revision"]}, format="json")
+            closed = self.client.post(
+                f"/api/v1/bulletins/{result.data['id']}/close/",
+                {"revision": result.data["revision"]},
+                format="json",
+            )
             self.assertEqual(closed.status_code, 200)
             self.assertEqual(Decimal(closed.data["calculation"]["total_payable"]), Decimal(total))
             self.assertEqual(Decimal(closed.data["calculation"]["supplement"]), Decimal(supplement))
@@ -140,9 +200,20 @@ class BulletinPersistenceTests(TestCase):
     def test_duplicate_worker_over_twenty_invalid_fraction_negative_unknown_rejected(self):
         payload = official_payload(self.warehouse, self.workers)
         cases = []
-        cases.append({**payload, "participants": payload["participants"] + [payload["participants"][0]]})
-        cases.append({**payload, "participants": [{"worker": str(worker.id), "fraction": "1"} for worker in self.workers]})
-        cases.append({**payload, "participants": [{"worker": str(self.workers[0].id), "fraction": "0.7"}]})
+        cases.append(
+            {**payload, "participants": payload["participants"] + [payload["participants"][0]]}
+        )
+        cases.append(
+            {
+                **payload,
+                "participants": [
+                    {"worker": str(worker.id), "fraction": "1"} for worker in self.workers
+                ],
+            }
+        )
+        cases.append(
+            {**payload, "participants": [{"worker": str(self.workers[0].id), "fraction": "0.7"}]}
+        )
         cases.append({**payload, "lines": [{"category": "FERTILIZANTES", "unloading": "-1"}]})
         cases.append({**payload, "lines": [{"category": "UNKNOWN", "unloading": "1"}]})
         cases.append({**payload, "lines": [payload["lines"][0], payload["lines"][0]]})
@@ -153,7 +224,9 @@ class BulletinPersistenceTests(TestCase):
 
     def test_no_team_cannot_close_even_with_positive_production(self):
         for index, lines in enumerate([[], official_lines()]):
-            bulletin = stored_bulletin(self, people=[], lines=lines, day=REFERENCE + timedelta(days=index))
+            bulletin = stored_bulletin(
+                self, people=[], lines=lines, day=REFERENCE + timedelta(days=index)
+            )
             self.assertIsNone(values(bulletin)["calculation"]["production_per_equivalent_day"])
             with self.assertRaises(ValidationError):
                 close_bulletin(bulletin.id, self.operator, 1)
@@ -162,30 +235,51 @@ class BulletinPersistenceTests(TestCase):
 
     def test_one_bulletin_per_local_date_and_saturday_internal_work_allowed(self):
         payload = official_payload(self.warehouse, self.workers, day=date(2026, 10, 3))
-        self.assertEqual(self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 201)
-        self.assertEqual(self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 400)
+        self.assertEqual(
+            self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 201
+        )
+        self.assertEqual(
+            self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 400
+        )
         payload["warehouse"] = str(self.other_warehouse.id)
-        self.assertEqual(self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 201)
+        self.assertEqual(
+            self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 201
+        )
 
     def test_closed_price_floor_snapshot_and_audited_reopen(self):
         bulletin = stored_bulletin(self)
         closed = close_bulletin(bulletin.id, self.operator, 1)
         snapshot = values(closed)
-        ServiceRate.objects.update_or_create(code="FERTILIZANTES", defaults={"label": "Fertilizantes", "price": Decimal("999")})
+        ServiceRate.objects.update_or_create(
+            code="FERTILIZANTES", defaults={"label": "Fertilizantes", "price": Decimal("999")}
+        )
         reload = self.client.get(f"/api/v1/bulletins/{bulletin.id}/")
         self.assertEqual(reload.data["calculation"], snapshot["calculation"])
         self.assertEqual(bulletin.lines.get(category="FERTILIZANTES").price, Decimal("0.3224"))
         with self.assertRaises(ValidationError):
             close_bulletin(bulletin.id, self.operator, closed.revision)
-        blocked = self.client.patch(f"/api/v1/bulletins/{bulletin.id}/", {"revision": closed.revision, "lines": []}, format="json")
+        blocked = self.client.patch(
+            f"/api/v1/bulletins/{bulletin.id}/",
+            {"revision": closed.revision, "lines": []},
+            format="json",
+        )
         self.assertEqual(blocked.status_code, 400)
-        no_reason = self.client.post(f"/api/v1/bulletins/{bulletin.id}/reopen/", {"revision": closed.revision}, format="json")
+        no_reason = self.client.post(
+            f"/api/v1/bulletins/{bulletin.id}/reopen/", {"revision": closed.revision}, format="json"
+        )
         self.assertEqual(no_reason.status_code, 400)
-        reopened = self.client.post(f"/api/v1/bulletins/{bulletin.id}/reopen/", {"revision": closed.revision, "reason": "Correção sintética documentada"}, format="json")
+        reopened = self.client.post(
+            f"/api/v1/bulletins/{bulletin.id}/reopen/",
+            {"revision": closed.revision, "reason": "Correção sintética documentada"},
+            format="json",
+        )
         self.assertEqual(reopened.status_code, 200)
         self.assertEqual(reopened.data["status"], "DRAFT")
         self.assertEqual(BulletinRevision.objects.filter(bulletin=bulletin).count(), 2)
-        self.assertEqual(BulletinRevision.objects.filter(bulletin=bulletin).latest("id").snapshot["calculation"], snapshot["calculation"])
+        self.assertEqual(
+            BulletinRevision.objects.filter(bulletin=bulletin).latest("id").snapshot["calculation"],
+            snapshot["calculation"],
+        )
 
     def test_fraction_rateio_two_half_days_allowed_two_full_days_rejected(self):
         for fraction in ["0.5", "1"]:
@@ -208,25 +302,42 @@ class BulletinPersistenceTests(TestCase):
         self.assertEqual(self.client.get(f"/api/v1/bulletins/{bulletin.id}/").status_code, 403)
         self.client.force_authenticate(self.manager)
         self.assertEqual(self.client.get(f"/api/v1/bulletins/{bulletin.id}/").status_code, 200)
-        self.assertEqual(self.client.post(f"/api/v1/bulletins/{bulletin.id}/close/", {"revision": 1}, format="json").status_code, 403)
+        self.assertEqual(
+            self.client.post(
+                f"/api/v1/bulletins/{bulletin.id}/close/", {"revision": 1}, format="json"
+            ).status_code,
+            403,
+        )
         self.client.force_authenticate(self.operator)
-        saved = self.client.patch(f"/api/v1/bulletins/{bulletin.id}/", {"revision": 1, "lines": official_lines()}, format="json")
+        saved = self.client.patch(
+            f"/api/v1/bulletins/{bulletin.id}/",
+            {"revision": 1, "lines": official_lines()},
+            format="json",
+        )
         self.assertEqual(saved.status_code, 200)
-        stale = self.client.patch(f"/api/v1/bulletins/{bulletin.id}/", {"revision": 1, "lines": []}, format="json")
+        stale = self.client.patch(
+            f"/api/v1/bulletins/{bulletin.id}/", {"revision": 1, "lines": []}, format="json"
+        )
         self.assertEqual(stale.status_code, 400)
-        self.assertEqual(len(self.client.get(f"/api/v1/bulletins/{bulletin.id}/").data["lines"]), 14)
+        self.assertEqual(
+            len(self.client.get(f"/api/v1/bulletins/{bulletin.id}/").data["lines"]), 14
+        )
 
     def test_synthetic_and_historical_provenance_not_accepted_as_operational(self):
         payload = official_payload(self.warehouse, self.workers)
         for origin in ["operacional_registrado", "historico_importado"]:
-            result = self.client.post("/api/v1/bulletins/", {**payload, "origin": origin}, format="json")
+            result = self.client.post(
+                "/api/v1/bulletins/", {**payload, "origin": origin}, format="json"
+            )
             self.assertEqual(result.status_code, 400)
 
     def test_malformed_revision_and_filters_return_validation_not_server_error(self):
         bulletin = stored_bulletin(self)
         self.client.raise_request_exception = False
         for revision in ["not-a-number", {}, [], 1.5]:
-            result = self.client.post(f"/api/v1/bulletins/{bulletin.id}/close/", {"revision": revision}, format="json")
+            result = self.client.post(
+                f"/api/v1/bulletins/{bulletin.id}/close/", {"revision": revision}, format="json"
+            )
             self.assertEqual(result.status_code, 400, f"revision={revision!r}")
         for query in [{"date_from": "invalid-date"}, {"warehouse": "invalid-uuid"}]:
             self.assertEqual(self.client.get("/api/v1/bulletins/", query).status_code, 400)
@@ -239,7 +350,10 @@ class BulletinClosingConcurrencyTests(TransactionTestCase):
 
     def test_same_person_cannot_get_two_full_diarias_under_simultaneous_closing(self):
         people = [{"worker": str(self.workers[0].id), "fraction": "1"}]
-        bulletins = [stored_bulletin(self, people=people, warehouse=warehouse) for warehouse in [self.warehouse, self.other_warehouse]]
+        bulletins = [
+            stored_bulletin(self, people=people, warehouse=warehouse)
+            for warehouse in [self.warehouse, self.other_warehouse]
+        ]
         barrier = threading.Barrier(2)
         results = []
         guard = threading.Lock()

@@ -2,13 +2,32 @@ from rest_framework import serializers
 
 from catalog.models import Supplier
 
-from .models import Appointment, CapacityHold, Invoice, InvoiceItem, NonReceipt, PACKAGING, PURCHASE, ReceivingEvent, TIMES, WarehouseVisit
+from .models import (
+    Appointment,
+    CapacityHold,
+    Invoice,
+    InvoiceItem,
+    NonReceipt,
+    PACKAGING,
+    PURCHASE,
+    ReceivingEvent,
+    TIMES,
+    WarehouseVisit,
+)
 
 
 class InvoiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = InvoiceItem
-        fields = ["id", "position", "supplier_code", "description", "unit", "quantity", "unit_value"]
+        fields = [
+            "id",
+            "position",
+            "supplier_code",
+            "description",
+            "unit",
+            "quantity",
+            "unit_value",
+        ]
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -22,16 +41,44 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Invoice
-        fields = ["id", "supplier", "supplier_name", "number", "access_key", "original_name", "media_type", "extracted", "extraction_status", "items", "attachment_id", "download_url", "origin", "created_at"]
+        fields = [
+            "id",
+            "supplier",
+            "supplier_name",
+            "number",
+            "access_key",
+            "original_name",
+            "media_type",
+            "extracted",
+            "extraction_status",
+            "items",
+            "attachment_id",
+            "download_url",
+            "origin",
+            "created_at",
+        ]
 
 
 class WarehouseVisitSerializer(serializers.ModelSerializer):
     warehouse_name = serializers.CharField(source="warehouse.name", read_only=True)
-    equipment_ids = serializers.PrimaryKeyRelatedField(source="equipment", many=True, read_only=True)
+    equipment_ids = serializers.PrimaryKeyRelatedField(
+        source="equipment", many=True, read_only=True
+    )
 
     class Meta:
         model = WarehouseVisit
-        fields = ["id", "appointment", "warehouse", "warehouse_name", "sequence", "started_at", "finished_at", "worker_count", "equipment_ids", "resources_confirmed"]
+        fields = [
+            "id",
+            "appointment",
+            "warehouse",
+            "warehouse_name",
+            "sequence",
+            "started_at",
+            "finished_at",
+            "worker_count",
+            "equipment_ids",
+            "resources_confirmed",
+        ]
 
 
 class ReceivingEventSerializer(serializers.ModelSerializer):
@@ -48,7 +95,19 @@ class CapacityHoldSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CapacityHold
-        fields = ["id", "slot", "date", "time", "source_appointment", "units", "exclusive", "active", "reason", "created_at", "assigned_to"]
+        fields = [
+            "id",
+            "slot",
+            "date",
+            "time",
+            "source_appointment",
+            "units",
+            "exclusive",
+            "active",
+            "reason",
+            "created_at",
+            "assigned_to",
+        ]
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -59,12 +118,50 @@ class AppointmentSerializer(serializers.ModelSerializer):
     attachment_id = serializers.UUIDField(source="invoice_id", read_only=True)
     visits = WarehouseVisitSerializer(many=True, read_only=True)
     events = ReceivingEventSerializer(many=True, read_only=True)
-    equipment_ids = serializers.PrimaryKeyRelatedField(source="equipment", many=True, read_only=True)
+    equipment_ids = serializers.PrimaryKeyRelatedField(
+        source="equipment", many=True, read_only=True
+    )
     capacity_holds = CapacityHoldSerializer(many=True, read_only=True)
 
     class Meta:
         model = Appointment
-        fields = ["id", "supplier", "supplier_name", "invoice", "invoice_number", "attachment_id", "slot", "date", "time", "packaging", "vehicle_plate", "notes", "origin", "purchase_status", "order_reference", "comparison_notes", "purchase_reviewed_at", "warehouse_status", "warehouse_reviewed_at", "operation_status", "arrived_at", "started_at", "finished_at", "worker_count", "equipment_ids", "resources_confirmed", "capacity_reserved", "nature_exception", "priority", "revision", "created_at", "updated_at", "visits", "events", "capacity_holds"]
+        fields = [
+            "id",
+            "supplier",
+            "supplier_name",
+            "invoice",
+            "invoice_number",
+            "attachment_id",
+            "slot",
+            "date",
+            "time",
+            "packaging",
+            "vehicle_plate",
+            "notes",
+            "origin",
+            "purchase_status",
+            "order_reference",
+            "comparison_notes",
+            "purchase_reviewed_at",
+            "warehouse_status",
+            "warehouse_reviewed_at",
+            "operation_status",
+            "arrived_at",
+            "started_at",
+            "finished_at",
+            "worker_count",
+            "equipment_ids",
+            "resources_confirmed",
+            "capacity_reserved",
+            "nature_exception",
+            "priority",
+            "revision",
+            "created_at",
+            "updated_at",
+            "visits",
+            "events",
+            "capacity_holds",
+        ]
 
 
 class AppointmentCreateSerializer(serializers.Serializer):
@@ -75,7 +172,9 @@ class AppointmentCreateSerializer(serializers.Serializer):
     packaging = serializers.ChoiceField(choices=PACKAGING)
     vehicle_plate = serializers.CharField(max_length=30, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
-    origin = serializers.ChoiceField(choices=["operacional_registrado", "demo_sintetico"], required=False)
+    origin = serializers.ChoiceField(
+        choices=["operacional_registrado", "demo_sintetico"], required=False
+    )
 
 
 class AppointmentUpdateSerializer(serializers.Serializer):
@@ -105,7 +204,9 @@ class PurchaseReviewSerializer(serializers.Serializer):
 
 
 class WarehouseReviewSerializer(serializers.Serializer):
-    warehouse_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False, max_length=4)
+    warehouse_ids = serializers.ListField(
+        child=serializers.UUIDField(), allow_empty=False, max_length=4
+    )
     notes = serializers.CharField(required=False, allow_blank=True)
     expected_revision = serializers.IntegerField(min_value=1, required=False)
 
@@ -133,7 +234,19 @@ class NonReceiptSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NonReceipt
-        fields = ["id", "appointment", "supplier", "supplier_name", "reason", "description", "vehicle_plate", "occurred_at", "origin", "created_at", "expected_revision"]
+        fields = [
+            "id",
+            "appointment",
+            "supplier",
+            "supplier_name",
+            "reason",
+            "description",
+            "vehicle_plate",
+            "occurred_at",
+            "origin",
+            "created_at",
+            "expected_revision",
+        ]
         read_only_fields = ["id", "created_at"]
         extra_kwargs = {"occurred_at": {"required": False}, "appointment": {"validators": []}}
         validators = []

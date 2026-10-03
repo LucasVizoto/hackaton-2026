@@ -15,8 +15,33 @@ from catalog.models import Supplier
 from core.permissions import require_role, user_role
 
 from . import services
-from .models import Appointment, CapacityHold, GlobalSlot, Holiday, Invoice, InvoiceItem, NonReceipt, TIMES, WarehouseVisit
-from .serializers import AppointmentCreateSerializer, AppointmentSerializer, AppointmentUpdateSerializer, AssignCapacitySerializer, CancelSerializer, CapacityHoldSerializer, EventTimeSerializer, InvoiceSerializer, NonReceiptSerializer, PurchaseReviewSerializer, RescheduleSerializer, ResourceSerializer, WarehouseReviewSerializer, WarehouseVisitSerializer
+from .models import (
+    Appointment,
+    CapacityHold,
+    GlobalSlot,
+    Holiday,
+    Invoice,
+    InvoiceItem,
+    NonReceipt,
+    TIMES,
+    WarehouseVisit,
+)
+from .serializers import (
+    AppointmentCreateSerializer,
+    AppointmentSerializer,
+    AppointmentUpdateSerializer,
+    AssignCapacitySerializer,
+    CancelSerializer,
+    CapacityHoldSerializer,
+    EventTimeSerializer,
+    InvoiceSerializer,
+    NonReceiptSerializer,
+    PurchaseReviewSerializer,
+    RescheduleSerializer,
+    ResourceSerializer,
+    WarehouseReviewSerializer,
+    WarehouseVisitSerializer,
+)
 from .xml_parser import parse_invoice_xml
 
 
@@ -33,7 +58,9 @@ def _payload(serializer_class, request):
 
 
 class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Invoice.objects.select_related("supplier").prefetch_related("items").order_by("-created_at")
+    queryset = (
+        Invoice.objects.select_related("supplier").prefetch_related("items").order_by("-created_at")
+    )
     serializer_class = InvoiceSerializer
 
     def get_queryset(self):
@@ -68,15 +95,36 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(InvoiceSerializer(existing).data)
         uploaded.seek(0)
         with transaction.atomic():
-            invoice = Invoice.objects.create(supplier=supplier, file=uploaded, original_name=Path(uploaded.name.replace("\\", "/")).name[:200], media_type="application/xml" if suffix == ".xml" else "application/pdf", sha256=digest, number=extracted.get("number", request.data.get("number", ""))[:50], access_key=extracted.get("access_key", request.data.get("access_key", ""))[:44], extracted=extracted, extraction_status="extracted_unverified" if suffix == ".xml" else "manual", created_by=request.user, origin="demo_sintetico" if supplier.origin == "demo_sintetico" else "operacional_registrado")
-            InvoiceItem.objects.bulk_create([InvoiceItem(invoice=invoice, **item) for item in extracted.get("items", [])])
+            invoice = Invoice.objects.create(
+                supplier=supplier,
+                file=uploaded,
+                original_name=Path(uploaded.name.replace("\\", "/")).name[:200],
+                media_type="application/xml" if suffix == ".xml" else "application/pdf",
+                sha256=digest,
+                number=extracted.get("number", request.data.get("number", ""))[:50],
+                access_key=extracted.get("access_key", request.data.get("access_key", ""))[:44],
+                extracted=extracted,
+                extraction_status="extracted_unverified" if suffix == ".xml" else "manual",
+                created_by=request.user,
+                origin="demo_sintetico"
+                if supplier.origin == "demo_sintetico"
+                else "operacional_registrado",
+            )
+            InvoiceItem.objects.bulk_create(
+                [InvoiceItem(invoice=invoice, **item) for item in extracted.get("items", [])]
+            )
         return Response(InvoiceSerializer(invoice).data, status=status.HTTP_201_CREATED)
 
 
 class AttachmentDownload(APIView):
     def get(self, request, pk):
         invoice = get_object_or_404(supplier_scoped(Invoice.objects.all(), request.user), id=pk)
-        response = FileResponse(invoice.file.open("rb"), as_attachment=True, filename=invoice.original_name, content_type=invoice.media_type)
+        response = FileResponse(
+            invoice.file.open("rb"),
+            as_attachment=True,
+            filename=invoice.original_name,
+            content_type=invoice.media_type,
+        )
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"
         return response
@@ -84,12 +132,25 @@ class AttachmentDownload(APIView):
 
 class AppointmentViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "head", "options"]
-    queryset = Appointment.objects.select_related("slot", "supplier", "invoice").prefetch_related("visits__warehouse", "visits__equipment", "events__actor", "equipment", "capacity_holds__slot")
+    queryset = Appointment.objects.select_related("slot", "supplier", "invoice").prefetch_related(
+        "visits__warehouse",
+        "visits__equipment",
+        "events__actor",
+        "equipment",
+        "capacity_holds__slot",
+    )
     serializer_class = AppointmentSerializer
 
     def get_queryset(self):
         queryset = supplier_scoped(self.queryset, self.request.user)
-        for param, field in (("date", "slot__date"), ("operation_status", "operation_status"), ("origin", "origin"), ("supplier", "supplier_id"), ("date_from", "slot__date__gte"), ("date_to", "slot__date__lte")):
+        for param, field in (
+            ("date", "slot__date"),
+            ("operation_status", "operation_status"),
+            ("origin", "origin"),
+            ("supplier", "supplier_id"),
+            ("date_from", "slot__date__gte"),
+            ("date_to", "slot__date__lte"),
+        ):
             if self.request.query_params.get(param):
                 value = self.request.query_params[param]
                 from rest_framework import serializers
@@ -112,16 +173,34 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             supplier = data.get("supplier")
             if not supplier:
                 raise ValidationError({"supplier": "Informe o fornecedor."})
-        appointment = services.create_appointment(request.user, supplier=supplier, invoice=data["invoice"], day=data["date"], time=data["time"], packaging=data["packaging"], vehicle_plate=data.get("vehicle_plate", ""), notes=data.get("notes", ""), origin=data.get("origin"))
+        appointment = services.create_appointment(
+            request.user,
+            supplier=supplier,
+            invoice=data["invoice"],
+            day=data["date"],
+            time=data["time"],
+            packaging=data["packaging"],
+            vehicle_plate=data.get("vehicle_plate", ""),
+            notes=data.get("notes", ""),
+            origin=data.get("origin"),
+        )
         return Response(self.get_serializer(appointment).data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
         require_role(request.user, "supplier", "purchasing", "warehouse")
         appointment = self.get_object()
         data = _payload(AppointmentUpdateSerializer, request)
-        forbidden = set(request.data) - {"invoice", "packaging", "vehicle_plate", "notes", "expected_revision"}
+        forbidden = set(request.data) - {
+            "invoice",
+            "packaging",
+            "vehicle_plate",
+            "notes",
+            "expected_revision",
+        }
         if forbidden:
-            raise ValidationError({"fields": "Campos de estado/data são modificados somente pelas ações do domínio."})
+            raise ValidationError(
+                {"fields": "Campos de estado/data são modificados somente pelas ações do domínio."}
+            )
         result = services.update_appointment(request.user, appointment.id, data)
         return Response(self.get_serializer(result).data)
 
@@ -161,7 +240,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
 
 class WarehouseVisitViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = WarehouseVisit.objects.select_related("warehouse", "appointment").prefetch_related("equipment")
+    queryset = WarehouseVisit.objects.select_related("warehouse", "appointment").prefetch_related(
+        "equipment"
+    )
     serializer_class = WarehouseVisitSerializer
 
     def get_queryset(self):
@@ -170,13 +251,17 @@ class WarehouseVisitViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["post"])
     def start(self, request, pk=None):
         visit = self.get_object()
-        result = services.visit_action(request.user, visit.id, _payload(EventTimeSerializer, request), "start")
+        result = services.visit_action(
+            request.user, visit.id, _payload(EventTimeSerializer, request), "start"
+        )
         return Response(self.get_serializer(result).data)
 
     @action(detail=True, methods=["post"])
     def finish(self, request, pk=None):
         visit = self.get_object()
-        result = services.visit_action(request.user, visit.id, _payload(ResourceSerializer, request), "finish")
+        result = services.visit_action(
+            request.user, visit.id, _payload(ResourceSerializer, request), "finish"
+        )
         return Response(self.get_serializer(result).data)
 
 
@@ -204,11 +289,43 @@ class AvailabilityView(APIView):
         result = []
         for time, _ in TIMES:
             slot = GlobalSlot.objects.filter(date=day, time=time).first()
-            state = services.occupancy(slot) if slot else {"reserved_units": 0, "held_units": 0, "occupied_units": 0, "has_batida": False}
+            state = (
+                services.occupancy(slot)
+                if slot
+                else {
+                    "reserved_units": 0,
+                    "held_units": 0,
+                    "occupied_units": 0,
+                    "has_batida": False,
+                }
+            )
             free = 0 if blocked or state["has_batida"] else max(0, 2 - state["occupied_units"])
-            holds = list(slot.holds.filter(active=True)) if slot and user_role(request.user) in {"warehouse", "admin"} else []
-            result.append({"slot_id": str(slot.id) if slot else None, "time": time, **state, "available_units": free, "can_batida": not blocked and state["occupied_units"] == 0, "can_paletizada": free > 0, "can_big_bag": free > 0, "holds": CapacityHoldSerializer(holds, many=True).data})
-        return Response({"date": str(day), "calendar_open": not blocked, "global_capacity": 2, "slots": result, "policy": "Capacidade global. Solicitação reserva; vaga cancelada exige atribuição nominal pelo armazém. Agendados têm prioridade; sem agendamento só entram após agendar e validar."})
+            holds = (
+                list(slot.holds.filter(active=True))
+                if slot and user_role(request.user) in {"warehouse", "admin"}
+                else []
+            )
+            result.append(
+                {
+                    "slot_id": str(slot.id) if slot else None,
+                    "time": time,
+                    **state,
+                    "available_units": free,
+                    "can_batida": not blocked and state["occupied_units"] == 0,
+                    "can_paletizada": free > 0,
+                    "can_big_bag": free > 0,
+                    "holds": CapacityHoldSerializer(holds, many=True).data,
+                }
+            )
+        return Response(
+            {
+                "date": str(day),
+                "calendar_open": not blocked,
+                "global_capacity": 2,
+                "slots": result,
+                "policy": "Capacidade global. Solicitação reserva; vaga cancelada exige atribuição nominal pelo armazém. Agendados têm prioridade; sem agendamento só entram após agendar e validar.",
+            }
+        )
 
 
 class AssignCapacityView(APIView):

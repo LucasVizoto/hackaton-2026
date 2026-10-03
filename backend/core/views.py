@@ -13,7 +13,12 @@ from .permissions import user_role
 
 def user_payload(user):
     profile = getattr(user, "profile", None)
-    return {"id": user.id, "username": user.username, "role": user_role(user), "supplier_id": str(profile.supplier_id) if profile and profile.supplier_id else None}
+    return {
+        "id": user.id,
+        "username": user.username,
+        "role": user_role(user),
+        "supplier_id": str(profile.supplier_id) if profile and profile.supplier_id else None,
+    }
 
 
 class LoginView(APIView):
@@ -26,7 +31,9 @@ class LoginView(APIView):
         return "Token"
 
     def post(self, request):
-        user = authenticate(request, username=request.data.get("username"), password=request.data.get("password"))
+        user = authenticate(
+            request, username=request.data.get("username"), password=request.data.get("password")
+        )
         if user is None or not user_role(user):
             raise AuthenticationFailed("Credenciais inválidas ou usuário sem perfil.")
         token, _ = Token.objects.get_or_create(user=user)

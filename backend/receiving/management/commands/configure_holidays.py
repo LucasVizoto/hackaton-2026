@@ -20,5 +20,11 @@ class Command(BaseCommand):
         description = options["description"].strip()
         if not description or len(description) > 200:
             raise CommandError("Descrição obrigatória, até 200 caracteres.")
-        holiday, created = Holiday.objects.update_or_create(date=day, defaults={"description": description})
-        self.stdout.write(self.style.SUCCESS(f"Feriado {holiday.date} {'adicionado' if created else 'atualizado'} no calendário local."))
+        holiday, created = Holiday.objects.update_or_create(
+            date=day, defaults={"description": description}
+        )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Feriado {holiday.date} {'adicionado' if created else 'atualizado'} no calendário local."
+            )
+        )

@@ -16,7 +16,10 @@ def require_role(user, *roles):
 
 class IsInternal(BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user.is_authenticated and user_role(request.user) in {"purchasing", "warehouse", "management", "admin"})
+        return bool(
+            request.user.is_authenticated
+            and user_role(request.user) in {"purchasing", "warehouse", "management", "admin"}
+        )
 
 
 class HasProfile(BasePermission):

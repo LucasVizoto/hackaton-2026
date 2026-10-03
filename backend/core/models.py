@@ -18,7 +18,17 @@ class UUIDModel(models.Model):
 
 
 class UserProfile(models.Model):
-    ROLES = [("supplier", "Fornecedor"), ("purchasing", "Compras"), ("warehouse", "Armazém"), ("management", "Gestão"), ("admin", "Administrador")]
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
-    supplier = models.ForeignKey("catalog.Supplier", null=True, blank=True, on_delete=models.PROTECT)
+    ROLES = [
+        ("supplier", "Fornecedor"),
+        ("purchasing", "Compras"),
+        ("warehouse", "Armazém"),
+        ("management", "Gestão"),
+        ("admin", "Administrador"),
+    ]
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    supplier = models.ForeignKey(
+        "catalog.Supplier", null=True, blank=True, on_delete=models.PROTECT
+    )
     role = models.CharField(max_length=20, choices=ROLES)

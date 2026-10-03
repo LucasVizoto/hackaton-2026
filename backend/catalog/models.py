@@ -15,7 +15,9 @@ class Supplier(UUIDModel):
     code = models.CharField(max_length=80, unique=True)
     name = models.CharField(max_length=200)
     document = models.CharField(max_length=30, blank=True)
-    origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado")
+    origin = models.CharField(
+        max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado"
+    )
 
     class Meta:
         ordering = ["name"]
@@ -24,7 +26,9 @@ class Supplier(UUIDModel):
 class Worker(UUIDModel):
     registration = models.CharField(max_length=40, unique=True)
     name = models.CharField(max_length=160)
-    origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado")
+    origin = models.CharField(
+        max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado"
+    )
 
     class Meta:
         ordering = ["registration"]
@@ -33,7 +37,9 @@ class Worker(UUIDModel):
 class Equipment(UUIDModel):
     code = models.CharField(max_length=40, unique=True)
     name = models.CharField(max_length=160)
-    warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, null=True, blank=True, related_name="equipment")
+    warehouse = models.ForeignKey(
+        Warehouse, on_delete=models.PROTECT, null=True, blank=True, related_name="equipment"
+    )
     mobile = models.BooleanField(default=False)
 
     class Meta:
@@ -53,4 +59,6 @@ class ProductDeposit(UUIDModel):
     depot = models.CharField(max_length=80)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["product", "depot"], name="unique_product_depot")]
+        constraints = [
+            models.UniqueConstraint(fields=["product", "depot"], name="unique_product_depot")
+        ]

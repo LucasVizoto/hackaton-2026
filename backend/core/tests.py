@@ -13,7 +13,10 @@ class AuthenticationTests(TestCase):
         self.client = APIClient()
 
     def test_login_me_logout_revokes_token(self):
-        login = self.client.post("/api/v1/auth/login/", {"username": self.user.username, "password": "isolated-test-only-password"})
+        login = self.client.post(
+            "/api/v1/auth/login/",
+            {"username": self.user.username, "password": "isolated-test-only-password"},
+        )
         self.assertEqual(login.status_code, 200)
         self.assertEqual(login.data["user"]["role"], "warehouse")
         self.client.credentials(HTTP_AUTHORIZATION="Token " + login.data["token"])
@@ -23,9 +26,20 @@ class AuthenticationTests(TestCase):
         self.assertEqual(self.client.get("/api/v1/auth/me/").status_code, 401)
 
     def test_bad_password_and_no_profile_do_not_authenticate(self):
-        self.assertEqual(self.client.post("/api/v1/auth/login/", {"username": self.user.username, "password": "wrong"}).status_code, 401)
+        self.assertEqual(
+            self.client.post(
+                "/api/v1/auth/login/", {"username": self.user.username, "password": "wrong"}
+            ).status_code,
+            401,
+        )
         self.user.profile.delete()
-        self.assertEqual(self.client.post("/api/v1/auth/login/", {"username": self.user.username, "password": "isolated-test-only-password"}).status_code, 401)
+        self.assertEqual(
+            self.client.post(
+                "/api/v1/auth/login/",
+                {"username": self.user.username, "password": "isolated-test-only-password"},
+            ).status_code,
+            401,
+        )
 
     def test_health_queries_real_postgresql(self):
         result = self.client.get("/api/v1/health/")
