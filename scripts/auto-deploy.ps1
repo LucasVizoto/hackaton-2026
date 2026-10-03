@@ -110,7 +110,7 @@ try {
         & (Join-Path $taskCheckout 'scripts/deploy.ps1') -SshHost $SshHost
     }
     $taskPhase = 'acceptance'
-    Invoke-Remote "/srv/cocapec/current/backend/.venv/bin/python /srv/cocapec/releases/$taskPrevious/scripts/verify_api.py --base-url https://cocapec.lucasvizoto.com/api/v1 --verify-persistence"
+    Invoke-Remote '/srv/cocapec/current/backend/.venv/bin/python /srv/cocapec/current/deploy/verify-persistence.py verify'
     & (Join-Path $taskCheckout 'scripts/verify-deploy.ps1') -SshHost $SshHost -Checkpoint
     if ($taskApk) {
         $taskPhase = 'apk_publish'

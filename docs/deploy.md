@@ -102,7 +102,7 @@ O controlador `scripts/auto-deploy.ps1` usa um clone separado em `.private/auto-
 .\scripts\auto-deploy.ps1 -Deploy -ReviewedCommit SHA_COMPLETO_ANALISADO
 ```
 
-Uma trava local e `flock` na VPS impedem deploys simultâneos. A publicação exige build, lint, testes, checks Django, migrations consistentes e aceite HTTPS. O banco recebe migrations do código novo; fontes, anexos e credenciais permanecem persistentes. Um checkpoint anterior confere a persistência depois da troca. O SHA só avança no estado de sucesso quando o aceite passa.
+Uma trava local e `flock` na VPS impedem deploys simultâneos. A publicação exige build, lint, testes, checks Django, migrations consistentes e aceite HTTPS. O banco recebe migrations do código novo; fontes, anexos e credenciais permanecem persistentes. Com a API parada para manutenção, um checkpoint de hashes das identidades dos registros confere sua preservação durante migrations, sem armazenar conteúdos de linhas. Isso evita confundir gravações legítimas feitas durante o build com perda de dados. Migrations que mudem tabelas ou chaves existentes exigem adaptação explícita e validada do mapeamento de identidades. O SHA só avança no estado de sucesso quando o aceite passa.
 
 Mudanças em `frontend` também geram APK com a chave de assinatura existente, API HTTPS e `versionCode` crescente. APKs anteriores permanecem disponíveis. Cada publicação usa URL por commit, com SHA-256. O build reutiliza `.private/android-release` do checkout principal, evitando trocar a assinatura em clones separados.
 

@@ -5,6 +5,7 @@ release=$(realpath "${1:?release directory required}")
 previous=""
 if [ -L /srv/cocapec/current ]; then previous=$(readlink -f /srv/cocapec/current); fi
 if [ -n "$previous" ]; then supervisorctl stop cocapec-api; fi
+if [ -n "$previous" ]; then "$release/backend/.venv/bin/python" "$release/deploy/verify-persistence.py" capture; fi
 baseline_ready=false
 if runuser -u postgres -- psql -X -t -A -d cocapec -c "SELECT to_regclass('public.imports_seedrun') IS NOT NULL;" | grep -qx t; then
     if runuser -u postgres -- psql -X -t -A -d cocapec -c "SELECT EXISTS(SELECT 1 FROM imports_seedrun);" | grep -qx t; then baseline_ready=true; fi
@@ -18,6 +19,7 @@ fi
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" createcachetable
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" seed_demo
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" collectstatic --noinput
+if [ -n "$previous" ]; then "$release/backend/.venv/bin/python" "$release/deploy/verify-persistence.py" verify; fi
 if [ -n "$previous" ]; then printf '%s\n' "$previous" >/srv/cocapec/shared/previous-release; fi
 ln -sfn "$release" /srv/cocapec/current.next
 mv -Tf /srv/cocapec/current.next /srv/cocapec/current
