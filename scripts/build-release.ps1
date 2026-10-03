@@ -15,7 +15,7 @@ $releaseId = (git rev-parse --short=12 HEAD).Trim()
 $sourceDir = Join-Path $taskPrivate "source-$releaseId"
 $sourceArchive = Join-Path $taskPrivate "source-$releaseId.tar"
 New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
-Invoke-Checked git archive --format=tar "--output=$sourceArchive" HEAD
+Invoke-Checked git -c core.autocrlf=false archive --format=tar "--output=$sourceArchive" HEAD
 Invoke-Checked tar -xf $sourceArchive -C $sourceDir
 if (!$JavaHome) {
     $jdkRoot = Join-Path $taskPrivate 'jdk21'

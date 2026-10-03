@@ -18,7 +18,7 @@ $releaseId = (git rev-parse --short=12 HEAD).Trim()
 $taskOutput = Join-Path $taskRoot '.private/deploy'
 New-Item -ItemType Directory -Path $taskOutput -Force | Out-Null
 $archivePath = Join-Path $taskOutput "cocapec-$releaseId.tar"
-Invoke-Checked git archive --format=tar "--output=$archivePath" HEAD
+Invoke-Checked git -c core.autocrlf=false archive --format=tar "--output=$archivePath" HEAD
 Invoke-Checked ssh -o BatchMode=yes -o StrictHostKeyChecking=yes $SshHost "install -d -m 755 /srv/cocapec/releases/$releaseId"
 Invoke-Checked scp $archivePath "${SshHost}:/srv/cocapec/releases/$releaseId/source.tar"
 Invoke-Checked ssh $SshHost "tar -xf /srv/cocapec/releases/$releaseId/source.tar -C /srv/cocapec/releases/$releaseId && chmod +x /srv/cocapec/releases/$releaseId/deploy/*.sh"

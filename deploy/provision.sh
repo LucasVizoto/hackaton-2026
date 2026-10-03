@@ -11,6 +11,7 @@ apt-get update
 apt-get install -y caddy
 id cocapec >/dev/null 2>&1 || useradd --system --home-dir /srv/cocapec --shell /usr/sbin/nologin cocapec
 install -d -m 755 /srv/cocapec /srv/cocapec/releases /opt/cocapec /opt/cocapec/downloads
+install -d -o cocapec -g cocapec -m 750 /srv/cocapec/.npm /srv/cocapec/.cache
 install -d -o cocapec -g cocapec -m 750 /srv/cocapec/shared /srv/cocapec/shared/media /srv/cocapec/shared/sources /srv/cocapec/shared/reports
 install -d -o root -g root -m 750 /var/log/cocapec
 install -d -o caddy -g caddy -m 750 /var/log/caddy /var/lib/caddy
