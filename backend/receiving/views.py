@@ -1,4 +1,6 @@
 import hashlib
+import re
+from datetime import timedelta
 from pathlib import Path
 
 from django.db import transaction
@@ -42,6 +44,7 @@ from .serializers import (
     WarehouseReviewSerializer,
     WarehouseVisitSerializer,
 )
+from .invoice_key import same_number, validate_invoice_identity
 from .xml_parser import parse_invoice_xml
 
 
@@ -77,10 +80,25 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
             raise ValidationError({"file": "Tipos aceitos: XML e PDF."})
         content = uploaded.read()
         extracted = {}
+        typed_number = str(request.data.get("number", "")).strip()
+        typed_key = re.sub(r"\D", "", str(request.data.get("access_key", "")))
         if suffix == ".xml":
             extracted = parse_invoice_xml(content)
+            number = extracted.get("number", "")
+            access_key = extracted.get("access_key", "")
+            if typed_number and number and not same_number(typed_number, number):
+                raise ValidationError(
+                    {"number": f"Número informado ({typed_number}) difere do XML ({number})."}
+                )
+            if typed_key and access_key and typed_key != access_key:
+                raise ValidationError({"access_key": "Chave informada difere da chave do XML."})
+            number = number or typed_number
+            access_key = access_key or typed_key
         elif not content.startswith(b"%PDF-"):
             raise ValidationError({"file": "Conteúdo não reconhecido como PDF."})
+        else:
+            number, access_key = typed_number, typed_key
+        validate_invoice_identity(number, access_key)
         if user_role(request.user) == "supplier":
             supplier = request.user.profile.supplier
             if not supplier:
@@ -101,8 +119,8 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
                 original_name=Path(uploaded.name.replace("\\", "/")).name[:200],
                 media_type="application/xml" if suffix == ".xml" else "application/pdf",
                 sha256=digest,
-                number=extracted.get("number", request.data.get("number", ""))[:50],
-                access_key=extracted.get("access_key", request.data.get("access_key", ""))[:44],
+                number=number[:50],
+                access_key=access_key[:44],
                 extracted=extracted,
                 extraction_status="extracted_unverified" if suffix == ".xml" else "manual",
                 created_by=request.user,
@@ -280,11 +298,36 @@ class NonReceiptViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(result).data, status=status.HTTP_201_CREATED)
 
 
+AVAILABILITY_POLICY = "Capacidade global. Solicitação reserva; vaga cancelada exige atribuição nominal pelo armazém. Agendados têm prioridade; sem agendamento só entram após agendar e validar."
+MAX_AVAILABILITY_DAYS = 62
+
+
 class AvailabilityView(APIView):
     def get(self, request):
         from rest_framework import serializers
 
-        day = serializers.DateField().run_validation(request.query_params.get("date"))
+        params = request.query_params
+        if params.get("date_from") or params.get("date_to"):
+            start = serializers.DateField().run_validation(params.get("date_from"))
+            end = serializers.DateField().run_validation(params.get("date_to"))
+            if end < start or (end - start).days >= MAX_AVAILABILITY_DAYS:
+                raise ValidationError(
+                    {"date_to": f"Informe um período de até {MAX_AVAILABILITY_DAYS} dias."}
+                )
+            days = [start + timedelta(days=n) for n in range((end - start).days + 1)]
+            return Response(
+                {
+                    "global_capacity": 2,
+                    "days": [self._day(request, day) for day in days],
+                    "policy": AVAILABILITY_POLICY,
+                }
+            )
+        day = serializers.DateField().run_validation(params.get("date"))
+        return Response(
+            {**self._day(request, day), "global_capacity": 2, "policy": AVAILABILITY_POLICY}
+        )
+
+    def _day(self, request, day):
         blocked = day.weekday() >= 5 or Holiday.objects.filter(date=day).exists()
         result = []
         for time, _ in TIMES:
@@ -317,15 +360,7 @@ class AvailabilityView(APIView):
                     "holds": CapacityHoldSerializer(holds, many=True).data,
                 }
             )
-        return Response(
-            {
-                "date": str(day),
-                "calendar_open": not blocked,
-                "global_capacity": 2,
-                "slots": result,
-                "policy": "Capacidade global. Solicitação reserva; vaga cancelada exige atribuição nominal pelo armazém. Agendados têm prioridade; sem agendamento só entram após agendar e validar.",
-            }
-        )
+        return {"date": str(day), "calendar_open": not blocked, "slots": result}
 
 
 class AssignCapacityView(APIView):

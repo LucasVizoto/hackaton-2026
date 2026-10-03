@@ -119,8 +119,31 @@ function packagingLabel(value: string) {
       batida: "Batida",
       paletizada: "Paletizada",
       big_bag: "Big bag",
+      maquina_implemento: "Máquina ou implemento",
     } as Record<string, string>)[value] ?? value
   );
+}
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+// Mirrors backend receiving/invoice_key.py: nNF sits at positions 26-34 of the 44-digit key.
+export function invoiceKeyError(number: string, accessKey: string): string {
+  const key = onlyDigits(accessKey);
+  if (!key) return "";
+  if (key.length !== 44) return `A chave de acesso deve ter 44 dígitos (informados: ${key.length}).`;
+  let total = 0;
+  for (let i = 42, weight = 2; i >= 0; i--, weight = weight === 9 ? 2 : weight + 1)
+    total += Number(key[i]) * weight;
+  const remainder = total % 11;
+  if ((remainder < 2 ? 0 : 11 - remainder) !== Number(key[43]))
+    return "Chave de acesso inválida: dígito verificador não confere.";
+  const typed = number.trim();
+  if (!typed) return "";
+  if (!/^\d+$/.test(typed)) return "O número da nota deve conter somente dígitos.";
+  const embedded = Number(key.slice(25, 34));
+  return Number(typed) === embedded
+    ? ""
+    : `Número da nota (${Number(typed)}) não confere com a chave, que indica a nota ${embedded}.`;
 }
 async function appointmentOptions(api: Api): Promise<Appointment[]> {
   const options: Appointment[] = [];
@@ -257,14 +280,7 @@ export class AppointmentList implements OnInit {
               </select></label
             >
           }
-          <label
-            >Origem do registro<select formControlName="origin">
-              <option value="operacional_registrado">
-                Operação registrada
-              </option>
-              <option value="demo_sintetico">Demonstração sintética</option>
-            </select></label
-          ><label class="wide"
+          <label class="wide"
             >Arquivo da nota<input
               type="file"
               accept=".pdf,.xml"
@@ -273,7 +289,26 @@ export class AppointmentList implements OnInit {
               >XML de até 5 MB ou PDF de até 10 MB. O anexo é privado e gravado
               pela API.</span
             ></label
-          ><label>Número da nota<input formControlName="number" /></label
+          ><label
+            >Número da nota<input formControlName="number" inputmode="numeric" [required]="isPdf()" /><span
+              class="field-help"
+              >{{ isPdf() ? "Obrigatório para PDF." : "No XML, lido do arquivo." }}</span
+            ></label
+          ><label class="wide"
+            >Chave de acesso<input
+              formControlName="access_key"
+              inputmode="numeric"
+              maxlength="54"
+              placeholder="44 dígitos do DANFE"
+              [required]="isPdf()"
+              [attr.aria-invalid]="!!keyError()"
+              aria-describedby="access-key-help"
+            /><span class="field-help" id="access-key-help" [class.field-error]="!!keyError()">{{
+              keyError() ||
+                (isPdf()
+                  ? "Obrigatória para PDF. O número da nota precisa constar na chave."
+                  : "No XML, lida do arquivo e conferida com o número da nota.")
+            }}</span></label
           ><label
             >Placa do veículo<input
               formControlName="vehicle_plate"
@@ -282,6 +317,7 @@ export class AppointmentList implements OnInit {
             >Acondicionamento<select formControlName="packaging">
               <option value="paletizada">Paletizada</option>
               <option value="big_bag">Big bag</option>
+              <option value="maquina_implemento">Máquina ou implemento</option>
               <option value="batida">Batida (horário exclusivo)</option>
             </select></label
           ><label class="wide"
@@ -354,7 +390,7 @@ export class AppointmentList implements OnInit {
         </p>
       </section>
       <div class="actions">
-        <ion-button type="submit" [disabled]="busy() || form.invalid || !file || calendarClosed()">
+        <ion-button type="submit" [disabled]="busy() || form.invalid || !file || !!keyError() || calendarClosed()">
           @if (busy()) {
             <ion-spinner name="dots" />
           }
@@ -389,8 +425,8 @@ export class AppointmentCreate implements OnInit {
   calendarClosed = signal(false);
   form = this.fb.nonNullable.group({
     supplier: [""],
-    origin: ["operacional_registrado"],
     number: [""],
+    access_key: [""],
     vehicle_plate: ["", Validators.required],
     packaging: ["paletizada", Validators.required],
     notes: [""],
@@ -414,6 +450,13 @@ export class AppointmentCreate implements OnInit {
   fileChange(event: Event) {
     this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
     this.invoiceId = "";
+  }
+  isPdf() {
+    return !!this.file?.name.toLowerCase().endsWith(".pdf");
+  }
+  keyError() {
+    const { number, access_key } = this.form.getRawValue();
+    return invoiceKeyError(number, access_key);
   }
   async availability() {
     this.availabilityBusy.set(true);
@@ -457,14 +500,10 @@ export class AppointmentCreate implements OnInit {
         const fd = new FormData();
         fd.append("file", this.file);
         if (v.supplier) fd.append("supplier", v.supplier);
-        if (v.number) fd.append("number", v.number);
-        fd.append("origin", v.origin);
-        const invoice = await this.api.post<{ id: string; origin: string }>(
-          "invoices/upload/",
-          fd,
-        );
+        if (v.number) fd.append("number", v.number.trim());
+        if (v.access_key) fd.append("access_key", onlyDigits(v.access_key));
+        const invoice = await this.api.post<{ id: string }>("invoices/upload/", fd);
         this.invoiceId = invoice.id;
-        this.form.controls.origin.setValue(invoice.origin);
       }
       const a = await this.api.post<Appointment>("appointments/", {
         supplier: v.supplier || undefined,
@@ -474,7 +513,6 @@ export class AppointmentCreate implements OnInit {
         packaging: v.packaging,
         vehicle_plate: v.vehicle_plate,
         notes: v.notes,
-        origin: this.form.controls.origin.value,
       });
       await this.router.navigate(["/agenda", a.id]);
     } catch (e) {
@@ -575,56 +613,63 @@ export class AppointmentCreate implements OnInit {
           </div>
         }
         <h3 class="section">Ações do recebimento</h3>
+        @if (api.can("warehouse") && warehousePending(item).length) {
+          <div class="notice section" role="status">
+            <strong>Antes da entrada:</strong> {{ warehousePending(item).join(" · ") }}
+          </div>
+        }
         <div class="actions section">
-          <ion-button fill="outline" (click)="download()" [disabled]="busy()"
-            >Salvar anexo privado</ion-button
-          >
-          @if (api.can("purchasing")) {
+          @if (api.can("warehouse")) {
+            @if (item.operation_status === "waiting") {
+              <ion-button (click)="open('arrive')" [disabled]="busy()">Registrar chegada</ion-button>
+            }
+            @if (canReviewDestinations(item)) {
+              <ion-button
+                [fill]="item.warehouse_status === 'approved' ? 'outline' : 'solid'"
+                (click)="open('warehouse-review')"
+                [disabled]="busy()"
+                >{{ item.warehouse_status === "approved" ? "Alterar destinos" : "Confirmar destinos" }}</ion-button
+              >
+            }
+            @if (item.operation_status === "arrived" && !warehousePending(item).length) {
+              <ion-button (click)="open('start')" [disabled]="busy()">Registrar entrada</ion-button>
+            }
+            @if (item.operation_status === "in_progress" && visitsDone(item)) {
+              <ion-button (click)="open('finish')" [disabled]="busy()">Concluir recebimento</ion-button>
+            }
+            @if (item.operation_status === "cancelled" && activeHolds().length) {
+              <ion-button (click)="open('assign-cancelled')" [disabled]="busy()"
+                >Atribuir vaga cancelada</ion-button
+              >
+            }
+          }
+          @if (api.can("purchasing") && editable(item)) {
             <ion-button (click)="open('purchase-review')" [disabled]="busy()"
               >Conferir nota / pedido</ion-button
             >
           }
-          @if (api.can("warehouse")) {
-            <ion-button (click)="open('warehouse-review')" [disabled]="busy()"
-              >Confirmar destinos</ion-button
-            ><ion-button
-              fill="outline"
-              (click)="open('arrive')"
-              [disabled]="busy() || !!item.arrived_at"
-              >Registrar chegada</ion-button
-            ><ion-button
-              (click)="open('start')"
-              [disabled]="busy() || !!item.started_at"
-              >Registrar entrada</ion-button
-            ><ion-button
-              (click)="open('finish')"
-              [disabled]="busy() || !item.started_at || !!item.finished_at"
-              >Concluir recebimento</ion-button
-            ><ion-button
-              fill="outline"
-              (click)="open('reschedule')"
-              [disabled]="busy() || !!item.started_at"
+          <ion-button fill="outline" (click)="download()" [disabled]="busy()">Baixar nota</ion-button>
+        </div>
+        @if (item.operation_status === "in_progress" && !visitsDone(item) && api.can("warehouse")) {
+          <p class="field-help">Conclua as etapas em “Destinos e etapas” para liberar a conclusão do recebimento.</p>
+        }
+        @if (api.can("warehouse") && editable(item)) {
+          <h3 class="section">Exceções</h3>
+          <div class="actions section">
+            <ion-button fill="outline" (click)="open('reschedule')" [disabled]="busy()"
               >Reagendar por natureza</ion-button
-            ><ion-button
-              fill="outline"
-              color="danger"
-              (click)="open('cancel')"
-              [disabled]="busy() || !!item.started_at"
-              >Cancelar agendamento</ion-button
             ><ion-button
               fill="outline"
               [routerLink]="['/nao-recebimentos/novo']"
               [queryParams]="{ appointment: item.id }"
               >Registrar não recebimento</ion-button
+            ><ion-button fill="outline" color="danger" (click)="open('cancel')" [disabled]="busy()"
+              >Cancelar agendamento</ion-button
             >
-          }
-          @if (
-            api.user()?.role === "supplier" &&
-            !item.started_at &&
-            !["cancelled", "completed", "not_received"].includes(
-              item.operation_status
-            )
-          ) {
+          </div>
+        }
+        @if (api.user()?.role === "supplier" && editable(item)) {
+          <div class="actions section">
             <ion-button
               fill="outline"
               color="danger"
@@ -632,13 +677,8 @@ export class AppointmentCreate implements OnInit {
               [disabled]="busy()"
               >Cancelar agendamento</ion-button
             >
-          }
-          @if (item.operation_status === "cancelled" && api.can("warehouse")) {
-            <ion-button (click)="open('assign-cancelled')"
-              >Atribuir vaga cancelada</ion-button
-            >
-          }
-        </div>
+          </div>
+        }
       </section>
       @if (invoiceData(); as invoice) {
         <section class="panel">
@@ -1083,6 +1123,26 @@ export class AppointmentDetail implements OnInit {
   }
   activeHolds() {
     return this.a()?.capacity_holds?.filter((h) => h.active) ?? [];
+  }
+  // Mirrors the backend state machine (receiving/services.py) so only valid actions are shown.
+  editable(item: Appointment) {
+    return ["waiting", "arrived"].includes(item.operation_status);
+  }
+  canReviewDestinations(item: Appointment) {
+    return this.editable(item) && item.purchase_status === "approved";
+  }
+  warehousePending(item: Appointment) {
+    if (!this.editable(item)) return [];
+    const pending: string[] = [];
+    if (item.purchase_status === "pending") pending.push("aguardando conferência de Compras");
+    if (item.purchase_status === "rejected") pending.push("nota rejeitada por Compras");
+    if (item.purchase_status === "approved" && item.warehouse_status !== "approved")
+      pending.push("confirme os destinos");
+    if (item.capacity_reserved === false) pending.push("sem reserva ativa de horário");
+    return pending;
+  }
+  visitsDone(item: Appointment) {
+    return item.visits.length <= 1 || item.visits.every((v) => !!v.finished_at);
   }
   appointmentLabel(a: Appointment) {
     return `${a.vehicle_plate || "Veículo sem placa"} · ${a.supplier_name} · ${a.date} ${a.time}`;

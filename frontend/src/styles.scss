@@ -220,6 +220,7 @@ input[type="file"] { padding: 8px; }
 input[type="file"]::file-selector-button { padding: 6px 10px; border: 0; border-radius: 8px; background: var(--surface-subtle); color: var(--text); font: inherit; margin-right: 10px; cursor: pointer; }
 textarea { min-height: 100px; resize: vertical; }
 .field-help { font-weight: 400; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.field-help.field-error { color: var(--danger); font-weight: 600; }
 .panel { background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-card); margin-bottom: 24px; }
 .panel h2 { margin-bottom: 16px; }
 .panel .table-wrap { border-radius: 10px; box-shadow: none; }

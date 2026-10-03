@@ -6,7 +6,12 @@ from django.db import models
 
 from core.models import ORIGIN_CHOICES, UUIDModel
 
-PACKAGING = [("batida", "Batida"), ("paletizada", "Paletizada"), ("big_bag", "Big bag")]
+PACKAGING = [
+    ("batida", "Batida"),
+    ("paletizada", "Paletizada"),
+    ("big_bag", "Big bag"),
+    ("maquina_implemento", "Máquina ou implemento"),
+]
 OPERATION = [
     ("waiting", "Aguardando"),
     ("arrived", "Chegou"),

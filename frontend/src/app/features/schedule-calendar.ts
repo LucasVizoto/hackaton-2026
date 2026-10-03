@@ -73,7 +73,14 @@ function isWeekend(value: string) {
 }
 function packaging(value: string) {
   return (
-    ({ batida: "Batida", paletizada: "Paletizada", big_bag: "Big bag" } as Record<string, string>)[value] ??
+    (
+      {
+        batida: "Batida",
+        paletizada: "Paletizada",
+        big_bag: "Big bag",
+        maquina_implemento: "Máquina ou implemento",
+      } as Record<string, string>
+    )[value] ??
     value
   );
 }
@@ -223,6 +230,8 @@ function packaging(value: string) {
                           <span class="cal-closed">Sem recebimento</span>
                         } @else if (open(column.iso || anchorIso(), slot.time)) {
                           <span class="cal-open">Disponível</span>
+                        } @else if (held(column.iso || anchorIso(), slot.time)) {
+                          <span class="cal-closed">Vaga retida pelo armazém</span>
                         } @else {
                           <span class="cal-closed">Sem vaga</span>
                         }
@@ -330,6 +339,9 @@ export class ScheduleCalendar implements OnInit {
   private api = inject(Api);
   printBusy = signal(false);
   printError = signal("");
+  // Server-side occupancy (includes holds and other suppliers' loads), keyed by "date|time".
+  private capacity = signal(new Map<string, SlotCapacity>());
+  private capacityRequest = 0;
   readonly views = [
     { id: "day" as const, label: "Visão diária" },
     { id: "week" as const, label: "Visão semanal" },
@@ -424,9 +436,10 @@ export class ScheduleCalendar implements OnInit {
   readonly utilization = computed(() => {
     const dates = this.capacityDates();
     const capacity = dates.length * SLOTS.length * 2;
-    const used = this.appointments()
-      .filter((item) => dates.includes(this.itemDate(item)) && this.occupies(item))
-      .reduce((sum, item) => sum + (item.packaging === "batida" ? 2 : 1), 0);
+    const used = dates.reduce(
+      (sum, day) => sum + SLOTS.reduce((daySum, slot) => daySum + Math.min(2, this.used(day, slot.time)), 0),
+      0,
+    );
     return {
       scope: this.view() === "day" ? "Dia" : this.view() === "week" ? "Semana" : "Mês",
       used,
@@ -543,7 +556,12 @@ export class ScheduleCalendar implements OnInit {
     return this.visible().filter((item) => this.itemDate(item) === day && this.itemTime(item) === time && this.inColumn(item, column.id));
   }
   open(day: string, time: string) {
-    return !isWeekend(day) && this.used(day, time) < 2;
+    if (isWeekend(day)) return false;
+    const server = this.capacity().get(`${day}|${time}`);
+    return server ? server.calendar_open && server.available_units > 0 : this.used(day, time) < 2;
+  }
+  held(day: string, time: string) {
+    return (this.capacity().get(`${day}|${time}`)?.held_units ?? 0) > 0;
   }
   weekend = isWeekend;
   tone(item: ScheduleItem) {
@@ -562,6 +580,24 @@ export class ScheduleCalendar implements OnInit {
   private publish() {
     const [from, to] = this.bounds();
     this.rangeChange.emit({ from, to, origin: this.origin() });
+    void this.loadCapacity(from, to);
+  }
+  private async loadCapacity(from: string, to: string) {
+    const request = ++this.capacityRequest;
+    try {
+      const result = await this.api.get<AvailabilityRange>(
+        `slots/availability/?${new URLSearchParams({ date_from: from, date_to: to })}`,
+      );
+      if (request !== this.capacityRequest) return;
+      const map = new Map<string, SlotCapacity>();
+      for (const day of result.days)
+        for (const slot of day.slots)
+          map.set(`${day.date}|${slot.time}`, { ...slot, calendar_open: day.calendar_open });
+      this.capacity.set(map);
+    } catch {
+      // Without server occupancy the calendar falls back to the appointments it can see.
+      if (request === this.capacityRequest) this.capacity.set(new Map());
+    }
   }
   private bounds(): [string, string] {
     const anchor = this.anchor();
@@ -616,6 +652,8 @@ export class ScheduleCalendar implements OnInit {
     return !["cancelled", "not_received"].includes(item.operation_status);
   }
   private used(day: string, time: string) {
+    const server = this.capacity().get(`${day}|${time}`);
+    if (server) return server.occupied_units;
     return this.appointments()
       .filter((item) => this.occupies(item) && this.itemDate(item) === day && this.itemTime(item) === time)
       .reduce((sum, item) => sum + (item.packaging === "batida" ? 2 : 1), 0);
@@ -629,6 +667,16 @@ export class ScheduleCalendar implements OnInit {
 }
 function capitalize(value: string) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+interface SlotCapacity {
+  time: string;
+  occupied_units: number;
+  held_units: number;
+  available_units: number;
+  calendar_open: boolean;
+}
+interface AvailabilityRange {
+  days: { date: string; calendar_open: boolean; slots: Omit<SlotCapacity, "calendar_open">[] }[];
 }
 interface InvoicePayload {
   number: string;

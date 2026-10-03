@@ -16,7 +16,7 @@ def parse_invoice_xml(content):
         root = ElementTree.fromstring(
             content, forbid_dtd=True, forbid_entities=True, forbid_external=True
         )
-    except ElementTree.ParseError, DefusedXmlException, ValueError:
+    except (ElementTree.ParseError, DefusedXmlException, ValueError):
         raise ValidationError("XML inválido. DTD e entidades não são permitidos.") from None
     nodes = list(root.iter())
     if len(nodes) > 30000:

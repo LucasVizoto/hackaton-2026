@@ -571,8 +571,7 @@ def reschedule(user, appointment_id, data):
     )
     target_occupied_before = occupancy(target, exclude_appointment=appointment.id)["occupied_units"]
     source = appointment.slot
-    # Moving the reservation does not leave a second counted reservation at its source.
-    _hold_capacity(appointment, user, "Vaga de origem de reagendamento: " + reason)
+    # The reservation moves: the source slot is released, not held, so it is bookable again.
     appointment.slot = target
     appointment.capacity_reserved = True
     appointment.nature_exception = nature
@@ -621,8 +620,7 @@ def assign_cancelled_capacity(user, *, hold_id, appointment_id, expected_revisio
     validate_capacity(
         hold.slot, appointment.packaging, exclude_appointment=appointment.id, exclude_hold=hold.id
     )
-    if appointment.slot_id != hold.slot_id:
-        _hold_capacity(appointment, user, "Vaga de origem da atribuição administrativa")
+    # The appointment moves into the held slot; its previous slot is released, not held.
     appointment.slot_id = hold.slot_id
     appointment.capacity_reserved = True
     appointment.nature_exception = False
