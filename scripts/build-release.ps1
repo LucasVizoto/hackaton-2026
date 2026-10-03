@@ -52,6 +52,12 @@ try {
     if (!(Test-Path -LiteralPath $keystore)) {
         Invoke-Checked keytool -genkeypair -keystore $keystore '-storepass:env' COCAPEC_STORE_PASSWORD '-keypass:env' COCAPEC_KEY_PASSWORD -alias cocapec -keyalg RSA -keysize 3072 -validity 10000 -dname 'CN=Cocapec Hackathon, O=Hackathon 2026, C=BR' -noprompt
     }
+    if ($IsWindows) {
+        $taskIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        foreach ($taskPrivateFile in @($keystore, $signingFile)) {
+            Invoke-Checked icacls $taskPrivateFile /inheritance:r /grant:r "${taskIdentity}:(F)" '*S-1-5-18:(F)' '*S-1-5-32-544:(F)'
+        }
+    }
     Push-Location (Join-Path $sourceDir 'frontend')
     try {
         Invoke-Checked npm.cmd ci

@@ -95,5 +95,7 @@ systemctl reload ssh
     /usr/lib/postgresql/17/bin/postgres --version
     supervisord --version
     sha256sum /usr/bin/caddy /usr/local/bin/uv /opt/cocapec/node/bin/node
+    sha256sum "$(cat /srv/cocapec/shared/python-path)" /usr/lib/postgresql/17/bin/postgres /usr/bin/supervisord
+    sha256sum "$script_dir/../backend/requirements.production.lock" "$script_dir/../frontend/package-lock.json"
 } >/srv/cocapec/shared/reports/toolchain.txt
 printf 'Provisioning complete; database supervised and secrets stored privately.\n'

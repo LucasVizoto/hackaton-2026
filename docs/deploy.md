@@ -45,6 +45,7 @@ Os logs do Supervisor ficam em `/var/log/cocapec`, com 20 MB e cinco arquivos an
 
 ```powershell
 .\scripts\build-release.ps1
+.\scripts\publish-apk.ps1 -ApkPath '.private/android-release/cocapec-COMMIT12.apk'
 ```
 
 O script prepara JDK 21 com checksum e um checkout isolado do commit, usa SDK 36, gera assinatura privada fora do Git, configura HTTPS somente no build ignorado e produz APK e SHA-256 em `.private/android-release`. Conserve a chave e seu arquivo de senhas para atualizar versões futuras. O APK release não atualiza instalações com assinatura debug; use uma instalação de QA separada. A API remota dispensa `adb reverse`.
@@ -54,3 +55,23 @@ O script prepara JDK 21 com checksum e um checkout isolado do commit, usa SDK 36
 Confira health externo, login e isolamento dos cinco perfis, downloads privados, seed idempotente e o boletim histórico de 17/11/2025. Execute `scripts/verify_api.py --base-url https://cocapec.lucasvizoto.com/api/v1 --checkpoint` no servidor e repita com `--verify-persistence` após reiniciar serviços e após reboot. Não publique o checkpoint nem os relatórios privados.
 
 Valide o APK assinado no emulador: login remoto, chegada refletida na web, download pelo seletor Android, erro quando a API estiver indisponível e persistência após reinício. Play Store e aparelhos físicos não fazem parte deste aceite.
+
+O teste de recuperação provoca a saída de cada processo, um por vez, e exige um novo PID em estado `RUNNING`. Execute durante manutenção, depois de registrar o checkpoint. Ele interrompe brevemente a API e o banco.
+
+```powershell
+ssh contabo 'bash /srv/cocapec/current/deploy/verify-recovery.sh'
+ssh contabo '/srv/cocapec/current/backend/.venv/bin/python /srv/cocapec/current/scripts/verify_api.py --base-url https://cocapec.lucasvizoto.com/api/v1 --verify-persistence'
+```
+
+Após reboot, confira `supervisorctl status`, health público, checkpoint e anexos. O socket de controle do Supervisor é restrito ao root. Use conexões SSH novas com `BatchMode=yes` e `StrictHostKeyChecking=yes` para verificar o acesso por chave.
+
+## Artefatos desta entrega
+
+- Web: https://cocapec.lucasvizoto.com/login.
+- APK: https://cocapec.lucasvizoto.com/downloads/cocapec-3c0af419027d.apk.
+- SHA-256: `d8128e1b2b303c13a2b0d1c0921d01375f0ca9559fd3f89e915ca41bbd56dedf`.
+- Credenciais locais: `.private/deploy/credentials.json`; no servidor: `/srv/cocapec/shared/credentials.json`.
+- Chave de assinatura: `.private/android-release/cocapec-release.jks`; senhas: `.private/android-release/signing.json`. Esses arquivos privados ficam fora do Git e são necessários para atualizar o APK.
+- Relatórios privados e inventário das ferramentas: `/srv/cocapec/shared/reports`.
+
+O APK registra o commit `3c0af419027d`. As mudanças posteriores nesta entrega corrigem bootstrap, publicação e verificadores do backend, sem alterar o código Angular ou Android incluído nesse APK. O pacote histórico contém 938 arquivos e 460 anexos de notas, conferidos por SHA-256. A reexecução do baseline preserva os registros existentes.
