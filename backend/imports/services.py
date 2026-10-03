@@ -15,7 +15,7 @@ from catalog.models import Product, ProductDeposit, Supplier, Worker
 
 from .models import HistoricalLaborDay, HistoricalMovement, ImportBatch, SourceRow
 
-IMPORTER_VERSION = "1.0"
+IMPORTER_VERSION = "1.1"
 SOURCE_FILES = {
     "products": "02_cadastros/produtos.xlsx",
     "suppliers": "02_cadastros/fornecedores.xlsx",
@@ -101,18 +101,25 @@ def read_products(path):
     headers = ["Nº do item", "Descrição do item", "Unidade de medida", "Peso", "Nome do grupo", "Grupo", "Descrição", "depósito"]
     for sheet, row, heads, values in workbook_rows(path, headers):
         code, depot = text(values[0]), text(values[7])
-        if not code:
-            issues["missing_product_code"] += 1
         problems = []
+        if not code:
+            problems.append("missing_product_code")
+        if not depot:
+            problems.append("missing_depot")
         attrs = {"code": code, "name": text(values[1]), "unit": text(values[2]), "weight": decimal_value(values[3], problems, "weight"), "group": text(values[5])}
         if code in attributes and attributes[code] != attrs:
-            issues["conflicting_product_attributes"] += 1
+            problems.append("conflicting_product_attributes")
         attributes.setdefault(code, attrs)
         issues.update(problems)
-        records.append({"sheet": sheet, "row": row, "key": f"{code}|{depot}", "original": original_values(heads, values), "attrs": attrs, "depot": depot})
+        records.append({"sheet": sheet, "row": row, "key": f"{code}|{depot}", "original": original_values(heads, values), "attrs": attrs, "depot": depot, "problems": problems})
     summary = {"unique_products": len({r["attrs"]["code"] for r in records if r["attrs"]["code"]}), "unique_product_depot_pairs": len({r["key"] for r in records})}
     if summary["unique_product_depot_pairs"] != len(records):
         issues["duplicate_product_depot_rows"] = len(records) - summary["unique_product_depot_pairs"]
+        seen = set()
+        for record in records:
+            if record["key"] in seen:
+                record["problems"].append("duplicate_product_depot_row_preserved")
+            seen.add(record["key"])
     return records, summary, dict(issues)
 
 
@@ -120,14 +127,24 @@ def read_suppliers(path):
     records, issues, documents = [], Counter(), defaultdict(set)
     for sheet, row, heads, values in workbook_rows(path, ["COD", "FORNECEDOR", "CNPJ"]):
         code, document = text(values[0]), text(values[2])
+        problems = []
         if not code:
-            issues["missing_supplier_code"] += 1
+            problems.append("missing_supplier_code")
         if not document:
-            issues["missing_supplier_document"] += 1
+            problems.append("missing_supplier_document")
+        issues.update(problems)
         if document:
             documents[document].add(code)
-        records.append({"sheet": sheet, "row": row, "key": code, "original": original_values(heads, values), "attrs": {"code": code, "name": text(values[1]), "document": document, "origin": "historico_importado"}})
+        records.append({"sheet": sheet, "row": row, "key": code, "original": original_values(heads, values), "attrs": {"code": code, "name": text(values[1]), "document": document, "origin": "historico_importado"}, "problems": problems})
     issues["documents_shared_by_codes"] = sum(len(codes) > 1 for codes in documents.values())
+    seen = set()
+    for record in records:
+        if record["key"] in seen:
+            record["problems"].append("duplicate_supplier_code_preserved")
+            issues["duplicate_supplier_code_preserved"] += 1
+        seen.add(record["key"])
+        if len(documents[record["attrs"]["document"]]) > 1:
+            record["problems"].append("supplier_document_shared_by_codes")
     return records, {"unique_suppliers": len({r["key"] for r in records})}, dict(issues)
 
 
@@ -141,10 +158,12 @@ def read_workers(path):
             if len(values) < 15 or not isinstance(values[13], (int, float)) or not values[14]:
                 continue
             key = text(values[13])
+            problems = []
             if key in seen:
                 issues["duplicate_worker_registration"] += 1
+                problems.append("duplicate_worker_registration")
             seen.add(key)
-            records.append({"sheet": sheet.title, "row": row, "key": key, "original": {"registration": json_value(values[13]), "name": json_value(values[14])}, "attrs": {"registration": key, "name": text(values[14]), "origin": "historico_importado"}})
+            records.append({"sheet": sheet.title, "row": row, "key": key, "original": {"registration": json_value(values[13]), "name": json_value(values[14])}, "attrs": {"registration": key, "name": text(values[14]), "origin": "historico_importado"}, "problems": problems})
     finally:
         book.close()
     if not records:
@@ -218,6 +237,16 @@ def read_labor_days(path):
 READERS = {"products": read_products, "suppliers": read_suppliers, "workers": read_workers, "movements": read_movements, "labor_days": read_labor_days}
 
 
+def record_outcomes(records):
+    pending = sum(bool(record.get("problems")) for record in records)
+    return {
+        "accepted_rows": len(records) - pending,
+        "pending_rows": pending,
+        "rejected_rows": 0,
+        "preserved_rows": len(records),
+    }
+
+
 def upsert_catalog(kind, records):
     model, key_name = {"products": (Product, "code"), "suppliers": (Supplier, "code"), "workers": (Worker, "registration")}[kind]
     first = {}
@@ -238,7 +267,7 @@ def import_source(kind, path, *, dry_run=False):
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     records, summary, issues = READERS[kind](path)
     if dry_run:
-        return {"kind": kind, "status": "dry_run", "row_count": len(records), "summary": summary, "issues": issues}
+        return {"kind": kind, "status": "dry_run", "row_count": len(records), "summary": {**summary, **record_outcomes(records), "catalog_links_checked": False}, "issues": issues}
     with transaction.atomic():
         # Every process importing a kind takes the same PostgreSQL transaction lock.
         lock = int.from_bytes(hashlib.sha256(kind.encode()).digest()[:4], "big", signed=True)
@@ -256,7 +285,7 @@ def import_source(kind, path, *, dry_run=False):
             return {"kind": kind, "status": "reactivated", "row_count": existing.row_count, "summary": existing.summary, "issues": existing.issues}
         batch = ImportBatch.objects.create(kind=kind, file_hash=digest, importer_version=IMPORTER_VERSION, source_name=path.name, row_count=len(records), summary=summary, issues=issues)
         if kind in {"products", "suppliers", "workers"}:
-            SourceRow.objects.bulk_create([SourceRow(batch=batch, source_sheet=r["sheet"], source_row=r["row"], natural_key=r["key"], original=r["original"]) for r in records], batch_size=1000)
+            SourceRow.objects.bulk_create([SourceRow(batch=batch, source_sheet=r["sheet"], source_row=r["row"], natural_key=r["key"], original=r["original"], problems=r["problems"]) for r in records], batch_size=1000)
         elif kind == "movements":
             active_catalog = ImportBatch.objects.filter(kind="products", active=True).first()
             # Current pairs come from the active source, not stale normalized associations.
@@ -285,6 +314,9 @@ def import_source(kind, path, *, dry_run=False):
             batch.save(update_fields=["issues"])
         elif kind == "labor_days":
             HistoricalLaborDay.objects.bulk_create([HistoricalLaborDay(batch=batch, **r) for r in records], batch_size=1000)
+        summary = {**summary, **record_outcomes(records), "catalog_links_checked": kind == "movements"}
+        batch.summary = summary
+        batch.save(update_fields=["summary"])
     return {"kind": kind, "status": "imported", "row_count": len(records), "summary": summary, "issues": issues}
 
 

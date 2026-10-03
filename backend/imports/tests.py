@@ -9,7 +9,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from catalog.models import Product, ProductDeposit
 
-from .models import HistoricalLaborDay, HistoricalMovement, ImportBatch
+from .models import HistoricalLaborDay, HistoricalMovement, ImportBatch, SourceRow
 from .services import PrivateDataError, import_directory, import_source
 from .views import QualityView
 
@@ -118,3 +118,47 @@ class PrivateImportTests(TestCase):
         request = factory.get("/quality/")
         force_authenticate(request, user=user)
         self.assertEqual(QualityView.as_view()(request).status_code, 403)
+
+    def test_row_outcomes_count_multiple_problems_once_and_reconcile_preserved_rows(self):
+        suppliers = self.path / "suppliers.xlsx"
+        write_book(suppliers, ["COD", "FORNECEDOR", "CNPJ"], [["S1", "Fornecedor sintético", "DOC-SYN"]])
+        import_source("suppliers", suppliers)
+        products = self.path / "products.xlsx"
+        write_book(products, PRODUCT_HEADERS, [["P1", "Produto", "UN", 1, "Grupo", "AGR", "Descrição", "MAT1"]])
+        import_source("products", products)
+        movements = self.path / "movements.xlsx"
+        pending = self.movement(product="OLD", receipt=102)
+        pending[13] = "invalid-key-synthetic"
+        write_book(movements, MOVEMENT_HEADERS, [self.movement(), pending])
+        result = import_source("movements", movements)
+        self.assertEqual(result["summary"]["accepted_rows"], 1)
+        self.assertEqual(result["summary"]["pending_rows"], 1)
+        self.assertEqual(result["summary"]["rejected_rows"], 0)
+        self.assertEqual(result["summary"]["preserved_rows"], 2)
+        self.assertEqual(sum(result["summary"][field] for field in [
+            "accepted_rows", "pending_rows", "rejected_rows"
+        ]), result["row_count"])
+        self.assertEqual(HistoricalMovement.objects.count(), 2)
+        row = HistoricalMovement.objects.get(source_row=3)
+        self.assertIn("invalid_invoice_key", row.problems)
+        self.assertIn("product_missing_from_current_catalog", row.problems)
+        self.assertIsNone(row.product_id)
+        second = import_source("movements", movements)
+        self.assertEqual(second["status"], "unchanged")
+        self.assertEqual(second["summary"], result["summary"])
+        self.assertEqual(HistoricalMovement.objects.count(), 2)
+
+    def test_catalog_pending_repetitions_keep_original_rows_and_reasons(self):
+        products = self.path / "products.xlsx"
+        accepted = ["P1", "Produto sintético", "UN", 1, "Grupo", "AGR", "Descrição", "MAT1"]
+        missing_weight = ["P2", "Outro sintético", "UN", None, "Grupo", "AGR", "Descrição", "MAT2"]
+        write_book(products, PRODUCT_HEADERS, [accepted, missing_weight, accepted])
+        result = import_source("products", products)
+        self.assertEqual(result["summary"]["accepted_rows"], 1)
+        self.assertEqual(result["summary"]["pending_rows"], 2)
+        self.assertEqual(result["summary"]["preserved_rows"], 3)
+        self.assertEqual(SourceRow.objects.count(), 3)
+        self.assertEqual(ProductDeposit.objects.count(), 2)
+        self.assertEqual(SourceRow.objects.get(source_row=3).problems, ["missing_weight"])
+        self.assertEqual(SourceRow.objects.get(source_row=4).problems, ["duplicate_product_depot_row_preserved"])
+        self.assertEqual(SourceRow.objects.get(source_row=2).original, SourceRow.objects.get(source_row=4).original)

@@ -32,6 +32,7 @@ class SourceRow(UUIDModel):
     source_row = models.PositiveIntegerField()
     natural_key = models.CharField(max_length=200, blank=True)
     original = models.JSONField(default=dict)
+    problems = models.JSONField(default=list)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["batch", "source_sheet", "source_row"], name="unique_source_row")]

@@ -341,3 +341,105 @@ class AnalyticsTests(TestCase):
             (AT + timedelta(minutes=40), AT + timedelta(minutes=50)),
         ]
         self.assertEqual(occupied_minutes(intervals), 40)
+
+    def test_source_records_match_completed_date_and_local_not_booking_date(self):
+        appointment = self.truck()
+        appointment.slot.date = REFERENCE - timedelta(days=1)
+        appointment.slot.save(update_fields=["date"])
+        self.truck(origin="operacional_registrado")
+        result = self.client.get(
+            "/api/v1/analytics/operations/", self.query(warehouse=str(self.warehouse.id))
+        ).data
+        evidence = result["source_records"]
+        self.assertEqual(evidence["count"], result["received_loads"])
+        self.assertEqual(evidence["returned_count"], 1)
+        self.assertFalse(evidence["truncated"])
+        record = evidence["records"][0]
+        self.assertEqual(record["id"], str(appointment.pk))
+        self.assertEqual(record["slot_date"], str(REFERENCE - timedelta(days=1)))
+        self.assertEqual(datetime.fromisoformat(record["finished_at"]), appointment.finished_at)
+        self.assertEqual(set(record["warehouse_ids"]), {
+            str(self.warehouse.pk), str(self.other_warehouse.pk)
+        })
+        self.assertNotIn("supplier_name", record)
+        self.assertNotIn("invoice_number", record)
+
+    def test_source_bulletins_match_exact_filtered_closed_costs(self):
+        closed = close_bulletin(stored_bulletin(self).id, self.operator, 1)
+        stored_bulletin(self, warehouse=self.other_warehouse)
+        result = self.client.get(
+            "/api/v1/analytics/labor-costs/", self.query(warehouse=str(self.warehouse.id))
+        ).data
+        evidence = result["source_records"]
+        self.assertEqual(evidence["count"], result["summary"]["bulletin_count"])
+        self.assertEqual(evidence["returned_count"], 1)
+        self.assertFalse(evidence["truncated"])
+        record = evidence["records"][0]
+        self.assertEqual(record["id"], str(closed.pk))
+        self.assertEqual(record["reference_date"], str(REFERENCE))
+        self.assertEqual(record["warehouse_id"], str(self.warehouse.pk))
+        for field in ["production", "equivalent_days", "total_payable", "supplement"]:
+            self.assertEqual(record[field], closed.calculation[field])
+        self.assertNotIn("participants", record)
+
+    def test_source_records_are_limited_and_deterministic_without_changing_totals(self):
+        slot = GlobalSlot.objects.create(date=REFERENCE, time="08:00")
+        appointments = [Appointment(
+            supplier=self.supplier, invoice=self.invoice, slot=slot,
+            packaging="paletizada", origin="demo_sintetico", operation_status="completed",
+            finished_at=AT + timedelta(minutes=index), created_by=self.operator,
+        ) for index in range(101)]
+        Appointment.objects.bulk_create(appointments)
+        result = self.client.get("/api/v1/analytics/operations/", self.query()).data
+        evidence = result["source_records"]
+        self.assertEqual(result["received_loads"], 101)
+        self.assertEqual(evidence["count"], 101)
+        self.assertEqual(evidence["returned_count"], 100)
+        self.assertTrue(evidence["truncated"])
+        self.assertEqual(
+            [record["id"] for record in evidence["records"]],
+            [str(appointment.pk) for appointment in appointments[:100]],
+        )
+
+    def test_source_records_require_management_and_history_does_not_invent_links(self):
+        self.truck()
+        close_bulletin(stored_bulletin(self).id, self.operator, 1)
+        self.client.force_authenticate(self.operator)
+        for endpoint in ["operations", "labor-costs"]:
+            result = self.client.get(f"/api/v1/analytics/{endpoint}/", self.query())
+            self.assertEqual(result.status_code, 200)
+            self.assertIsNone(result.data["source_records"])
+        self.client.force_authenticate(self.manager)
+        for endpoint in ["operations", "labor-costs"]:
+            result = self.client.get(
+                f"/api/v1/analytics/{endpoint}/", self.query("historico_importado")
+            )
+            self.assertEqual(result.status_code, 200)
+            self.assertIsNone(result.data["source_records"])
+
+    def test_source_distributions_use_their_own_dates_and_preserve_avulso(self):
+        appointment = self.truck()
+        appointment.arrived_at = AT - timedelta(days=1)
+        appointment.save(update_fields=["arrived_at"])
+        non_receipt = NonReceipt.objects.create(
+            reason="unscheduled_no_capacity", description="Ocorrência avulsa sintética",
+            occurred_at=AT, created_by=self.operator, origin="demo_sintetico",
+        )
+        result = self.client.get("/api/v1/analytics/operations/", self.query()).data
+        evidence = result["source_records"]
+        self.assertEqual(evidence["count"], 1)
+        self.assertEqual(evidence["arrivals"]["count"], 0)
+        self.assertEqual(result["arrivals_by_hour"], [])
+        self.assertEqual(evidence["bookings"]["count"], 1)
+        self.assertEqual(evidence["bookings"]["records"], [{
+            "id": str(appointment.pk), "slot_date": str(REFERENCE), "slot_time": "08:00"
+        }])
+        self.assertEqual(evidence["non_receipts"]["count"], 1)
+        self.assertEqual(evidence["non_receipts"]["records"][0]["id"], str(non_receipt.pk))
+        self.assertIsNone(evidence["non_receipts"]["records"][0]["appointment_id"])
+        self.assertNotIn("description", evidence["non_receipts"]["records"][0])
+        local = self.client.get(
+            "/api/v1/analytics/operations/", self.query(warehouse=str(self.warehouse.pk))
+        ).data
+        self.assertEqual(local["source_records"]["non_receipts"]["count"], 0)
+        self.assertEqual(local["non_receipts_by_reason"], [])

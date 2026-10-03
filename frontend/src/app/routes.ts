@@ -53,6 +53,12 @@ export const routes: Routes = [
       import("./features/receiving").then((m) => m.NonReceiptCreate),
   },
   {
+    path: "nao-recebimentos/:id",
+    canActivate: [auth],
+    loadComponent: () =>
+      import("./features/receiving").then((m) => m.NonReceipts),
+  },
+  {
     path: "boletins",
     canActivate: [auth],
     loadComponent: () =>

@@ -1,9 +1,11 @@
 import { Component, inject, OnInit, signal } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 import { IonButton, IonSpinner } from "@ionic/angular/standalone";
 import {
   Api,
   apiError,
+  dateTime,
   money,
   originLabel,
   RecordData,
@@ -11,6 +13,50 @@ import {
 } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { Bulletin } from "./bulletins";
+interface SourceRecords<T> {
+  records: T[];
+  count: number;
+  returned_count: number;
+  truncated: boolean;
+}
+interface FinancialSource {
+  id: string;
+  reference_date: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  production: string;
+  equivalent_days: string;
+  total_payable: string;
+  supplement: string;
+}
+interface OperationalSource {
+  id: string;
+  finished_at: string;
+  slot_date: string;
+  arrived_at: string | null;
+  started_at: string | null;
+  warehouse_ids: string[];
+}
+interface ArrivalSource {
+  id: string;
+  arrived_at: string;
+}
+interface BookingSource {
+  id: string;
+  slot_date: string;
+  slot_time: string;
+}
+interface NonReceiptSource {
+  id: string;
+  appointment_id: string | null;
+  occurred_at: string;
+  reason: string;
+}
+interface OperationalSources extends SourceRecords<OperationalSource> {
+  arrivals: SourceRecords<ArrivalSource>;
+  bookings: SourceRecords<BookingSource>;
+  non_receipts: SourceRecords<NonReceiptSource>;
+}
 interface Costs {
   origin: string;
   period: { date_from: string; date_to: string };
@@ -41,6 +87,7 @@ interface Costs {
   }[];
   coverage: RecordData;
   warnings: string[];
+  source_records?: SourceRecords<FinancialSource> | null;
 }
 interface Operations {
   origin: string;
@@ -54,6 +101,7 @@ interface Operations {
   coverage?: RecordData;
   definitions?: RecordData;
   warnings?: string[];
+  source_records?: OperationalSources | null;
   [key: string]: unknown;
 }
 interface Scenario {
@@ -69,7 +117,7 @@ interface Scenario {
 const imports = [ReactiveFormsModule, IonButton, IonSpinner];
 @Component({
   standalone: true,
-  imports,
+  imports: [...imports, RouterLink],
   template: `<div class="page">
     <div class="page-head">
       <div>
@@ -206,6 +254,56 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
             }
           </dl>
         </details>
+        @if (c.source_records; as sources) {
+          <details class="section">
+            <summary>Boletins que sustentam os custos</summary>
+            <p class="muted">
+              {{ sources.returned_count }} de {{ sources.count }} boletins
+              fechados neste recorte. Abra o registro para conferir produção,
+              participantes e precisão do cálculo.
+            </p>
+            @if (sources.truncated) {
+              <p class="notice">
+                A consulta mostra até 100 registros. Reduza o período ou
+                selecione um local para conferir os demais boletins.
+              </p>
+            }
+            @if (sources.records.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data / local</th>
+                      <th class="numeric">Produção</th>
+                      <th class="numeric">Diárias</th>
+                      <th class="numeric">Total a pagar</th>
+                      <th class="numeric">Complemento</th>
+                      <th>Registro</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (record of sources.records; track record.id) {
+                      <tr>
+                        <td class="wrap">
+                          {{ record.reference_date }}<br />{{ record.warehouse_name }}
+                        </td>
+                        <td class="numeric">{{ money(record.production) }}</td>
+                        <td class="numeric">{{ record.equivalent_days }}</td>
+                        <td class="numeric">{{ money(record.total_payable) }}</td>
+                        <td class="numeric">{{ money(record.supplement) }}</td>
+                        <td>
+                          <a [routerLink]="['/boletins', record.id]">Abrir boletim</a>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="muted">Nenhum boletim fechado neste recorte.</p>
+            }
+          </details>
+        }
         @for (w of c.warnings; track w) {
           <p class="notice section">{{ w }}</p>
         }
@@ -284,6 +382,134 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
             </dl>
           </details>
         }
+        @if (o.source_records; as sources) {
+          <details class="section">
+            <summary>Recebimentos que sustentam os indicadores de conclusão</summary>
+            <p class="muted">
+              {{ sources.returned_count }} de {{ sources.count }} recebimentos
+              concluídos neste recorte, selecionados pela data de conclusão.
+              Chegadas, agendamentos e não recebimentos usam suas próprias datas.
+            </p>
+            @if (sources.truncated) {
+              <p class="notice">
+                A consulta mostra até 100 registros. Reduza o período ou
+                selecione um local para conferir os demais recebimentos.
+              </p>
+            }
+            @if (sources.records.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data agendada</th>
+                      <th>Chegada</th>
+                      <th>Entrada</th>
+                      <th>Conclusão</th>
+                      <th>Registro</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (record of sources.records; track record.id) {
+                      <tr>
+                        <td>{{ record.slot_date }}</td>
+                        <td>{{ dt(record.arrived_at) }}</td>
+                        <td>{{ dt(record.started_at) }}</td>
+                        <td>{{ dt(record.finished_at) }}</td>
+                        <td>
+                          <a [routerLink]="['/agenda', record.id]">Abrir recebimento</a>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="muted">Nenhum recebimento concluído neste recorte.</p>
+            }
+          </details>
+          <details class="section">
+            <summary>Chegadas que sustentam a distribuição por hora</summary>
+            <p class="muted">
+              {{ sources.arrivals.returned_count }} de {{ sources.arrivals.count }}
+              chegadas neste recorte, selecionadas pela data de chegada.
+            </p>
+            @if (sources.arrivals.truncated) {
+              <p class="notice">Consulta limitada a 100 registros. Reduza o período ou selecione um local.</p>
+            }
+            @if (sources.arrivals.records.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Chegada</th><th>Registro</th></tr></thead>
+                  <tbody>
+                    @for (record of sources.arrivals.records; track record.id) {
+                      <tr>
+                        <td>{{ dt(record.arrived_at) }}</td>
+                        <td><a [routerLink]="['/agenda', record.id]">Abrir recebimento</a></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="muted">Nenhuma chegada registrada neste recorte.</p>
+            }
+          </details>
+          <details class="section">
+            <summary>Agendamentos que sustentam a distribuição por horário</summary>
+            <p class="muted">
+              {{ sources.bookings.returned_count }} de {{ sources.bookings.count }}
+              agendamentos neste recorte, selecionados pela data agendada.
+            </p>
+            @if (sources.bookings.truncated) {
+              <p class="notice">Consulta limitada a 100 registros. Reduza o período ou selecione um local.</p>
+            }
+            @if (sources.bookings.records.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Data / horário</th><th>Registro</th></tr></thead>
+                  <tbody>
+                    @for (record of sources.bookings.records; track record.id) {
+                      <tr>
+                        <td>{{ record.slot_date }} · {{ record.slot_time }}</td>
+                        <td><a [routerLink]="['/agenda', record.id]">Abrir recebimento</a></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="muted">Nenhum agendamento neste recorte.</p>
+            }
+          </details>
+          <details class="section">
+            <summary>Ocorrências que sustentam os não recebimentos por motivo</summary>
+            <p class="muted">
+              {{ sources.non_receipts.returned_count }} de {{ sources.non_receipts.count }}
+              ocorrências neste recorte, selecionadas pela data da ocorrência.
+            </p>
+            @if (sources.non_receipts.truncated) {
+              <p class="notice">Consulta limitada a 100 registros. Reduza o período ou selecione um local.</p>
+            }
+            @if (sources.non_receipts.records.length) {
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Ocorrência</th><th>Motivo</th><th>Registro</th></tr></thead>
+                  <tbody>
+                    @for (record of sources.non_receipts.records; track record.id) {
+                      <tr>
+                        <td>{{ dt(record.occurred_at) }}</td>
+                        <td>{{ fieldLabel(record.reason) }}</td>
+                        <td><a [routerLink]="['/nao-recebimentos', record.id]">Abrir ocorrência</a></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="muted">Nenhum não recebimento registrado neste recorte.</p>
+            }
+          </details>
+        }
         @for (w of o.warnings || []; track w) {
           <p class="notice section">{{ w }}</p>
         }
@@ -295,6 +521,11 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
         Conserva a produção do boletim como hipótese e compara o total do
         servidor. A diferença não garante economia nem capacidade de
         atendimento.
+      </p>
+      <p class="muted">
+        Capacidade operacional não avaliada: demanda atendida ou não atendida e
+        recursos necessários estão indisponíveis. A diferença financeira não
+        recomenda reduzir a equipe.
       </p>
       <form
         class="filters"
@@ -394,6 +625,7 @@ export class Management implements OnInit {
   error = signal("");
   busy = signal(false);
   money = money;
+  dt = dateTime;
   percent = (value: string | null) =>
     value === null
       ? "Não disponível"
@@ -725,6 +957,10 @@ export class DataQuality implements OnInit {
         importer_version: "Versão do importador",
         imported_at: "Importado em",
         summary: "Resumo agregado",
+        accepted_rows: "Linhas aceitas",
+        pending_rows: "Linhas com pendências",
+        rejected_rows: "Linhas rejeitadas",
+        preserved_rows: "Linhas preservadas",
         limitations: "Limitações das fontes",
         raw_data_exposed: "Dados originais expostos",
         products: "Produtos",

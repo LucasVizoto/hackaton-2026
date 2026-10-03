@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.models import ORIGIN_CHOICES
-from core.permissions import IsInternal
+from core.permissions import IsInternal, user_role
 from imports.models import HistoricalMovement
 from labor.calculation import money_display
 from labor.models import DailyBulletin
@@ -56,6 +56,19 @@ def metadata(filters):
         },
         "nature": "demonstracao_sintetica" if filters["origin"] == "demo_sintetico" else "apurado",
         "synthetic": filters["origin"] == "demo_sintetico",
+    }
+
+
+def source_records(request, records, serialize):
+    """Expose a bounded audit trail only to management, without private document fields."""
+    if user_role(request.user) not in {"management", "admin"}:
+        return None
+    limit = 100
+    return {
+        "records": [serialize(record) for record in records[:limit]],
+        "count": len(records),
+        "returned_count": min(len(records), limit),
+        "truncated": len(records) > limit,
     }
 
 
@@ -110,6 +123,7 @@ class LaborCostsView(APIView):
                 origin=filters["origin"],
                 reference_date__range=(filters["date_from"], filters["date_to"]),
             )
+            .order_by("reference_date", "id")
             .select_related("warehouse")
             .prefetch_related("participants")
         )
@@ -153,6 +167,22 @@ class LaborCostsView(APIView):
             {
                 **metadata(filters),
                 "summary": financial_summary(bulletins),
+                "source_records": None if filters["origin"] == "historico_importado" else source_records(
+                    request,
+                    bulletins,
+                    lambda bulletin: {
+                        "id": str(bulletin.pk),
+                        "reference_date": bulletin.reference_date.isoformat(),
+                        "warehouse_id": str(bulletin.warehouse_id),
+                        "warehouse_name": bulletin.warehouse.name,
+                        **{
+                            key: bulletin.calculation[key]
+                            for key in (
+                                "production", "equivalent_days", "total_payable", "supplement"
+                            )
+                        },
+                    },
+                ),
                 "groups": groups,
                 "coverage": {
                     "closed_bulletins": len(bulletins),
@@ -201,6 +231,7 @@ class OperationsView(APIView):
                     "received_loads": None,
                     "average_wait_minutes": None,
                     "average_unloading_minutes": None,
+                    "source_records": None,
                     "historical_documentary": {
                         "rows": query.count(),
                         "purchase_orders": query.exclude(purchase_order="")
@@ -231,6 +262,7 @@ class OperationsView(APIView):
             base = base.filter(visits__warehouse_id=filters["warehouse"]).distinct()
         completed = list(
             base.filter(operation_status="completed", finished_at__gte=start, finished_at__lt=end)
+            .order_by("finished_at", "id")
             .select_related("supplier", "slot")
             .prefetch_related("visits__warehouse", "visits__equipment", "equipment")
         )
@@ -278,14 +310,15 @@ class OperationsView(APIView):
                 for item in ap.equipment.all():
                     equipment_loads[str(item.pk)].add(ap.pk)
                     equipment_names[str(item.pk)] = item.name
-        for timestamp in base.filter(arrived_at__gte=start, arrived_at__lt=end).values_list(
-            "arrived_at", flat=True
-        ):
-            arrivals_by_hour[timezone.localtime(timestamp).strftime("%H:00")] += 1
-        for hour in base.filter(
+        arrivals = list(base.filter(arrived_at__gte=start, arrived_at__lt=end)
+            .order_by("arrived_at", "id").values("id", "arrived_at"))
+        for record in arrivals:
+            arrivals_by_hour[timezone.localtime(record["arrived_at"]).strftime("%H:00")] += 1
+        bookings = list(base.filter(
             slot__date__range=(filters["date_from"], filters["date_to"])
-        ).values_list("slot__time", flat=True):
-            bookings_by_hour[hour] += 1
+        ).order_by("slot__date", "slot__time", "id").values("id", "slot__date", "slot__time"))
+        for record in bookings:
+            bookings_by_hour[record["slot__time"]] += 1
         non_receipts = NonReceipt.objects.filter(
             origin=filters["origin"], occurred_at__gte=start, occurred_at__lt=end
         )
@@ -293,6 +326,35 @@ class OperationsView(APIView):
             non_receipts = non_receipts.filter(
                 appointment__visits__warehouse_id=filters["warehouse"]
             ).distinct()
+        non_receipts = list(non_receipts.order_by("occurred_at", "id").values(
+            "id", "appointment_id", "occurred_at", "reason"
+        ))
+        evidence = source_records(
+            request, completed,
+            lambda appointment: {
+                "id": str(appointment.pk),
+                "finished_at": appointment.finished_at.isoformat(),
+                "slot_date": appointment.slot.date.isoformat(),
+                "arrived_at": appointment.arrived_at.isoformat() if appointment.arrived_at else None,
+                "started_at": appointment.started_at.isoformat() if appointment.started_at else None,
+                "warehouse_ids": sorted({
+                    str(visit.warehouse_id) for visit in appointment.visits.all()
+                }),
+            },
+        )
+        if evidence is not None:
+            evidence["arrivals"] = source_records(request, arrivals, lambda record: {
+                "id": str(record["id"]), "arrived_at": record["arrived_at"].isoformat()
+            })
+            evidence["bookings"] = source_records(request, bookings, lambda record: {
+                "id": str(record["id"]), "slot_date": record["slot__date"].isoformat(),
+                "slot_time": record["slot__time"],
+            })
+            evidence["non_receipts"] = source_records(request, non_receipts, lambda record: {
+                "id": str(record["id"]),
+                "appointment_id": str(record["appointment_id"]) if record["appointment_id"] else None,
+                "occurred_at": record["occurred_at"].isoformat(), "reason": record["reason"],
+            })
         return Response(
             {
                 **metadata(filters),
@@ -300,6 +362,7 @@ class OperationsView(APIView):
                 "average_wait_minutes": mean(waits),
                 "average_unloading_minutes": mean(durations),
                 "average_workers_per_receipt": mean(workers),
+                "source_records": evidence,
                 "loads_by_date": [
                     {"date": date, "count": count} for date, count in sorted(loads_by_date.items())
                 ],
@@ -344,7 +407,7 @@ class OperationsView(APIView):
                 "non_receipts_by_reason": [
                     {"reason": reason, "count": count}
                     for reason, count in Counter(
-                        non_receipts.values_list("reason", flat=True)
+                        record["reason"] for record in non_receipts
                     ).items()
                 ],
                 "coverage": {

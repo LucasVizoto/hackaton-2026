@@ -1359,12 +1359,14 @@ const reasons: Record<string, string> = {
   template: `<div class="page">
     <div class="page-head">
       <div>
-        <h1>Não recebimentos</h1>
+        <h1>{{ selectedId ? "Não recebimento registrado" : "Não recebimentos" }}</h1>
         <p class="muted">Ocorrências com ou sem agendamento.</p>
       </div>
-      <ion-button routerLink="/nao-recebimentos/novo"
-        >Registrar ocorrência</ion-button
-      >
+      @if (selectedId) {
+        <a routerLink="/nao-recebimentos">Ver todas as ocorrências</a>
+      } @else if (api.can("warehouse")) {
+        <ion-button routerLink="/nao-recebimentos/novo">Registrar ocorrência</ion-button>
+      }
     </div>
     @if (error()) {
       <div class="error" role="alert">{{ error() }}</div>
@@ -1402,7 +1404,9 @@ const reasons: Record<string, string> = {
   </div>`,
 })
 export class NonReceipts implements OnInit {
-  private api = inject(Api);
+  api = inject(Api);
+  private route = inject(ActivatedRoute);
+  selectedId = this.route.snapshot.paramMap.get("id");
   rows = signal<NonReceipt[]>([]);
   error = signal("");
   busy = signal(false);
@@ -1414,11 +1418,18 @@ export class NonReceipts implements OnInit {
   }
   async load() {
     this.busy.set(true);
+    this.error.set("");
     try {
-      const r = await this.api.get<Page<NonReceipt>>(
-        "non-receipts/?page_size=100",
-      );
-      this.rows.set(r.results);
+      if (this.selectedId)
+        this.rows.set([
+          await this.api.get<NonReceipt>(`non-receipts/${this.selectedId}/`),
+        ]);
+      else {
+        const r = await this.api.get<Page<NonReceipt>>(
+          "non-receipts/?page_size=100",
+        );
+        this.rows.set(r.results);
+      }
     } catch (e) {
       this.error.set(apiError(e));
     } finally {

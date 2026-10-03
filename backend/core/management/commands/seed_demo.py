@@ -103,6 +103,10 @@ class Command(BaseCommand):
         self.bulletin(
             users["warehouse"], warehouses["ADUBO"], date(2025, 11, 17), official, workers[:11]
         )
+        self.bulletin(
+            users["warehouse"], warehouses["ADUBO"], date(2025, 11, 18), official, workers[:11],
+            half_registration=workers[10].registration,
+        )
         samples = (
             ("ADUBO", "FERTILIZANTES", [1200, 1800], workers[:5]),
             ("INSUMOS", "AGROQUIMICO", [800, 1400], workers[5:9]),
@@ -201,17 +205,24 @@ class Command(BaseCommand):
             )
         )
 
-    def bulletin(self, actor, warehouse, day, lines, workers):
+    def bulletin(self, actor, warehouse, day, lines, workers, *, half_registration=None):
         bulletin, created = DailyBulletin.objects.get_or_create(
             warehouse=warehouse, reference_date=day, defaults={"origin": DEMO, "created_by": actor}
         )
         if not created:
+            if bulletin.origin != DEMO:
+                raise CommandError(
+                    "Local/data reservados do seed já possuem boletim de outra origem; nenhum registro foi sobrescrito."
+                )
             return
         replace_contents(
             bulletin,
             {
                 "lines": lines,
-                "participants": [{"worker": worker, "fraction": Decimal(1)} for worker in workers],
+                "participants": [{
+                    "worker": worker,
+                    "fraction": Decimal("0.5") if worker.registration == half_registration else Decimal(1),
+                } for worker in workers],
             },
         )
         close_bulletin(bulletin.pk, actor, 1)
