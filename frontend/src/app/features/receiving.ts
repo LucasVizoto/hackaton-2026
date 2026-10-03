@@ -8,13 +8,17 @@ import {
   dateTime,
   localTimestamp,
   nowLocal,
+  closedDayMessage,
+  isWeekend,
+  nextBusinessDay,
   originLabel,
   Page,
   today,
 } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { decimal } from "../core/presentation";
-import { EmptyState, FeedbackState, FilterBlock, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
+import { ScheduleCalendar, ScheduleRange } from "./schedule-calendar";
+import { EmptyState, FeedbackState, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
 interface Visit {
   id: string;
   warehouse: string;
@@ -57,6 +61,7 @@ export interface Appointment {
   purchase_status: string;
   warehouse_status: string;
   operation_status: string;
+  capacity_reserved?: boolean;
   arrived_at: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -132,166 +137,100 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, Status, PageHeader, LoadingState, EmptyState, FeedbackState, FilterBlock],
+  imports: [ReactiveFormsModule, RouterLink, IonButton, PageHeader, FeedbackState, LoadingState, ScheduleCalendar],
   template: `<div class="page">
     <app-page-header [title]="title" [subtitle]="subtitle">
       @if (api.can("supplier", "warehouse")) {
         <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
       }
     </app-page-header>
-    <form app-filter-block class="filters panel" aria-label="Filtrar recebimentos" [formGroup]="filters" (ngSubmit)="load(true)">
-      <label>Data<input type="date" formControlName="date" /></label
-      ><label
-        >Origem<select formControlName="origin">
-          <option value="">Todas as origens</option>
-          <option value="operacional_registrado">Operação registrada</option>
-          <option value="demo_sintetico">Demonstração sintética</option>
-        </select></label
-      ><label
-        >Aprovação de Compras<select formControlName="purchase_status">
-          <option value="">Todas</option>
-          <option value="pending">Pendente</option>
-          <option value="approved">Aprovada</option>
-          <option value="rejected">Rejeitada</option>
-        </select></label
-      ><ion-button type="submit" fill="outline" [disabled]="busy()"
-        >Atualizar</ion-button
-      >
-    </form>
     <div class="notice">
       Capacidade global por horário: uma carga batida exclusiva ou até duas
       cargas paletizadas / big bag. A chegada pode ser registrada com aprovações
       pendentes.
     </div>
+    @if (supplierOnly) {
+      <div class="notice">Você visualiza somente os agendamentos vinculados ao seu cadastro de fornecedor.</div>
+    }
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
-    @if (busy()) {
+    @if (busy() && !rows().length) {
       <app-loading-state label="Carregando agenda…" />
-    } @else if (rows().length) {
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Recebimentos encontrados">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Data / hora</th>
-              <th scope="col">Fornecedor / nota</th>
-              <th scope="col">Veículo / carga</th>
-              <th scope="col">Compras</th>
-              <th scope="col">Armazém</th>
-              <th scope="col">Operação</th>
-              <th scope="col"><span class="sr-only">Ações</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (a of rows(); track a.id) {
-              <tr>
-                <td>
-                  <strong class="table-cell-primary">{{ date(a.date || a.slot?.date) }}</strong>
-                  <span class="table-cell-secondary">{{ a.time || a.slot?.time }}</span>
-                </td>
-                <td class="wrap">
-                  <strong class="table-cell-primary">{{ a.supplier_name }}</strong>
-                  <span class="table-cell-secondary">NF {{ a.invoice_number || "não informada" }}</span>
-                  <small
-                    [class.origin]="a.origin === 'demo_sintetico'"
-                    >{{ origin(a.origin) }}</small
-                  >
-                </td>
-                <td>
-                  <strong class="table-cell-primary plate">{{ a.vehicle_plate || "Placa não informada" }}</strong>
-                  <span class="table-cell-secondary">{{ packaging(a.packaging) }}</span>
-                </td>
-                <td><app-status [value]="a.purchase_status" /></td>
-                <td><app-status [value]="a.warehouse_status" /></td>
-                <td><app-status [value]="a.operation_status" /></td>
-                <td>
-                  <a class="table-action" [routerLink]="['/agenda', a.id]"
-                    [attr.aria-label]="'Abrir recebimento de ' + a.supplier_name + ', placa ' + a.vehicle_plate">Abrir recebimento</a>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <div class="pagination">
-        <ion-button fill="outline" (click)="change(-1)" [disabled]="page === 1"
-          >Anterior</ion-button
-        ><span>Página {{ page }} · {{ count() }} registros</span
-        ><ion-button
-          fill="outline"
-          (click)="change(1)"
-          [disabled]="page * 100 >= count()"
-          >Próxima</ion-button
-        >
-      </div>
-    } @else if (!error()) {
-      <div app-empty-state class="empty">
-        <h2>Nenhum recebimento encontrado</h2>
-        <p>Altere os filtros ou crie um agendamento.</p>
-        @if (api.can("supplier", "warehouse")) {
-          <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
-        }
-      </div>
     }
+    <app-schedule-calendar
+      [appointments]="rows()"
+      [warehouses]="catalog.warehouses()"
+      [mode]="mode"
+      [busy]="busy()"
+      (rangeChange)="onRange($event)"
+    />
   </div>`,
 })
 export class AppointmentList implements OnInit {
   api = inject(Api);
-  private fb = inject(FormBuilder);
+  catalog = inject(Catalog);
   private route = inject(ActivatedRoute);
   rows = signal<Appointment[]>([]);
-  count = signal(0);
   busy = signal(false);
   error = signal("");
-  page = 1;
   title = "Agenda de recebimento";
-  subtitle = "Consulte a reserva e as validações de cada caminhão.";
-  filters = this.fb.nonNullable.group({
-    date: [""],
-    origin: [""],
-    purchase_status: [""],
-  });
-  origin = originLabel;
-  date = appointmentDate;
-  packaging = packagingLabel;
+  subtitle = "Consulte a reserva de cada caminhão no calendário diário, semanal ou mensal.";
+  mode: "agenda" | "compras" | "operacao" = "agenda";
+  private request = 0;
+  get supplierOnly() {
+    return this.api.user()?.role === "supplier";
+  }
   ngOnInit() {
     const mode = this.route.snapshot.data["mode"];
     if (mode === "compras") {
+      this.mode = "compras";
       this.title = "Conferência de Compras";
-      this.subtitle = "Compare a nota e o pedido antes de registrar a decisão.";
-      this.filters.controls.purchase_status.setValue("pending");
+      this.subtitle = "Compare a nota e o pedido no calendário antes de registrar a decisão.";
     }
     if (mode === "operacao") {
+      this.mode = "operacao";
       this.title = "Operação do armazém";
-      this.subtitle =
-        "Registre chegada, destinos, início, recursos e conclusão.";
+      this.subtitle = "Acompanhe chegada, descarga e conclusão no calendário da operação.";
     }
-    void this.load();
+    void this.catalog.load().catch(() => undefined);
   }
-  async load(resetPage = false) {
-    if (resetPage) this.page = 1;
+  async onRange(query: ScheduleRange) {
+    const request = ++this.request;
+    this.rows.set([]);
     this.busy.set(true);
     this.error.set("");
     try {
-      const q = new URLSearchParams({
-        page: String(this.page),
-        page_size: "100",
-      });
-      Object.entries(this.filters.getRawValue()).forEach(([k, v]) => {
-        if (v) q.set(k, v);
-      });
-      const r = await this.api.get<Page<Appointment>>(`appointments/?${q}`);
-      this.rows.set(r.results);
-      this.count.set(r.count);
+      const rows: Appointment[] = [];
+      let page = 1;
+      while (page <= 30) {
+        const params = new URLSearchParams({
+          page: String(page),
+          page_size: "100",
+          date_from: query.from,
+          date_to: query.to,
+        });
+        if (query.origin) params.set("origin", query.origin);
+        const result = await this.api.get<Page<Appointment>>(`appointments/?${params}`);
+        rows.push(...result.results);
+        if (!result.next) break;
+        page++;
+      }
+      if (request !== this.request) return;
+      const user = this.api.user();
+      this.rows.set(
+        user?.role === "supplier"
+          ? user.supplier_id
+            ? rows.filter((item) => item.supplier === user.supplier_id)
+            : []
+          : rows,
+      );
     } catch (e) {
+      if (request !== this.request) return;
       this.error.set(apiError(e));
     } finally {
-      this.busy.set(false);
+      if (request === this.request) this.busy.set(false);
     }
-  }
-  change(n: number) {
-    this.page += n;
-    void this.load();
   }
 }
 @Component({
@@ -358,9 +297,7 @@ export class AppointmentList implements OnInit {
               type="date"
               formControlName="date"
               (change)="availability()"
-            /><span class="field-help"
-              >Segunda a sexta, conforme o calendário configurado.</span
-            ></label
+            /><span class="field-help">{{ dateHelp }}</span></label
           ><label
             >Horário<select formControlName="time">
               <option value="08:00">08h00</option>
@@ -417,7 +354,7 @@ export class AppointmentList implements OnInit {
         </p>
       </section>
       <div class="actions">
-        <ion-button type="submit" [disabled]="busy() || form.invalid || !file">
+        <ion-button type="submit" [disabled]="busy() || form.invalid || !file || calendarClosed()">
           @if (busy()) {
             <ion-spinner name="dots" />
           }
@@ -449,6 +386,7 @@ export class AppointmentCreate implements OnInit {
   >([]);
   file: File | null = null;
   invoiceId = "";
+  calendarClosed = signal(false);
   form = this.fb.nonNullable.group({
     supplier: [""],
     origin: ["operacional_registrado"],
@@ -456,9 +394,18 @@ export class AppointmentCreate implements OnInit {
     vehicle_plate: ["", Validators.required],
     packaging: ["paletizada", Validators.required],
     notes: [""],
-    date: [today(), Validators.required],
+    date: [nextBusinessDay(), Validators.required],
     time: ["08:00", Validators.required],
   });
+  get dateHelp() {
+    const selected = this.form.controls.date.value;
+    if (this.calendarClosed() || isWeekend(selected)) return closedDayMessage(selected);
+    if (isWeekend(today()) && selected === nextBusinessDay()) {
+      const [year, month, day] = selected.split("-");
+      return `A data inicial é ${day}/${month}/${year}, o próximo dia útil. Recebimento somente de segunda a sexta.`;
+    }
+    return "Segunda a sexta, conforme o calendário configurado.";
+  }
   ngOnInit() {
     if (this.api.can("warehouse", "purchasing"))
       void this.catalog.load().catch((e) => this.error.set(apiError(e)));
@@ -477,11 +424,11 @@ export class AppointmentCreate implements OnInit {
       >(`slots/availability/?date=${this.form.controls.date.value}`);
       if (!Array.isArray(r) && r.calendar_open === false) {
         this.slots.set([]);
-        this.error.set(
-          "Não há recebimento na data escolhida, conforme o calendário do servidor. Escolha um dia de segunda a sexta sem feriado.",
-        );
+        this.calendarClosed.set(true);
+        this.error.set(closedDayMessage(this.form.controls.date.value));
         return;
       }
+      this.calendarClosed.set(false);
       this.error.set("");
       this.slots.set(
         (Array.isArray(r) ? r : (r.slots ?? [])) as ReturnType<
@@ -495,6 +442,12 @@ export class AppointmentCreate implements OnInit {
     }
   }
   async save() {
+    const selected = this.form.controls.date.value;
+    if (isWeekend(selected) || this.calendarClosed()) {
+      this.calendarClosed.set(true);
+      this.error.set(closedDayMessage(selected));
+      return;
+    }
     if (!this.file || this.form.invalid) return;
     this.busy.set(true);
     this.error.set("");
@@ -525,7 +478,10 @@ export class AppointmentCreate implements OnInit {
       });
       await this.router.navigate(["/agenda", a.id]);
     } catch (e) {
-      this.error.set(apiError(e));
+      const message = apiError(e);
+      const closed = message.includes("segunda a sexta") || message.includes("feriado");
+      if (closed) this.calendarClosed.set(true);
+      this.error.set(closed ? closedDayMessage(this.form.controls.date.value) : message);
     } finally {
       this.busy.set(false);
     }

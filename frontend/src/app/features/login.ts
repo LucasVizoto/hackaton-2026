@@ -208,7 +208,7 @@ const rememberedKey = "cocapec.rememberedUser";
       }
       .bean path {
         fill: none;
-        stroke: #e7edf5;
+        stroke: var(--login-crease);
         stroke-width: 6;
         stroke-linecap: round;
       }
@@ -259,8 +259,9 @@ const rememberedKey = "cocapec.rememberedUser";
         white-space: nowrap;
       }
       .pill-safra {
-        background: #fff;
+        background: var(--login-pill);
         color: var(--login-navy);
+        border: 1px solid var(--login-line);
         border-radius: var(--radius-full);
         padding: 8px 12px;
         box-shadow: var(--shadow-card);
@@ -290,7 +291,7 @@ const rememberedKey = "cocapec.rememberedUser";
         height: 58px;
         margin: 0 auto 14px;
         border-radius: 16px;
-        background: #eef3f8;
+        background: var(--login-mark);
         display: grid;
         place-items: center;
       }
@@ -324,7 +325,7 @@ const rememberedKey = "cocapec.rememberedUser";
         grid-template-columns: 1fr 1fr;
         gap: 8px;
         padding: 5px;
-        background: #f3f6fb;
+        background: var(--login-track);
         border-radius: var(--radius-full);
         margin-bottom: 18px;
       }
@@ -355,8 +356,8 @@ const rememberedKey = "cocapec.rememberedUser";
         flex: none;
       }
       .tabs .is-active {
-        background: var(--login-navy);
-        color: #fff;
+        background: var(--login-fill);
+        color: var(--login-fill-contrast);
       }
       .error,
       .notice {
@@ -369,11 +370,11 @@ const rememberedKey = "cocapec.rememberedUser";
       .error {
         background: var(--negative-bg);
         color: var(--negative);
-        border: 1px solid #f0c7c0;
+        border: 1px solid transparent;
       }
       .notice {
-        background: #eef6ff;
-        color: var(--login-navy);
+        background: var(--info-soft);
+        color: var(--login-ink);
         max-width: none;
       }
       form {
@@ -431,10 +432,20 @@ const rememberedKey = "cocapec.rememberedUser";
         min-width: 0;
         width: auto;
         border: 0;
+        border-radius: 0;
         background: transparent;
+        color: var(--login-ink);
         min-height: 46px;
         padding: 0;
         box-shadow: none;
+      }
+      .control input:-webkit-autofill,
+      .control input:-webkit-autofill:hover,
+      .control input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--login-ink);
+        caret-color: var(--login-ink);
+        box-shadow: 0 0 0 1000px var(--login-input) inset;
+        transition: background-color 99999s ease-out;
       }
       .eye {
         border: 0;
@@ -487,8 +498,8 @@ const rememberedKey = "cocapec.rememberedUser";
         min-height: 48px;
         border: 0;
         border-radius: 14px;
-        background: var(--login-navy);
-        color: #fff;
+        background: var(--login-fill);
+        color: var(--login-fill-contrast);
         font: inherit;
         font-weight: 700;
         display: flex;
@@ -507,7 +518,7 @@ const rememberedKey = "cocapec.rememberedUser";
         stroke-linejoin: round;
       }
       .submit:hover:not(:disabled) {
-        background: var(--login-navy-hover);
+        background: var(--login-fill-hover);
       }
       .login-legal {
         margin-top: auto;

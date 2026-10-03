@@ -193,6 +193,28 @@ export function today(): string {
     day: "2-digit",
   }).format(d);
 }
+export function isWeekend(value: string): boolean {
+  const day = new Date(`${value}T12:00:00Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+export function nextBusinessDay(value = today()): string {
+  const reference = new Date(`${value}T12:00:00Z`);
+  while (reference.getUTCDay() === 0 || reference.getUTCDay() === 6) {
+    reference.setUTCDate(reference.getUTCDate() + 1);
+  }
+  return reference.toISOString().slice(0, 10);
+}
+export function closedDayMessage(value: string): string {
+  const [year, month, day] = value.split("-");
+  const label = `${day}/${month}/${year}`;
+  const weekday = new Date(`${value}T12:00:00Z`).getUTCDay();
+  if (weekday === 6 || weekday === 0) {
+    const name = weekday === 6 ? "sábado" : "domingo";
+    const [nextYear, nextMonth, nextDay] = nextBusinessDay(value).split("-");
+    return `${label} é ${name}. O recebimento ocorre somente de segunda a sexta. Use ${nextDay}/${nextMonth}/${nextYear}.`;
+  }
+  return `${label} é um feriado configurado. Escolha um dia útil sem feriado.`;
+}
 export function previousDay(value = today()): string {
   const reference = new Date(`${value}T12:00:00Z`);
   reference.setUTCDate(reference.getUTCDate() - 1);

@@ -36,10 +36,10 @@ def validate_calendar(day, time):
         raise ValidationError({"date": "Informe a data."})
     if time not in dict(TIMES):
         raise ValidationError({"time": "Escolha 08:00, 10:00, 13:00 ou 15:00."})
-    if day.weekday() >= 5 or Holiday.objects.filter(date=day).exists():
-        raise ValidationError(
-            {"date": "Recebimento somente de segunda a sexta, sem feriados configurados."}
-        )
+    if day.weekday() >= 5:
+        raise ValidationError({"date": "Recebimento somente de segunda a sexta."})
+    if Holiday.objects.filter(date=day).exists():
+        raise ValidationError({"date": "Não há recebimento em feriado configurado."})
     return day
 
 
