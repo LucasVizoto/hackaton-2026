@@ -69,7 +69,7 @@ class InvoiceItem(UUIDModel):
     description = models.CharField(max_length=400)
     unit = models.CharField(max_length=30, blank=True)
     quantity = models.DecimalField(max_digits=22, decimal_places=6, null=True)
-    unit_value = models.DecimalField(max_digits=22, decimal_places=6, null=True)
+    unit_value = models.DecimalField(max_digits=26, decimal_places=10, null=True)
 
     class Meta:
         ordering = ["position"]

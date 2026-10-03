@@ -2,6 +2,7 @@ import hashlib
 import tempfile
 import threading
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from unittest import skipUnless
 from zoneinfo import ZoneInfo
 
@@ -320,6 +321,11 @@ class ReceivingTests(TestCase):
         )
         self.assertEqual(services.occupancy(moved.slot)["occupied_units"], 3)
         self.assertTrue(moved.nature_exception)
+        audit = moved.events.get(kind="rescheduled").data
+        self.assertEqual(audit["global_capacity"], 2)
+        self.assertEqual(audit["target_occupied_units_before"], 2)
+        self.assertEqual(audit["target_occupied_units_after"], 3)
+        self.assertTrue(audit["capacity_exceeded"])
         batida = self.appointment("batida", time="13:00")
         with self.assertRaises(services.DomainConflict):
             services.reschedule(
@@ -455,6 +461,42 @@ class ReceivingTests(TestCase):
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.get(pdf_response.data["download_url"]).status_code, 401)
 
+    def test_xml_unit_value_ten_places_survives_database_and_api_reload(self):
+        self.client.force_authenticate(self.other_external)
+        content = XML.replace(b"<vUnCom>1.25</vUnCom>", b"<vUnCom>1.1234567890</vUnCom>")
+        response = self.client.post(
+            "/api/v1/invoices/upload/",
+            {"file": SimpleUploadedFile("precision-synthetic.xml", content)},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201)
+        invoice = Invoice.objects.get(id=response.data["id"])
+        self.assertEqual(invoice.items.get().unit_value, Decimal("1.1234567890"))
+        loaded = self.client.get(f"/api/v1/invoices/{invoice.id}/")
+        self.assertEqual(loaded.data["items"][0]["unit_value"], "1.1234567890")
+        self.assertEqual(loaded.data["extracted"]["items"][0]["unit_value"], "1.1234567890")
+        self.assertEqual(loaded.data["items"][0]["supplier_code"], "EXTERNAL")
+        self.assertNotIn("internal_code", loaded.data["items"][0])
+        self.assertNotIn("packaging", loaded.data)
+        self.assertNotIn("warehouse", loaded.data)
+
+    def test_invalid_upload_does_not_create_invoice_or_file(self):
+        self.client.force_authenticate(self.other_external)
+        before = Invoice.objects.count()
+        for filename, content in [
+            ("broken.xml", b"<broken>"),
+            ("invalid.pdf", b"This is not a PDF"),
+            ("unsafe.xml", b'<!DOCTYPE n [<!ENTITY x SYSTEM "file:///private">]><n>&x;</n>'),
+            ("empty.xml", b""),
+        ]:
+            response = self.client.post(
+                "/api/v1/invoices/upload/",
+                {"file": SimpleUploadedFile(filename, content)},
+                format="multipart",
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(Invoice.objects.count(), before)
+
     def test_availability_exposes_holds_only_to_warehouse(self):
         appointment = self.appointment("batida")
         services.cancel(self.external, appointment.id, {"reason": "Cancelado"})
@@ -492,6 +534,32 @@ class ReceivingTests(TestCase):
 
 
 class XmlTests(TestCase):
+    def test_sparse_non_namespaced_xml_preserves_absent_values(self):
+        result = parse_invoice_xml(
+            b"<infNFe><ide><nNF>DEMO-SPARSE</nNF></ide>"
+            b"<det><prod><cProd>SUPPLIER-ONLY</cProd></prod></det>"
+            b"<transp><vol><esp>Declared by supplier</esp></vol></transp></infNFe>"
+        )
+        self.assertEqual(result["access_key"], "")
+        self.assertEqual(result["issuer"], {"name": "", "document": ""})
+        self.assertIsNone(result["items"][0]["quantity"])
+        self.assertIsNone(result["items"][0]["unit_value"])
+        self.assertIsNone(result["volumes"][0]["quantity"])
+        self.assertIsNone(result["volumes"][0]["net_weight"])
+        self.assertNotIn("packaging", result)
+        self.assertNotIn("internal_code", result["items"][0])
+
+    def test_unit_value_precision_is_preserved_and_bounded(self):
+        for value in [b"1.1234567890", b"123.0000000000", b"0.0000000001"]:
+            result = parse_invoice_xml(
+                XML.replace(b"<vUnCom>1.25</vUnCom>", b"<vUnCom>" + value + b"</vUnCom>")
+            )
+            self.assertEqual(Decimal(result["items"][0]["unit_value"]), Decimal(value.decode()))
+        with self.assertRaises(ValidationError):
+            parse_invoice_xml(
+                XML.replace(b"<vUnCom>1.25</vUnCom>", b"<vUnCom>0.00000000001</vUnCom>")
+            )
+
     def test_namespace_multiple_volumes_and_missing_volume(self):
         result = parse_invoice_xml(XML)
         self.assertEqual(result["number"], "9001")
@@ -581,3 +649,72 @@ class PostgreSQLConcurrencyTests(TransactionTestCase):
         results = self._race(["batida", "big_bag"])
         self.assertEqual(sum(result[0] == "accepted" for result in results), 1)
         self.assertEqual(Appointment.objects.count(), 1)
+
+    def test_two_simultaneous_reservations_for_last_unit_only_one_commits(self):
+        services.create_appointment(
+            self.external,
+            supplier=self.supplier,
+            invoice=self.invoice,
+            day=DAY,
+            time="08:00",
+            packaging="paletizada",
+        )
+        results = self._race(["paletizada", "big_bag"])
+        self.assertEqual(sum(result[0] == "accepted" for result in results), 1)
+        self.assertEqual(sum(result[0] == "refused" for result in results), 1)
+        self.assertEqual(services.occupancy(GlobalSlot.objects.get())["occupied_units"], 2)
+
+    def test_reciprocal_reschedules_lock_source_and_destination_without_deadlock(self):
+        appointments = [
+            services.create_appointment(
+                self.external,
+                supplier=self.supplier,
+                invoice=self.invoice,
+                day=DAY,
+                time=time,
+                packaging="paletizada",
+            )
+            for time in ["08:00", "10:00"]
+        ]
+        barrier = threading.Barrier(2)
+        results = []
+        guard = threading.Lock()
+
+        def move(appointment_id, target_time):
+            close_old_connections()
+            try:
+                actor = User.objects.get(id=self.operator.id)
+                barrier.wait(timeout=15)
+                services.reschedule(
+                    actor,
+                    appointment_id,
+                    {
+                        "date": DAY,
+                        "time": target_time,
+                        "reason": "Chuva sintética para validação concorrente",
+                        "nature_exception": True,
+                    },
+                )
+                result = "rescheduled"
+            except Exception as exc:
+                result = repr(exc)
+            finally:
+                close_old_connections()
+            with guard:
+                results.append(result)
+
+        threads = [
+            threading.Thread(target=move, args=(appointment.id, target_time))
+            for appointment, target_time in zip(appointments, ["10:00", "08:00"], strict=True)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+            self.assertFalse(thread.is_alive(), "Reagendamento ficou bloqueado.")
+        self.assertEqual(results, ["rescheduled", "rescheduled"])
+        for appointment, time in zip(appointments, ["10:00", "08:00"], strict=True):
+            appointment.refresh_from_db()
+            self.assertEqual(appointment.slot.time, time)
+            self.assertEqual(appointment.events.filter(kind="rescheduled").count(), 1)
+        self.assertEqual(CapacityHold.objects.filter(active=True).count(), 2)

@@ -233,6 +233,27 @@ class BulletinPersistenceTests(TestCase):
             bulletin.refresh_from_db()
             self.assertEqual(bulletin.status, "DRAFT")
 
+    def test_twenty_participants_with_zero_production_close_at_collective_floor(self):
+        payload = {
+            **official_payload(self.warehouse, self.workers),
+            "lines": [],
+            "participants": [
+                {"worker": str(worker.id), "fraction": "1"} for worker in self.workers[:20]
+            ],
+        }
+        created = self.client.post("/api/v1/bulletins/", payload, format="json")
+        self.assertEqual(created.status_code, 201)
+        closed = self.client.post(
+            f"/api/v1/bulletins/{created.data['id']}/close/",
+            {"revision": created.data["revision"]},
+            format="json",
+        )
+        self.assertEqual(closed.status_code, 200)
+        self.assertEqual(closed.data["calculation"]["people_count"], 20)
+        self.assertEqual(Decimal(closed.data["calculation"]["production"]), Decimal(0))
+        self.assertEqual(Decimal(closed.data["calculation"]["total_payable"]), FLOOR * 20)
+        self.assertEqual(Decimal(closed.data["calculation"]["supplement"]), FLOOR * 20)
+
     def test_one_bulletin_per_local_date_and_saturday_internal_work_allowed(self):
         payload = official_payload(self.warehouse, self.workers, day=date(2026, 10, 3))
         self.assertEqual(

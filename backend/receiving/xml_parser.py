@@ -31,7 +31,7 @@ def parse_invoice_xml(content):
         found = node.find(path)
         return (found.text or "").strip() if found is not None else ""
 
-    def number(text):
+    def number(text, *, decimal_places=6):
         if not text:
             return None
         try:
@@ -40,7 +40,7 @@ def parse_invoice_xml(content):
                 not result.is_finite()
                 or result < 0
                 or result >= Decimal("1000000000000000")
-                or abs(result.as_tuple().exponent) > 6
+                or abs(result.as_tuple().exponent) > decimal_places
             ):
                 raise InvalidOperation
             return str(result)
@@ -62,7 +62,7 @@ def parse_invoice_xml(content):
                 "description": value(product, "xProd")[:400],
                 "unit": value(product, "uCom")[:30],
                 "quantity": number(value(product, "qCom")),
-                "unit_value": number(value(product, "vUnCom")),
+                "unit_value": number(value(product, "vUnCom"), decimal_places=10),
             }
         )
     if len(items) > 1000:

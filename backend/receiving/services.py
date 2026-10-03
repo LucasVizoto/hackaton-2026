@@ -569,6 +569,7 @@ def reschedule(user, appointment_id, data):
     validate_capacity(
         target, appointment.packaging, exclude_appointment=appointment.id, nature_exception=nature
     )
+    target_occupied_before = occupancy(target, exclude_appointment=appointment.id)["occupied_units"]
     source = appointment.slot
     # Moving the reservation does not leave a second counted reservation at its source.
     _hold_capacity(appointment, user, "Vaga de origem de reagendamento: " + reason)
@@ -590,6 +591,10 @@ def reschedule(user, appointment_id, data):
             "target_time": target.time,
             "source_slot_id": str(source.id),
             "target_slot_id": str(target.id),
+            "global_capacity": 2,
+            "target_occupied_units_before": target_occupied_before,
+            "target_occupied_units_after": target_occupied_before + appointment.units,
+            "capacity_exceeded": target_occupied_before + appointment.units > 2,
         },
     )
     return appointment
