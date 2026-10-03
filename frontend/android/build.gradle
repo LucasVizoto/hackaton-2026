@@ -24,6 +24,16 @@ allprojects {
     }
 }
 
+// Cordova's test runtime resolves stdlib 1.8.22 with legacy JDK extensions.
+// Keep their versions aligned without editing Capacitor's generated project.
+project(':capacitor-cordova-android-plugins') {
+    plugins.withId('com.android.library') {
+        dependencies {
+            androidTestImplementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
