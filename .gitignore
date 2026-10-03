@@ -38,8 +38,8 @@
 output/
 tmp/
 PRODUCT.md
-DESIGN.md
-.impeccable/
+.impeccable/*
+!.impeccable/design.json
 .codex/
 .private/
 .env

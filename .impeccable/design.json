@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T17:15:43Z",
+  "title": "Design System: Recebimento Cocapec",
+  "extensions": {
+    "colorMeta": {
+      "green": {
+        "role": "primary",
+        "displayName": "Verde Cocapec"
+      },
+      "brand-hover": {
+        "role": "primary",
+        "displayName": "Verde de interação"
+      },
+      "brand-contrast": {
+        "role": "primary",
+        "displayName": "Texto sobre verde"
+      },
+      "brand-soft": {
+        "role": "primary",
+        "displayName": "Fundo verde de apoio"
+      },
+      "blue": {
+        "role": "secondary",
+        "displayName": "Azul de informação"
+      },
+      "info-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de informação"
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Papel"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superfície"
+      },
+      "surface-subtle": {
+        "role": "neutral",
+        "displayName": "Superfície de apoio"
+      },
+      "surface-hover": {
+        "role": "neutral",
+        "displayName": "Superfície em interação"
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Texto principal"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Texto secundário"
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Divisória estrutural"
+      },
+      "control-line": {
+        "role": "neutral",
+        "displayName": "Borda de controle"
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Confirmação"
+      },
+      "success-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de confirmação"
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "Pendência e origem sintética"
+      },
+      "warning-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de pendência"
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Falha"
+      },
+      "danger-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de falha"
+      },
+      "dark-green": {
+        "role": "primary",
+        "displayName": "Verde Cocapec · escuro"
+      },
+      "dark-brand-hover": {
+        "role": "primary",
+        "displayName": "Verde de interação · escuro"
+      },
+      "dark-brand-contrast": {
+        "role": "primary",
+        "displayName": "Texto sobre verde · escuro"
+      },
+      "dark-brand-soft": {
+        "role": "primary",
+        "displayName": "Fundo verde de apoio · escuro"
+      },
+      "dark-blue": {
+        "role": "secondary",
+        "displayName": "Azul de informação · escuro"
+      },
+      "dark-info-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de informação · escuro"
+      },
+      "dark-paper": {
+        "role": "neutral",
+        "displayName": "Papel · escuro"
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Superfície · escuro"
+      },
+      "dark-surface-subtle": {
+        "role": "neutral",
+        "displayName": "Superfície de apoio · escuro"
+      },
+      "dark-surface-hover": {
+        "role": "neutral",
+        "displayName": "Superfície em interação · escuro"
+      },
+      "dark-text": {
+        "role": "neutral",
+        "displayName": "Texto principal · escuro"
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Texto secundário · escuro"
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "Divisória estrutural · escuro"
+      },
+      "dark-success": {
+        "role": "secondary",
+        "displayName": "Confirmação · escuro"
+      },
+      "dark-success-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de confirmação · escuro"
+      },
+      "dark-warning": {
+        "role": "secondary",
+        "displayName": "Pendência e origem sintética · escuro"
+      },
+      "dark-warning-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de pendência · escuro"
+      },
+      "dark-danger": {
+        "role": "secondary",
+        "displayName": "Falha · escuro"
+      },
+      "dark-danger-soft": {
+        "role": "secondary",
+        "displayName": "Fundo de falha · escuro"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Título da tarefa",
+        "purpose": "H1 de página; 24px no celular."
+      },
+      "title": {
+        "displayName": "Título de seção",
+        "purpose": "H2 de bloco de trabalho."
+      },
+      "title-small": {
+        "displayName": "Subtítulo",
+        "purpose": "H3 de bloco ou grupo."
+      },
+      "body": {
+        "displayName": "Corpo",
+        "purpose": "Leitura e conteúdo de formulário."
+      },
+      "body-small": {
+        "displayName": "Corpo menor",
+        "purpose": "Tabela e contexto de página."
+      },
+      "label": {
+        "displayName": "Rótulo",
+        "purpose": "Campo e ação de tarefa."
+      },
+      "table-label": {
+        "displayName": "Cabeçalho de tabela",
+        "purpose": "Identificação de coluna."
+      },
+      "metric-label": {
+        "displayName": "Rótulo de indicador",
+        "purpose": "Nome da medida no MetricCard."
+      },
+      "metric-value": {
+        "displayName": "Valor de indicador",
+        "purpose": "Valor do MetricCard; 23px no celular."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-light",
+        "value": "0 2px 5px rgba(15,23,42,.04), 0 6px 16px rgba(15,23,42,.025)",
+        "purpose": "--shadow-card no login claro."
+      },
+      {
+        "name": "card-dark",
+        "value": "0 2px 5px rgba(0,0,0,.12), 0 6px 16px rgba(0,0,0,.08)",
+        "purpose": "--shadow-card no login escuro."
+      },
+      {
+        "name": "overlay-light",
+        "value": "0 8px 28px rgba(15,23,42,.15)",
+        "purpose": "--shadow-overlay em menu e navegação inferior claros."
+      },
+      {
+        "name": "overlay-dark",
+        "value": "0 8px 28px rgba(0,0,0,.35)",
+        "purpose": "--shadow-overlay em menu e navegação inferior escuros."
+      }
+    ],
+    "motion": [
+      {
+        "name": "interaction-duration",
+        "value": "160ms",
+        "purpose": "Transição de background-color em ações e navegação."
+      },
+      {
+        "name": "interaction-easing",
+        "value": "ease-out",
+        "purpose": "Curva das transições de interação."
+      },
+      {
+        "name": "reduced-motion-duration",
+        "value": ".01ms",
+        "purpose": "Limite de duração sob prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "metrics-and-charts-max",
+        "value": "1199px"
+      },
+      {
+        "name": "sidebar-max-hidden",
+        "value": "1023px"
+      },
+      {
+        "name": "mobile-max",
+        "value": "767px"
+      },
+      {
+        "name": "filters-full-width-max",
+        "value": "420px"
+      },
+      {
+        "name": "narrow-single-column-max",
+        "value": "359px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ação principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação de tarefa com o verde e contraste do tema corrente.",
+      "html": "<button class=\"ds-button-primary\" type=\"button\">Aplicar período</button>",
+      "css": ".ds-button-primary{border-radius:var(--radius-control,12px);min-height:44px;padding:0 18px;font:600 14px/1.5 var(--font-body,Inter,system-ui,sans-serif);letter-spacing:0;text-transform:none;cursor:pointer;transition:background-color 160ms ease-out;border:0;background:var(--green,#134E39);color:var(--brand-contrast,#FFFFFF)}.ds-button-primary:hover{background:var(--brand-hover,#0D3527)}.ds-button-primary:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:-3px;}.ds-button-primary:disabled{opacity:.6;cursor:not-allowed}"
+    },
+    {
+      "name": "Ação outline",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Ação de apoio com borda de controle.",
+      "html": "<button class=\"ds-button-outline\" type=\"button\">Voltar</button>",
+      "css": ".ds-button-outline{border-radius:var(--radius-control,12px);min-height:44px;padding:0 18px;font:600 14px/1.5 var(--font-body,Inter,system-ui,sans-serif);letter-spacing:0;text-transform:none;cursor:pointer;transition:background-color 160ms ease-out;border:1px solid var(--control-line,#7B8BA0);background:transparent;color:var(--green,#134E39)}.ds-button-outline:hover{background:var(--brand-soft,#EAF4EF)}.ds-button-outline:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:-3px;}.ds-button-outline:disabled{opacity:.6;cursor:not-allowed}"
+    },
+    {
+      "name": "Ação clear",
+      "kind": "button",
+      "refersTo": "button-clear",
+      "description": "Ação de apoio sem borda ou superfície persistente.",
+      "html": "<button class=\"ds-button-clear\" type=\"button\">Sair</button>",
+      "css": ".ds-button-clear{border-radius:var(--radius-control,12px);min-height:44px;padding:0 18px;font:600 14px/1.5 var(--font-body,Inter,system-ui,sans-serif);letter-spacing:0;text-transform:none;cursor:pointer;transition:background-color 160ms ease-out;border:0;background:transparent;color:var(--green,#134E39)}.ds-button-clear:hover{background:var(--brand-soft,#EAF4EF)}.ds-button-clear:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:-3px;}.ds-button-clear:disabled{opacity:.6;cursor:not-allowed}"
+    },
+    {
+      "name": "Campo rotulado",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo nativo de formulário; label permanece visível.",
+      "html": "<label class=\"ds-field\">Número da nota<input class=\"ds-input\" type=\"text\" /></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:8px;color:var(--text,#0F172A);font:600 14px/1.5 var(--font-body,Inter,system-ui,sans-serif)}.ds-input{font:inherit;color:var(--text,#0F172A);border:1px solid var(--control-line,#7B8BA0);border-radius:var(--radius-control,12px);padding:10px 12px;min-height:44px;max-width:100%;background:var(--surface,#FFFFFF);caret-color:var(--green,#134E39)}.ds-input:hover{border-color:var(--green,#134E39)}.ds-input:focus{border-color:var(--focus,#005596)}.ds-input:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:3px}"
+    },
+    {
+      "name": "Módulo ativo",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Destino da navegação lateral ou do menu de módulos, com ícone Ionicons inline.",
+      "html": "<nav class=\"ds-navigation\" aria-label=\"Módulos\"><a class=\"ds-nav-link ds-active\" href=\"#ds-agenda\" aria-current=\"page\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 512 512\" aria-hidden=\"true\"><rect width=\"416\" height=\"384\" x=\"48\" y=\"80\" fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"32\" rx=\"48\"/><circle cx=\"296\" cy=\"232\" r=\"24\"/><circle cx=\"376\" cy=\"232\" r=\"24\"/><circle cx=\"296\" cy=\"312\" r=\"24\"/><circle cx=\"376\" cy=\"312\" r=\"24\"/><circle cx=\"136\" cy=\"312\" r=\"24\"/><circle cx=\"216\" cy=\"312\" r=\"24\"/><circle cx=\"136\" cy=\"392\" r=\"24\"/><circle cx=\"216\" cy=\"392\" r=\"24\"/><circle cx=\"296\" cy=\"392\" r=\"24\"/><path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"32\" d=\"M128 48v32M384 48v32\"/><path fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"32\" d=\"M464 160H48\"/></svg><span>Agenda</span></a></nav>",
+      "css": ".ds-navigation{display:flex;flex-direction:column;gap:6px}.ds-nav-link{display:flex;align-items:center;gap:12px;padding:12px;min-height:48px;text-decoration:none;color:var(--muted,#526176);border-radius:var(--radius-control,12px);font:400 14px/1.5 var(--font-body,Inter,system-ui,sans-serif);transition:background-color 160ms ease-out}.ds-nav-link.ds-active{background:var(--green,#134E39);color:var(--brand-contrast,#FFFFFF);font-weight:600}.ds-nav-link:not(.ds-active):hover{background:var(--surface-hover,#EDF3F6);color:var(--text,#0F172A)}.ds-nav-link:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:3px}.ds-nav-icon{width:22px;height:22px;fill:currentColor;flex-shrink:0}"
+    },
+    {
+      "name": "Estado pendente",
+      "kind": "chip",
+      "refersTo": "status-pending",
+      "description": "Estado escrito, reforçado por cor e ponto decorativo.",
+      "html": "<span class=\"ds-status\"><span class=\"ds-status-dot\" aria-hidden=\"true\"></span>Pendente</span>",
+      "css": ".ds-status{display:inline-flex;gap:6px;align-items:center;font:600 12px/18px var(--font-body,Inter,system-ui,sans-serif);padding:5px 10px;border-radius:var(--radius-full,999px);background:var(--warning-soft,#FFF7E6);color:var(--warning,#92400E);white-space:nowrap}.ds-status-dot{width:6px;height:6px;border-radius:var(--radius-full,999px);background:currentColor}"
+    },
+    {
+      "name": "Indicador de apoio",
+      "kind": "card",
+      "refersTo": "metric-card",
+      "description": "MetricCard padrão, com ausência explícita no exemplo.",
+      "html": "<article class=\"ds-metric\"><h3 class=\"ds-metric-label\">Espera média</h3><strong class=\"ds-metric-value\">Não disponível</strong><p class=\"ds-metric-hint\">Da chegada ao início da descarga</p></article>",
+      "css": ".ds-metric{padding:22px;background:var(--surface,#FFFFFF);color:var(--text,#0F172A);border:1px solid var(--line,#E2E8F0);border-radius:var(--radius-card,16px)}.ds-metric-label{font:500 13px/1.45 var(--font-body,Inter,system-ui,sans-serif);color:var(--muted,#526176);margin:0 0 14px;letter-spacing:0}.ds-metric-value{display:block;font:700 27px/1.3 var(--font-heading,\"Plus Jakarta Sans\",Inter,system-ui,sans-serif);letter-spacing:-.025em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.ds-metric-hint{font:400 12px/1.5 var(--font-body,Inter,system-ui,sans-serif);color:var(--muted,#526176);margin:10px 0 0}@media(max-width:767px){.ds-metric{padding:18px 16px}.ds-metric-value{font-size:23px}}"
+    },
+    {
+      "name": "Indicador principal",
+      "kind": "card",
+      "refersTo": "metric-card-brand",
+      "description": "MetricCard no tom brand para o total de maior hierarquia.",
+      "html": "<article class=\"ds-metric ds-metric-brand\"><h3 class=\"ds-metric-label\">Total a pagar</h3><strong class=\"ds-metric-value\">Não disponível</strong><p class=\"ds-metric-hint\">Piso aplicado por boletim</p></article>",
+      "css": ".ds-metric{padding:22px;background:var(--surface,#FFFFFF);color:var(--text,#0F172A);border:1px solid var(--line,#E2E8F0);border-radius:var(--radius-card,16px)}.ds-metric-label{font:500 13px/1.45 var(--font-body,Inter,system-ui,sans-serif);color:var(--muted,#526176);margin:0 0 14px;letter-spacing:0}.ds-metric-value{display:block;font:700 27px/1.3 var(--font-heading,\"Plus Jakarta Sans\",Inter,system-ui,sans-serif);letter-spacing:-.025em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.ds-metric-hint{font:400 12px/1.5 var(--font-body,Inter,system-ui,sans-serif);color:var(--muted,#526176);margin:10px 0 0}@media(max-width:767px){.ds-metric{padding:18px 16px}.ds-metric-value{font-size:23px}}.ds-metric-brand{background:var(--green,#134E39);border-color:transparent;color:var(--brand-contrast,#FFFFFF)}.ds-metric-brand .ds-metric-label,.ds-metric-brand .ds-metric-hint{color:var(--brand-contrast,#FFFFFF)}"
+    },
+    {
+      "name": "Origem sintética",
+      "kind": "custom",
+      "refersTo": "origin-synthetic",
+      "description": "Aviso de Origin que acompanha registros de demonstração.",
+      "html": "<div class=\"ds-origin\">Demonstração sintética — este registro não descreve uma operação histórica da Cocapec.</div>",
+      "css": ".ds-origin{padding:16px 18px;border:1px solid transparent;border-radius:var(--radius-control,12px);font:400 14px/1.55 var(--font-body,Inter,system-ui,sans-serif);background:var(--warning-soft,#FFF7E6);color:var(--warning,#92400E);overflow-wrap:anywhere}"
+    }
+  ],
+  "narrative": {
+    "overview": "Interface de operação para agenda, conferência, armazém, boletins e gestão. O redesign aprovado usa como referência visual o Coffee Logistics Dashboard do Google Stitch, projeto `8449242214206285579`. A direção foi aplicada a partir do código, preservando tarefas, permissões, conteúdo de domínio e contratos da API. A referência não acrescenta funcionalidades ao produto.\n\nO sistema organiza a leitura com cabeçalhos compactos, superfícies claras, cartões de indicadores, tabelas e estados escritos. Verde identifica ação e seleção; azul ajuda a localizar dados e informação. A marca em uso é o texto “Cocapec / Recebimento” acompanhado de uma folha em contorno do Ionicons; não é um logotipo oficial fornecido pela cooperativa. Não há imagens raster na interface entregue.\n\n**Características:** hierarquia de tarefa, dados com origem e cobertura, componentes compartilhados, temas completos e navegação adaptada ao perfil. Este arquivo substitui as regras visuais anteriores. Os valores do frontmatter foram extraídos de [styles.scss](frontend/src/styles.scss); esse arquivo continua sendo a fonte de implementação e de compatibilidade com Ionic.\n\nEvidência do redesign em 03/10/2026: revisão independente com disposição `ship`, conferência web em 1440, 820 e 390px e reflow em 320px nos dois temas; Android em AVD API 36 e viewport de tablet de 800dp. Foram inspecionados teclado nativo, menu Mais, persistência do tema, erro de conexão/repetição e alcance da ação de salvar, sem gravações de negócio durante essa QA visual. Lint, 17 testes de apresentação, 81 testes PostgreSQL, build Angular, sincronização Capacitor, `assembleDebug` e `testDebugUnitTest` passaram. O build inicial registrado é 632,79 kB, abaixo dos limites configurados de 2 MB para aviso e 3 MB para erro. O teste Java local é uma asserção padrão; aparelho físico e TalkBack não foram validados. Evidências detalhadas ficam no arquivo local `.impeccable/review/validation.md`, que não é publicado no repositório.",
+    "keyCharacteristics": [
+      "hierarquia de tarefa",
+      "dados com origem e cobertura",
+      "componentes compartilhados",
+      "temas completos",
+      "navegação adaptada ao perfil"
+    ],
+    "rules": [],
+    "dos": [
+      "**Do** reutilizar tokens de `styles.scss` e componentes compartilhados; conferir a mudança nos dois temas.",
+      "**Do** preservar labels, nomes acessíveis, foco visível, alvos de 44px e rolagem local das tabelas.",
+      "**Do** manter origem, período, unidade, cobertura e avisos junto dos resultados que explicam.",
+      "**Do** distinguir ausência, zero observado, dado sintético, histórico e cenário; manter cálculos e valores de formulário intactos."
+    ],
+    "donts": [
+      "**Don't** misturar papéis de temas ou usar `line` como borda de campo.",
+      "**Don't** acrescentar métricas, economia, urgência, percentuais sem denominador ou dados de demonstração sem rótulo.",
+      "**Don't** transformar aprovações independentes em sequência obrigatória ou confirmar gravação antes da API.",
+      "**Don't** substituir a marca textual por um logotipo oficial inventado nem inserir imagens sem fonte e proveniência."
+    ]
+  }
+}
