@@ -247,25 +247,53 @@ def record_outcomes(records):
     }
 
 
-def upsert_catalog(kind, records):
+def catalog_values(kind, records):
     model, key_name = {"products": (Product, "code"), "suppliers": (Supplier, "code"), "workers": (Worker, "registration")}[kind]
     first = {}
     for record in records:
         if record["attrs"][key_name]:
             first.setdefault(record["attrs"][key_name], record["attrs"])
-    objects = [model(**attrs) for attrs in first.values()]
+    return model, key_name, first
+
+
+def check_catalog_conflicts(kind, records):
+    model, key_name, first = catalog_values(kind, records)
+    for existing in model.objects.filter(**{f"{key_name}__in": first}):
+        attrs = first[getattr(existing, key_name)]
+        if any(getattr(existing, field) != value for field, value in attrs.items()):
+            raise PrivateDataError(f"Conflito no catálogo {kind}; nenhum registro existente foi sobrescrito.")
+
+
+def upsert_catalog(kind, records, *, preserve_existing=False):
+    model, key_name, first = catalog_values(kind, records)
+    if preserve_existing:
+        check_catalog_conflicts(kind, records)
+        present = set(model.objects.filter(**{f"{key_name}__in": first}).values_list(key_name, flat=True))
+        first_to_create = {key: attrs for key, attrs in first.items() if key not in present}
+    else:
+        first_to_create = first
+    objects = [model(**attrs) for attrs in first_to_create.values()]
     if objects:
-        fields = [f for f in first[next(iter(first))] if f != key_name]
-        model.objects.bulk_create(objects, batch_size=1000, update_conflicts=True, update_fields=fields, unique_fields=[key_name])
+        if preserve_existing:
+            model.objects.bulk_create(objects, batch_size=1000)
+        else:
+            fields = [f for f in first[next(iter(first))] if f != key_name]
+            model.objects.bulk_create(objects, batch_size=1000, update_conflicts=True, update_fields=fields, unique_fields=[key_name])
     if kind == "products":
         products = dict(Product.objects.filter(code__in=first).values_list("code", "id"))
         pairs = {(r["attrs"]["code"], r["depot"]) for r in records if r["attrs"]["code"] and r["depot"]}
         ProductDeposit.objects.bulk_create([ProductDeposit(product_id=products[code], depot=depot) for code, depot in pairs], batch_size=1000, ignore_conflicts=True)
 
 
-def import_source(kind, path, *, dry_run=False):
+def import_source(kind, path, *, dry_run=False, source_key="", source_file=None,
+                  preserve_existing=False, prepared=None):
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    records, summary, issues = READERS[kind](path)
+    if prepared is None:
+        records, summary, issues = READERS[kind](path)
+    else:
+        if digest != prepared["digest"]:
+            raise PrivateDataError("Fonte alterada depois da validação; execução interrompida.")
+        records, summary, issues = prepared["records"], prepared["summary"], prepared["issues"]
     if dry_run:
         return {"kind": kind, "status": "dry_run", "row_count": len(records), "summary": {**summary, **record_outcomes(records), "catalog_links_checked": False}, "issues": issues}
     with transaction.atomic():
@@ -273,26 +301,34 @@ def import_source(kind, path, *, dry_run=False):
         lock = int.from_bytes(hashlib.sha256(kind.encode()).digest()[:4], "big", signed=True)
         with connection.cursor() as cursor:
             cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock])
-        existing = ImportBatch.objects.filter(kind=kind, file_hash=digest, importer_version=IMPORTER_VERSION).first()
+        scoped = ImportBatch.objects.filter(kind=kind, source_key=source_key)
+        if preserve_existing:
+            active = scoped.filter(active=True).first()
+            if active and (active.file_hash != digest or active.importer_version != IMPORTER_VERSION):
+                raise PrivateDataError(f"Baseline existente diferente no conjunto {kind}.")
+        existing = scoped.filter(file_hash=digest, importer_version=IMPORTER_VERSION).first()
         if existing and existing.active:
+            if source_file and existing.source_file_id is None:
+                existing.source_file = source_file
+                existing.save(update_fields=["source_file"])
             return {"kind": kind, "status": "unchanged", "row_count": existing.row_count, "summary": existing.summary, "issues": existing.issues}
-        ImportBatch.objects.filter(kind=kind, active=True).update(active=False)
+        scoped.filter(active=True).update(active=False)
         if kind in {"products", "suppliers", "workers"}:
-            upsert_catalog(kind, records)
+            upsert_catalog(kind, records, preserve_existing=preserve_existing)
         if existing:
             existing.active = True
             existing.save(update_fields=["active"])
             return {"kind": kind, "status": "reactivated", "row_count": existing.row_count, "summary": existing.summary, "issues": existing.issues}
-        batch = ImportBatch.objects.create(kind=kind, file_hash=digest, importer_version=IMPORTER_VERSION, source_name=path.name, row_count=len(records), summary=summary, issues=issues)
+        batch = ImportBatch.objects.create(kind=kind, source_key=source_key, source_file=source_file, file_hash=digest, importer_version=IMPORTER_VERSION, source_name=path.name, row_count=len(records), summary=summary, issues=issues)
         if kind in {"products", "suppliers", "workers"}:
             SourceRow.objects.bulk_create([SourceRow(batch=batch, source_sheet=r["sheet"], source_row=r["row"], natural_key=r["key"], original=r["original"], problems=r["problems"]) for r in records], batch_size=1000)
         elif kind == "movements":
-            active_catalog = ImportBatch.objects.filter(kind="products", active=True).first()
+            active_catalog = ImportBatch.objects.filter(kind="products", source_key="", active=True).first()
             # Current pairs come from the active source, not stale normalized associations.
             pairs = set(active_catalog.source_rows.values_list("natural_key", flat=True)) if active_catalog else set()
             current_codes = {pair.split("|", 1)[0] for pair in pairs}
             products = dict(Product.objects.filter(code__in=current_codes).values_list("code", "id"))
-            active_suppliers = ImportBatch.objects.filter(kind="suppliers", active=True).first()
+            active_suppliers = ImportBatch.objects.filter(kind="suppliers", source_key="", active=True).first()
             supplier_codes = set(active_suppliers.source_rows.values_list("natural_key", flat=True)) if active_suppliers else set()
             suppliers = dict(Supplier.objects.filter(code__in=supplier_codes).values_list("code", "id"))
             counts = Counter(issues)

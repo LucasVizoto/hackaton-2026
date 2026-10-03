@@ -210,6 +210,9 @@ class Command(BaseCommand):
             warehouse=warehouse, reference_date=day, defaults={"origin": DEMO, "created_by": actor}
         )
         if not created:
+            if bulletin.origin == "historico_importado" and day == date(2025, 11, 17) and warehouse.code == "ADUBO":
+                self.stdout.write("Exemplo sintético de 17/11/2025 ignorado: o boletim histórico ocupa este local/data.")
+                return
             if bulletin.origin != DEMO:
                 raise CommandError(
                     "Local/data reservados do seed já possuem boletim de outra origem; nenhum registro foi sobrescrito."

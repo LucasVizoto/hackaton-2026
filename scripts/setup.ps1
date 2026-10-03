@@ -1,4 +1,4 @@
-param([switch]$SeedDemo)
+param([switch]$SeedDemo, [string]$PrivateDataPath)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $taskRoot
@@ -21,7 +21,9 @@ if (-not (Test-Path -LiteralPath 'backend/.venv/Scripts/python.exe')) {
 }
 Invoke-Checked 'uv' @('pip', 'sync', '--python', 'backend/.venv/Scripts/python.exe', 'backend/requirements.lock')
 Invoke-Checked 'docker' @('compose', 'up', '-d', '--wait')
-Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'migrate', '--noinput')
+$taskBootstrapArgs = @('backend/manage.py', 'bootstrap_database')
+if ($PrivateDataPath) { $taskBootstrapArgs += @('--path', $PrivateDataPath) }
+Invoke-Checked 'backend/.venv/Scripts/python.exe' $taskBootstrapArgs
 Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'check')
 if ($SeedDemo) {
     Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'seed_demo')

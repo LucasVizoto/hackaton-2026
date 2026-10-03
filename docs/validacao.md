@@ -1,6 +1,34 @@
-# Validação da demonstração
+# Validação do seed e da demonstração
 
 Registro de execução em 03/10/2026, Windows/PowerShell, com PostgreSQL real. O documento distingue checks automatizados, percurso funcional e verificações pendentes. Não é certificação de produção. Nenhuma hipótese foi apresentada como confirmada pela Cocapec.
+
+## Seed completo do Hackathon
+
+O bootstrap foi executado com os 938 arquivos originais em PostgreSQL 17 descartável, separado do banco atual. A carga terminou com as contagens abaixo. Os relatórios com manifestos, hashes e caminhos permanecem em `.private`; somente os agregados são documentados aqui.
+
+| Conjunto | Resultado preservado |
+|---|---:|
+| Arquivos de origem | 938 entradas; 937 arquivos físicos, com uma duplicata idêntica |
+| Produtos / pares produto-depósito | 10.604 / 10.899 |
+| Fornecedores / matrículas | 872 / 15 |
+| Armazéns / depósitos / equipamentos | 4 / 14 / 4 |
+| Movimentação documental | 41.779 linhas |
+| Estoque | 1.245 posições; 12 referências ausentes |
+| RH diário do CSV | 428 datas |
+| Observações individuais de RH | 6.380; 5.081 utilizáveis |
+| Notas / itens fiscais | 458 / 831; duas chaves com conflito permanecem pendentes |
+| Tarifas / boletins / linhas / participantes | 14 / 1 / 14 / 11 |
+| Lotes / linhas de proveniência | 13 / 14.279 |
+
+O boletim histórico conserva produção `918.1952`, total `991.9041` e complemento `73.7089`. Sua auditoria identifica a importação atual; o fechamento histórico desconhecido permanece nulo. Foi criada somente a conta técnica inativa, sem senha utilizável. Não foram criados perfis, tokens, sessões ou registros operacionais sem fonte.
+
+Dois processos de `bootstrap_database` começaram juntos em outro PostgreSQL vazio. Um retornou `completed`, o outro `unchanged`, com o mesmo `SeedRun`. Após outra reexecução, as 42 tabelas conservaram contagens e fingerprints de todas as colunas, incluindo IDs; os 937 arquivos físicos mantiveram os hashes. Cada uma das 938 entradas de `SourceFile` foi comparada com o arquivo armazenado.
+
+Em um terceiro banco descartável, foram aplicadas as migrations antigas e usados os cinco leitores da revisão anterior para importar as fontes reais. O bootstrap atualizou o schema e completou a carga, preservando fingerprints e IDs de produtos, associações, fornecedores, matrículas, movimentação, RH diário, lotes e linhas de proveniência anteriores. Os cinco lotes ativos conservaram a fonte vazia e receberam apenas o vínculo novo com `SourceFile`.
+
+A suíte atual passou com **105 testes Django em PostgreSQL**. Os 24 testes do seed cobrem rollback da cópia parcial e de falha tardia, retomada, ausência/estrutura/limites das fontes antes de migrations, conflitos de cadastro, XMLs repetidos/conflitantes, fornecedores ausentes/ambíguos, estoque sem produto/data, RH com datas inválidas/duplicatas/conflitos/precisão, fórmulas preservadas, downloads autorizados, relatório privado e compatibilidade com `seed_demo`. Lint, check Django, consistência de migrations e `git diff --check` passaram. Os testes de frontend/mobile abaixo pertencem à rodada anterior e não foram repetidos nesta alteração de backend.
+
+As fontes originais e o banco atual foram preservados: as novas migrations não foram aplicadas ao banco principal durante a validação.
 
 ## Checks executados
 
@@ -12,8 +40,8 @@ Execute os comandos da raiz, exceto os comandos npm, executados em `frontend`, e
 | Lint backend | `backend/.venv/Scripts/ruff.exe check backend` | PASS |
 | Configuração Django | `backend/.venv/Scripts/python.exe backend/manage.py check` | PASS |
 | Modelos e migrations | `backend/.venv/Scripts/python.exe backend/manage.py makemigrations --check --dry-run --noinput` | PASS; nenhuma alteração pendente |
-| Migrations aplicadas | `backend/.venv/Scripts/python.exe backend/manage.py migrate --check` | PASS |
-| Testes backend | `backend/.venv/Scripts/python.exe backend/manage.py test core receiving labor analytics imports --noinput` | PASS; 81 testes em PostgreSQL |
+| Migrations aplicadas | `backend/.venv/Scripts/python.exe backend/manage.py migrate --check` | PASS nos bancos descartáveis do seed; banco principal preservado |
+| Testes backend | `backend/.venv/Scripts/python.exe backend/manage.py test core receiving labor analytics imports --noinput` | PASS; 105 testes em PostgreSQL |
 | Lint frontend | `npm run lint` | PASS |
 | Testes de apresentação | `npm test` | PASS; 7 testes |
 | Build Angular | `npm run build` | PASS |
@@ -40,7 +68,7 @@ A falha reproduzida de classes Kotlin duplicadas no módulo de testes gerado foi
 
 ## Conferência monetária reproduzível
 
-`scripts/seed.ps1` prepara dados exclusivamente sintéticos. Os dois boletins de referência usam equipe artificial e as quantidades do exemplo oficial; não representam uma série operacional real.
+`manage.py seed_demo` prepara dados exclusivamente sintéticos; `scripts/seed.ps1` agora aplica o baseline privado completo. Os dois boletins sintéticos de referência usam equipe artificial e as quantidades do exemplo oficial; não representam uma série operacional real. O exemplo de 17/11/2025 é pulado quando ocupado pelo boletim histórico.
 
 | Caso | Produção exata | Diárias equivalentes | Total exato | Complemento exato |
 |---|---:|---:|---:|---:|
@@ -52,7 +80,7 @@ O piso é aplicado por boletim antes da agregação. O cenário de 11 para 10,5 
 
 ## Importação, HTTP e persistência
 
-Os cinco conjuntos privados foram reimportados duas vezes com o leitor 1.1. A repetição retornou `unchanged`; os lotes ativos e os registros operacionais preexistentes foram preservados. Por lote, `accepted_rows + pending_rows + rejected_rows = preserved_rows = row_count`. Uma linha com vários motivos conta uma vez como pendente. Pendências permanecem armazenadas; erros estruturais abortam a gravação do lote. A reexecução do seed preservou os registros existentes, incluindo os exemplos com 11 e 10,5 diárias.
+Na rodada anterior ao seed completo, os cinco conjuntos privados foram reimportados duas vezes com o leitor 1.1. A repetição retornou `unchanged`; os lotes ativos e os registros operacionais preexistentes foram preservados. Por lote, `accepted_rows + pending_rows + rejected_rows = preserved_rows = row_count`. Uma linha com vários motivos conta uma vez como pendente. Pendências permanecem armazenadas; erros estruturais abortam a gravação do lote. A reexecução do seed sintético preservou os registros existentes, incluindo os exemplos com 11 e 10,5 diárias.
 
 As verificações HTTP usam apenas registros sintéticos e mantêm checkpoints privados:
 

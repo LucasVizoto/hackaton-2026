@@ -11,6 +11,16 @@ class Warehouse(UUIDModel):
         ordering = ["name"]
 
 
+class Depot(UUIDModel):
+    code = models.CharField(max_length=80, unique=True)
+    warehouse = models.ForeignKey(
+        Warehouse, on_delete=models.PROTECT, null=True, blank=True, related_name="depots"
+    )
+
+    class Meta:
+        ordering = ["code"]
+
+
 class Supplier(UUIDModel):
     code = models.CharField(max_length=80, unique=True)
     name = models.CharField(max_length=200)
@@ -40,7 +50,8 @@ class Equipment(UUIDModel):
     warehouse = models.ForeignKey(
         Warehouse, on_delete=models.PROTECT, null=True, blank=True, related_name="equipment"
     )
-    mobile = models.BooleanField(default=False)
+    mobile = models.BooleanField(default=False, null=True, blank=True)
+    purpose = models.TextField(blank=True)
 
     class Meta:
         ordering = ["name"]

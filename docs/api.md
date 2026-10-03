@@ -24,7 +24,7 @@ Erros tratados têm `error.code` e `error.details`. Os detalhes podem ser mensag
 | `GET catalog/warehouses/` | Locais físicos: `id`, `code`, `name` |
 | `GET catalog/suppliers/` | Fornecedores autorizados; fornecedor vê somente seu cadastro |
 | `GET catalog/workers/?registration=...` | Matrículas para perfis internos; fornecedor não recebe trabalhadores |
-| `GET catalog/equipment/` | Equipamentos, local-base opcional e indicador de mobilidade |
+| `GET catalog/equipment/` | Equipamentos com `purpose`, local-base opcional e `mobile` que aceita nulo quando desconhecido |
 | `GET catalog/service-rates/` | Perfis internos; `floor_per_day` e 14 categorias com `code`, `label`, `price` |
 | `GET invoices/` e `GET invoices/:id/` | Notas autorizadas; itens, extração, `attachment_id`, `download_url`, origem |
 | `POST invoices/upload/` | Multipart: `file` XML/PDF não vazio até 10 MB; `supplier` obrigatório para usuário interno; fornecedor usa seu vínculo. Perfis supplier/purchasing/warehouse |
@@ -85,3 +85,5 @@ Gestão/admin recebem `source_records`; outros perfis e consultas históricas re
 `POST analytics/staffing-scenario/` recebe `bulletin` fechado e `equivalent_days` entre 0,5 e 20, em incrementos de meia diária. Retorna situação atual, cenário, diferença monetária e hipóteses. Não grava redução de equipe e não declara economia garantida; a produção constante é condição explícita.
 
 `GET data/quality/` exige perfil interno e retorna lotes ativos, contagens, períodos, pendências e limites agregados. Não retorna linhas originais, códigos, nomes, chaves fiscais, hashes ou caminhos privados. Importação ocorre por comando privado, conforme [instruções](importacao.md), e não por integração SAP.
+
+`baseline` é nulo antes da carga completa. Depois, reúne versão, arquivos por tipo, estoque, observações individuais de RH, notas prontas/pendentes, depósitos, equipamentos e boletim importado. `batches` também inclui as quatro fontes de estoque e as duas folhas anuais separadamente. Não há rotas novas para consultar linhas dessas fontes ou documentos de referência.

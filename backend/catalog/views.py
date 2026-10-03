@@ -26,7 +26,7 @@ class WorkerSerializer(serializers.ModelSerializer):
 class EquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Equipment
-        fields = ["id", "code", "name", "warehouse", "mobile"]
+        fields = ["id", "code", "name", "warehouse", "mobile", "purpose"]
 
 
 class WarehouseViewSet(viewsets.ReadOnlyModelViewSet):

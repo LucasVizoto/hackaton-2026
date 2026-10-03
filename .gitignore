@@ -42,6 +42,7 @@ PRODUCT.md
 !.impeccable/design.json
 .codex/
 .private/
+**/DADOS_HACKATHON_2026/
 .env
 .env.*
 !.env.example

@@ -28,6 +28,10 @@ class DailyBulletin(UUIDModel):
     calculation = models.JSONField(default=dict)
     closed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    source_file = models.ForeignKey(
+        "imports.SourceFile", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="bulletins",
+    )
 
     class Meta:
         ordering = ["-reference_date", "warehouse__name"]

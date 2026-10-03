@@ -4,7 +4,8 @@ Django 5.2/DRF, Python 3.14 e PostgreSQL 17. Leia o README da raiz para preparar
 
 ```powershell
 Set-Location C:\Projects\hackaton-2026
-.\backend\.venv\Scripts\python.exe backend\manage.py migrate --noinput
+.\backend\.venv\Scripts\python.exe backend\manage.py bootstrap_database --path 'C:\pasta-privada\DADOS_HACKATHON_2026'
+# Opcional, para contas e operações sintéticas:
 .\backend\.venv\Scripts\python.exe backend\manage.py seed_demo
 .\backend\.venv\Scripts\python.exe backend\manage.py runserver 127.0.0.1:8000
 .\scripts\checks.ps1
@@ -16,7 +17,9 @@ Autorização é feita no servidor pelo perfil, com isolamento de fornecedor. Up
 
 Agenda bloqueia a grade global, inclusive sua primeira criação concorrente. Fechamento de boletim bloqueia matrículas em ordem estável para validar o rateio entre locais. Testes incluem concorrência PostgreSQL em threads. Migrations versionadas representam todos os modelos; novas alterações devem passar `makemigrations --check --dry-run`.
 
-Importação privada: `manage.py import_private [--path PASTA] [--dry-run]`. Usa hash/versão, lote ativo e trava PostgreSQL; conserva versões e linhas originais sem expor conteúdo bruto na API. Dados históricos não recebem tempos inventados nem custos reconstruídos de RH. O seed é independente, sintético e idempotente.
+Inicialização: `manage.py bootstrap_database [--path PASTA] [--dry-run] [--report ARQUIVO]`. Valida todas as fontes antes das migrations, instala o baseline em transação única e conserva os 938 arquivos em armazenamento privado. `manage.py seed_hackathon` aplica somente o seed sobre schema já preparado. Reexecução não duplica nem altera o baseline. O banco deve existir e estar configurado por `DB_*`.
+
+Importação privada incremental: `manage.py import_private [--path PASTA] [--dry-run]` mantém os cinco leitores originais e a política de versões por lote. Dados históricos não recebem tempos inventados nem custos reconstruídos de RH. `seed_demo` permanece opcional e pula o exemplo de 17/11/2025 quando esse boletim histórico já existe. Confira a [cobertura e uso no deploy](../docs/importacao.md).
 
 O leitor 1.1 reconcilia linhas aceitas, pendentes e rejeitadas com o total preservado. Motivos de pendência são privados. Erros estruturais abortam o lote; uma linha com vários motivos conta uma vez. Consulte [importação](../docs/importacao.md).
 

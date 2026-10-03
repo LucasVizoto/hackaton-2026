@@ -5,8 +5,39 @@ from django.db import models
 from core.models import UUIDModel
 
 
+class SeedRun(UUIDModel):
+    version = models.CharField(max_length=40, unique=True)
+    manifest_hash = models.CharField(max_length=64)
+    manifest = models.JSONField()
+    summary = models.JSONField(default=dict)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+
+class SourceFile(UUIDModel):
+    seed_run = models.ForeignKey(SeedRun, on_delete=models.PROTECT, related_name="files")
+    relative_path = models.CharField(max_length=500)
+    file = models.FileField(max_length=500)
+    sha256 = models.CharField(max_length=64)
+    size = models.PositiveBigIntegerField()
+    kind = models.CharField(max_length=40)
+    problems = models.JSONField(default=list)
+    invoice = models.ForeignKey(
+        "receiving.Invoice", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="source_files",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["seed_run", "relative_path"], name="unique_seed_source_file")
+        ]
+
+
 class ImportBatch(UUIDModel):
     kind = models.CharField(max_length=40, db_index=True)
+    source_key = models.CharField(max_length=500, blank=True, default="")
+    source_file = models.ForeignKey(
+        SourceFile, on_delete=models.PROTECT, null=True, blank=True, related_name="batches"
+    )
     file_hash = models.CharField(max_length=64)
     importer_version = models.CharField(max_length=20)
     source_name = models.CharField(max_length=255)
@@ -19,8 +50,8 @@ class ImportBatch(UUIDModel):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["kind", "file_hash", "importer_version"], name="unique_import_version"),
-            models.UniqueConstraint(fields=["kind"], condition=models.Q(active=True), name="one_active_import_kind"),
+            models.UniqueConstraint(fields=["kind", "source_key", "file_hash", "importer_version"], name="unique_import_version"),
+            models.UniqueConstraint(fields=["kind", "source_key"], condition=models.Q(active=True), name="one_active_import_kind"),
         ]
 
 
@@ -79,3 +110,48 @@ class HistoricalLaborDay(UUIDModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["batch", "source_row"], name="unique_labor_source_row")]
+
+
+class HistoricalStock(UUIDModel):
+    batch = models.ForeignKey(ImportBatch, on_delete=models.PROTECT, related_name="stock_rows")
+    source_sheet = models.CharField(max_length=100)
+    source_row = models.PositiveIntegerField()
+    depot = models.ForeignKey("catalog.Depot", on_delete=models.PROTECT)
+    product = models.ForeignKey("catalog.Product", on_delete=models.PROTECT, null=True, blank=True)
+    product_code = models.CharField(max_length=80)
+    description = models.TextField(blank=True)
+    quantity = models.DecimalField(max_digits=24, decimal_places=6, null=True, blank=True)
+    snapshot_on = models.DateField(null=True, blank=True)
+    origin = models.CharField(max_length=30, default="historico_importado", editable=False)
+    original = models.JSONField(default=dict)
+    problems = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["batch", "source_sheet", "source_row"], name="unique_stock_source_row")
+        ]
+
+
+class HistoricalWorkerDay(UUIDModel):
+    batch = models.ForeignKey(ImportBatch, on_delete=models.PROTECT, related_name="worker_days")
+    source_sheet = models.CharField(max_length=100)
+    source_row = models.PositiveIntegerField()
+    source_column = models.PositiveIntegerField()
+    source_identifier = models.CharField(max_length=40)
+    worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT, null=True, blank=True)
+    declared_date = models.CharField(max_length=100, blank=True)
+    day = models.DateField(null=True, blank=True, db_index=True)
+    location = models.CharField(max_length=160, blank=True)
+    payroll_paid = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    usable = models.BooleanField(default=False)
+    origin = models.CharField(max_length=30, default="historico_importado", editable=False)
+    original = models.JSONField(default=dict)
+    problems = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["batch", "source_sheet", "source_row", "source_column"],
+                name="unique_worker_day_cell",
+            )
+        ]

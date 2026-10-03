@@ -75,7 +75,7 @@ Esta pasta deve conter `compose.yaml`, `.env.example` e a pasta `scripts`. Tenha
 Na raiz do clone:
 
 ```powershell
-.\scripts\setup.ps1 -SeedDemo
+.\scripts\setup.ps1 -PrivateDataPath 'C:\pasta-privada\DADOS_HACKATHON_2026' -SeedDemo
 ```
 
 O script executa, nesta ordem:
@@ -83,7 +83,7 @@ O script executa, nesta ordem:
 1. Cria `.env` com segredos aleatórios, se esse arquivo ainda não existir.
 2. Cria o ambiente Python em `backend/.venv` e instala `backend/requirements.lock`.
 3. Sobe o PostgreSQL 17 pelo Docker e espera o banco ficar disponível.
-4. Aplica as migrations e verifica a configuração do Django.
+4. Valida o pacote privado completo, aplica migrations e seed histórico, e verifica a configuração do Django.
 5. Cria as contas e os dados sintéticos de demonstração por causa de `-SeedDemo`.
 6. Instala as dependências do frontend com `npm ci`.
 
@@ -91,7 +91,9 @@ O script executa, nesta ordem:
 
 No clone novo, deixe o setup gerar o `.env`; copiar `.env.example` antes disso deixa os segredos vazios. Se você já criou `.env` manualmente, preencha `DJANGO_SECRET_KEY`, `DB_PASSWORD` e `DEMO_PASSWORD` antes de executar. `DEMO_PASSWORD` precisa ter pelo menos 12 caracteres. O setup preserva um `.env` existente.
 
-Para rodar apenas a demonstração, `PRIVATE_DATA_DIR` pode ficar vazio. Os arquivos privados do hackathon não são necessários para este passo. O `.env` fica somente no PC e não deve ser enviado ao Git.
+O setup exige o pacote privado completo: passe `-PrivateDataPath` ou preencha `PRIVATE_DATA_DIR`. O `.env`, os arquivos e os anexos ficam privados e não devem ser enviados ao Git. O seed histórico cria uma conta técnica inativa; os logins abaixo são acrescentados somente com `-SeedDemo`.
+
+Para uma demonstração exclusivamente sintética, prepare as dependências e o PostgreSQL, execute `manage.py migrate --noinput` e `manage.py seed_demo` diretamente. Esse caminho não usa `setup.ps1`, que agora monta o banco com o baseline completo.
 
 ## 4. Iniciar a API e o frontend
 
@@ -177,14 +179,14 @@ Se precisar completar uma instalação interrompida, execute o setup novamente. 
 | `DJANGO_SECRET_KEY` ausente / `DEMO_PASSWORD` inválida | Confira os campos do `.env`. Um arquivo criado manualmente não é preenchido pelo setup. |
 | Falha de autenticação do PostgreSQL após mudar `DB_PASSWORD` | Um volume já inicializado mantém a senha antiga. Restaure a senha usada na criação do banco ou altere-a no PostgreSQL; mudar só o `.env` não atualiza o banco. |
 | A tela abre, mas o login dá erro de conexão | Confira se a API está rodando e se as duas consultas `health/` da seção 5 respondem. |
-| Login informa credenciais inválidas | Confira a conta e a senha criadas no primeiro seed. Se pulou `-SeedDemo`, execute `.\scripts\seed.ps1` na raiz após preparar o banco. |
+| Login informa credenciais inválidas | Confira a conta e a senha criadas no primeiro seed. Se pulou `-SeedDemo`, execute `.\backend\.venv\Scripts\python.exe backend\manage.py seed_demo` na raiz após preparar o banco. |
 | Gestão não mostra os exemplos | Selecione a origem Demonstração sintética e o período dos dados da seção 5. |
 
 ## 8. Etapas opcionais
 
 **Verificação completa:** depois do setup, execute `.\scripts\checks.ps1` na raiz. O script verifica Django/migrations, executa testes no PostgreSQL, lint/testes/build do frontend e sincroniza Capacitor Android. Ele não compila o APK.
 
-**Dados históricos privados:** para importar a pasta `DADOS_HACKATHON_2026`, siga [as instruções de importação](importacao.md). A importação é separada do seed de demonstração.
+**Dados históricos privados:** o setup instala o baseline completo da pasta `DADOS_HACKATHON_2026`. As [instruções de importação](importacao.md) detalham o dry-run, o relatório, a reexecução e o comando de montagem para produção. O seed de demonstração continua opcional.
 
 **Android:** além das ferramentas acima, instale JDK 21 e o Android SDK com plataforma 36, build-tools 36.0.0 e platform-tools. Você pode preparar o SDK e um emulador pelo Android Studio. O projeto inclui o Gradle Wrapper, sem necessidade de instalar Gradle globalmente. Siga [o guia Android](../mobile/README.md) para compilar, instalar e encaminhar a porta da API com `adb reverse`. Essas ferramentas são opcionais para usar a aplicação no navegador.
 
