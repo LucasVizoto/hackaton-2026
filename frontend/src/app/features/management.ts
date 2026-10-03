@@ -12,6 +12,8 @@ import {
 import { Catalog } from "../core/catalog";
 import { Bulletin } from "./bulletins";
 interface Costs {
+  origin: string;
+  period: { date_from: string; date_to: string };
   summary: {
     production: string;
     equivalent_days: string;
@@ -41,6 +43,8 @@ interface Costs {
   warnings: string[];
 }
 interface Operations {
+  origin: string;
+  period: { date_from: string; date_to: string };
   summary?: RecordData;
   received_loads?: number | null;
   average_wait_minutes?: number | null;
@@ -53,6 +57,9 @@ interface Operations {
   [key: string]: unknown;
 }
 interface Scenario {
+  origin: string;
+  warehouse_name: string;
+  reference_date: string;
   current: RecordData;
   scenario: RecordData;
   difference: string;
@@ -93,7 +100,10 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
         >Aplicar período</ion-button
       >
     </form>
-    @if (filters.controls.origin.value === "demo_sintetico") {
+    @if (
+      costs()?.origin === "demo_sintetico" ||
+      operations()?.origin === "demo_sintetico"
+    ) {
       <div class="notice synthetic">
         Demonstração sintética. Valores, equipe e tempos desse conjunto foram
         criados para demonstrar o funcionamento; não são medições da Cocapec.
@@ -108,6 +118,10 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
     @if (costs(); as c) {
       <section class="section">
         <h2>Custo dos boletins fechados</h2>
+        <p class="muted">
+          Resultados aplicados: {{ origin(c.origin) }} ·
+          {{ c.period.date_from }} a {{ c.period.date_to }}.
+        </p>
         <p class="muted">
           Piso aplicado a cada boletim antes de agregar. Pessoas distintas são
           contadas por matrícula; custos e frações não são deduplicados.
@@ -200,6 +214,10 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
     @if (operations(); as o) {
       <section class="section">
         <h2>Operação e recursos</h2>
+        <p class="muted">
+          Resultados aplicados: {{ origin(o.origin) }} ·
+          {{ o.period.date_from }} a {{ o.period.date_to }}.
+        </p>
         <p class="muted">
           Um caminhão conta uma vez globalmente. Totais por destino podem não
           ser aditivos. Recursos por descarga medem intensidade, não efetivo
@@ -307,6 +325,16 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
         >
       </form>
       @if (scenario(); as s) {
+        <p class="muted">
+          Cenário calculado: {{ s.warehouse_name }} · {{ s.reference_date }} ·
+          {{ origin(s.origin) }}.
+        </p>
+        @if (s.origin === "demo_sintetico") {
+          <p class="notice synthetic">
+            Este cenário usa um boletim de demonstração sintética; não
+            representa economia ou produtividade medida na Cocapec.
+          </p>
+        }
         <div class="notice">
           Diferença financeira condicional:
           <strong>{{ money(s.difference) }}</strong>

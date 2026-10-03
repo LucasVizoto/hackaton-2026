@@ -64,8 +64,55 @@ export interface Appointment {
   worker_count?: number;
   cancelled_slot_hold?: string;
   slot?: { date: string; time: string };
-  capacity_holds?: { id: string; active: boolean }[];
+  capacity_holds?: {
+    id: string;
+    active: boolean;
+    date: string;
+    time: string;
+    units: number;
+    exclusive: boolean;
+  }[];
   revision: number;
+}
+interface InvoiceData {
+  id: string;
+  number: string;
+  access_key: string;
+  attachment_id: string;
+  original_name: string;
+  extraction_status: string;
+  extracted?: {
+    issued_at?: string;
+    issuer?: { name: string; document: string };
+    volumes?: {
+      quantity: string | null;
+      species: string;
+      net_weight: string | null;
+      gross_weight: string | null;
+    }[];
+  };
+  items: {
+    id: string;
+    position: number;
+    supplier_code: string;
+    description: string;
+    unit: string;
+    quantity: string | null;
+    unit_value: string | null;
+  }[];
+}
+async function appointmentOptions(api: Api): Promise<Appointment[]> {
+  const options: Appointment[] = [];
+  let page = 1;
+  while (true) {
+    const result = await api.get<Page<Appointment>>(
+      `appointments/?page=${page}`,
+    );
+    options.push(...result.results);
+    if (!result.next) break;
+    page++;
+  }
+  return options;
 }
 @Component({
   standalone: true,
@@ -279,8 +326,8 @@ export class AppointmentList implements OnInit {
               accept=".pdf,.xml"
               (change)="fileChange($event)"
             /><span class="field-help"
-              >PDF ou XML de até 10 MB. O anexo é privado e gravado pela
-              API.</span
+              >XML de até 5 MB ou PDF de até 10 MB. O anexo é privado e gravado
+              pela API.</span
             ></label
           ><label>Número da nota<input formControlName="number" /></label
           ><label
@@ -584,6 +631,20 @@ export class AppointmentCreate implements OnInit {
               >Registrar não recebimento</ion-button
             >
           }
+          @if (
+            api.user()?.role === "supplier" &&
+            !item.started_at &&
+            !["cancelled", "completed", "not_received"].includes(
+              item.operation_status
+            )
+          ) {
+            <ion-button
+              fill="outline"
+              (click)="open('cancel')"
+              [disabled]="busy()"
+              >Cancelar agendamento</ion-button
+            >
+          }
           @if (item.operation_status === "cancelled" && api.can("warehouse")) {
             <ion-button (click)="open('assign-cancelled')"
               >Atribuir vaga cancelada</ion-button
@@ -591,6 +652,95 @@ export class AppointmentCreate implements OnInit {
           }
         </div>
       </section>
+      @if (invoiceData(); as invoice) {
+        <section class="panel">
+          <h2>Dados declarados na nota</h2>
+          <dl class="metadata">
+            <div>
+              <dt>Número</dt>
+              <dd>{{ invoice.number || "Não informado" }}</dd>
+            </div>
+            <div>
+              <dt>Emitente declarado</dt>
+              <dd>{{ invoice.extracted?.issuer?.name || "Não extraído" }}</dd>
+            </div>
+            <div>
+              <dt>Emissão declarada</dt>
+              <dd>{{ invoiceDate(invoice.extracted?.issued_at) }}</dd>
+            </div>
+            <div>
+              <dt>Chave declarada</dt>
+              <dd style="overflow-wrap:anywhere">
+                {{ invoice.access_key || "Não extraída" }}
+              </dd>
+            </div>
+          </dl>
+          <p class="notice section">
+            A extração organiza o que o emitente declarou; não valida
+            autenticidade fiscal. Códigos de itens são do fornecedor e não estão
+            vinculados automaticamente aos códigos internos. Acondicionamento e
+            destinos exigem confirmação.
+          </p>
+          @if (invoice.items.length) {
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Código do fornecedor</th>
+                    <th>Descrição</th>
+                    <th>Unidade</th>
+                    <th class="numeric">Quantidade declarada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (line of invoice.items; track line.id) {
+                    <tr>
+                      <td>{{ line.position }}</td>
+                      <td>{{ line.supplier_code }}</td>
+                      <td class="wrap">{{ line.description }}</td>
+                      <td>{{ line.unit }}</td>
+                      <td class="numeric">
+                        {{ line.quantity ?? "Não declarada" }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="muted">
+              Itens não extraídos. Confira o anexo privado antes da decisão de
+              Compras.
+            </p>
+          }
+          @if (invoice.extracted?.volumes?.length) {
+            <h3 class="section">Volumes declarados</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Quantidade</th>
+                    <th>Espécie</th>
+                    <th>Peso líquido declarado (kg)</th>
+                    <th>Peso bruto declarado (kg)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (v of invoice.extracted?.volumes; track $index) {
+                    <tr>
+                      <td>{{ v.quantity ?? "Não declarado" }}</td>
+                      <td>{{ v.species || "Não declarada" }}</td>
+                      <td>{{ v.net_weight ?? "Não declarado" }}</td>
+                      <td>{{ v.gross_weight ?? "Não declarado" }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
       @if (action()) {
         <form class="panel form-page" [formGroup]="form" (ngSubmit)="execute()">
           <h2>{{ actionTitle() }}</h2>
@@ -722,17 +872,29 @@ export class AppointmentCreate implements OnInit {
           }
           @if (action() === "assign-cancelled") {
             <label
-              >Agendamento destinatário<input
+              >Vaga retida<select formControlName="hold_id">
+                <option value="">Selecione a vaga</option>
+                @for (h of activeHolds(); track h.id) {
+                  <option [value]="h.id">
+                    {{ h.date }} · {{ h.time }} · {{ h.units }} unidade(s){{
+                      h.exclusive ? " · exclusiva" : ""
+                    }}
+                  </option>
+                }
+              </select></label
+            ><label class="section"
+              >Agendamento destinatário<select
                 formControlName="target_appointment"
-                required
-                placeholder="UUID do agendamento"
-              /><span class="field-help"
+              >
+                <option value="">Selecione o caminhão</option>
+                @for (a of candidates(); track a.id) {
+                  <option [value]="a.id">{{ appointmentLabel(a) }}</option>
+                }</select
+              ><span class="field-help"
                 >Atribuição explícita ao caminhão escolhido, sujeita à
                 capacidade e ao acondicionamento.</span
               ></label
-            ><label class="section"
-              >Motivo<textarea formControlName="reason" required></textarea>
-            </label>
+            >
           }
           <div class="actions section">
             <ion-button type="submit" [disabled]="busy()">
@@ -812,7 +974,9 @@ export class AppointmentCreate implements OnInit {
           <ul class="audit">
             @for (e of item.events; track e.id) {
               <li>
-                <strong>{{ e.kind || e.action || e.event_type }}</strong
+                <strong>{{
+                  eventName(e.kind || e.action || e.event_type)
+                }}</strong
                 ><br /><small
                   >{{ dt(e.occurred_at || e.recorded_at || e.created_at) }} ·
                   {{ e.actor_name || "Responsável registrado" }}</small
@@ -836,6 +1000,8 @@ export class AppointmentDetail implements OnInit {
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
   a = signal<Appointment | null>(null);
+  invoiceData = signal<InvoiceData | null>(null);
+  candidates = signal<Appointment[]>([]);
   busy = signal(false);
   error = signal("");
   success = signal("");
@@ -856,6 +1022,7 @@ export class AppointmentDetail implements OnInit {
     date: [today()],
     time: ["08:00"],
     target_appointment: [""],
+    hold_id: [""],
   });
   ngOnInit() {
     if (this.api.can("warehouse", "purchasing", "management"))
@@ -869,6 +1036,9 @@ export class AppointmentDetail implements OnInit {
         await this.api.get<Appointment>(
           `appointments/${this.route.snapshot.paramMap.get("id")}/`,
         ),
+      );
+      this.invoiceData.set(
+        await this.api.get<InvoiceData>(`invoices/${this.a()?.invoice}/`),
       );
     } catch (e) {
       this.error.set(apiError(e));
@@ -887,6 +1057,10 @@ export class AppointmentDetail implements OnInit {
     );
     this.selectedEquipment.set([]);
     this.form.controls.resources_confirmed.setValue(false);
+    if (action === "assign-cancelled") {
+      this.form.controls.hold_id.setValue(this.activeHolds()[0]?.id ?? "");
+      void this.loadCandidates();
+    }
   }
   actionTitle() {
     return (
@@ -916,20 +1090,140 @@ export class AppointmentDetail implements OnInit {
       v.includes(id) ? v.filter((x) => x !== id) : [...v, id],
     );
   }
-  eventDetail(v: unknown) {
-    return typeof v === "string" ? v : JSON.stringify(v);
+  activeHolds() {
+    return this.a()?.capacity_holds?.filter((h) => h.active) ?? [];
+  }
+  appointmentLabel(a: Appointment) {
+    return `${a.vehicle_plate || "Veículo sem placa"} · ${a.supplier_name} · ${a.date} ${a.time}`;
+  }
+  async loadCandidates() {
+    this.busy.set(true);
+    try {
+      this.candidates.set(
+        (await appointmentOptions(this.api)).filter(
+          (a) =>
+            a.id !== this.a()?.id &&
+            !a.started_at &&
+            !["cancelled", "completed", "not_received"].includes(
+              a.operation_status,
+            ),
+        ),
+      );
+    } catch (e) {
+      this.error.set(apiError(e));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  invoiceDate(value?: string) {
+    if (!value) return "Não extraída";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value))
+      return value.split("-").reverse().join("/");
+    return dateTime(value);
+  }
+  eventName(kind?: string) {
+    return (
+      (
+        {
+          created: "Agendamento criado",
+          updated: "Dados do agendamento corrigidos",
+          purchase_review: "Conferência de Compras",
+          warehouse_review: "Destinos confirmados",
+          arrived: "Chegada registrada",
+          started: "Entrada registrada",
+          finished: "Recebimento concluído",
+          visit_started: "Etapa iniciada",
+          visit_finished: "Etapa concluída",
+          visit_start: "Etapa iniciada",
+          visit_finish: "Etapa concluída",
+          cancelled: "Agendamento cancelado",
+          rescheduled: "Agendamento reagendado",
+          capacity_assigned: "Vaga atribuída pelo armazém",
+          not_received: "Não recebimento registrado",
+        } as Record<string, string>
+      )[kind ?? ""] ?? "Registro operacional"
+    );
+  }
+  eventDetail(value: unknown): string {
+    if (typeof value === "string") return value;
+    if (!value || typeof value !== "object") return "";
+    const labels: Record<string, string> = {
+      decision: "Decisão",
+      order_reference: "Pedido",
+      comparison_notes: "Comparação",
+      notes: "Observação",
+      reason: "Motivo",
+      warehouse_ids: "Destinos",
+      equipment_ids: "Equipamentos",
+      worker_count: "Chapas",
+      resources_confirmed: "Recursos confirmados",
+      nature_exception: "Exceção por natureza",
+      date: "Data",
+      time: "Horário",
+      from_date: "Data anterior",
+      source_date: "Data anterior",
+      source_time: "Horário anterior",
+      target_date: "Nova data",
+      target_time: "Novo horário",
+      from_time: "Horário anterior",
+      to_date: "Nova data",
+      to_time: "Novo horário",
+      capacity: "Capacidade",
+      approval_reset: "Aprovações reiniciadas",
+    };
+    return (
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => labels[key])
+        .map(([key, v]) => {
+          let text = String(v ?? "");
+          if (key === "decision")
+            text =
+              (
+                {
+                  approved: "Aprovada",
+                  pending: "Pendente",
+                  rejected: "Rejeitada",
+                } as Record<string, string>
+              )[text] ?? "Registrada";
+          if (key === "reason") text = reasons[text] ?? text;
+          if (key === "warehouse_ids" && Array.isArray(v))
+            text = v
+              .map(
+                (id) =>
+                  this.catalog.warehouses().find((w) => w.id === id)?.name ??
+                  "Destino registrado",
+              )
+              .join(", ");
+          if (key === "equipment_ids" && Array.isArray(v))
+            text =
+              v
+                .map(
+                  (id) =>
+                    this.catalog.equipment().find((e) => e.id === id)?.name ??
+                    "Equipamento registrado",
+                )
+                .join(", ") || "Nenhum";
+          if (
+            key === "capacity" &&
+            text === "held_for_named_warehouse_assignment"
+          )
+            text = "Retida para decisão do armazém";
+          if (typeof v === "boolean") text = v ? "Sim" : "Não";
+          return `${labels[key]}: ${text}`;
+        })
+        .join(" · ") ||
+      "Decisão registrada; trilha completa preservada no servidor."
+    );
   }
   async download() {
     this.error.set("");
     try {
       const invoice =
-        this.a()?.invoice_detail ??
-        (await this.api.get<{ attachment_id: string; number: string }>(
-          `invoices/${this.a()?.invoice}/`,
-        ));
+        this.invoiceData() ??
+        (await this.api.get<InvoiceData>(`invoices/${this.a()?.invoice}/`));
       await this.api.download(
         `attachments/${invoice.attachment_id}/download/`,
-        `nota-${invoice.number || this.a()?.id}.pdf`,
+        invoice.original_name || `nota-${invoice.number || this.a()?.id}`,
       );
     } catch (e) {
       this.error.set(apiError(e));
@@ -981,7 +1275,12 @@ export class AppointmentDetail implements OnInit {
         act === "reschedule" ||
         act === "assign-cancelled"
       ) {
-        if (!v.reason) throw new Error("Informe a justificativa.");
+        if (act !== "assign-cancelled" && !v.reason)
+          throw new Error("Informe a justificativa.");
+        if (act === "assign-cancelled" && (!v.hold_id || !v.target_appointment))
+          throw new Error(
+            "Selecione a vaga retida e o agendamento destinatário.",
+          );
         body =
           act === "cancel"
             ? { reason: v.reason }
@@ -993,7 +1292,7 @@ export class AppointmentDetail implements OnInit {
                   nature_exception: true,
                 }
               : {
-                  hold_id: this.a()?.capacity_holds?.find((h) => h.active)?.id,
+                  hold_id: v.hold_id,
                   appointment_id: v.target_appointment,
                 };
         if (act === "assign-cancelled")
@@ -1002,7 +1301,10 @@ export class AppointmentDetail implements OnInit {
       await this.api.post(endpoint, {
         ...(body as object),
         expected_revision:
-          act === "assign-cancelled" ? undefined : this.a()?.revision,
+          act === "assign-cancelled"
+            ? this.candidates().find((a) => a.id === v.target_appointment)
+                ?.revision
+            : this.a()?.revision,
       });
       this.action.set("");
       await this.load();
@@ -1138,9 +1440,15 @@ export class NonReceipts implements OnInit {
     <form class="panel" [formGroup]="form" (ngSubmit)="save()">
       <div class="form-grid">
         <label
-          >Agendamento (opcional)<input
+          >Agendamento (opcional)<select
             formControlName="appointment"
-            placeholder="UUID, se existir" /></label
+            (change)="appointmentChanged()"
+          >
+            <option value="">Sem agendamento</option>
+            @for (a of candidates(); track a.id) {
+              <option [value]="a.id">{{ appointmentLabel(a) }}</option>
+            }
+          </select></label
         ><label
           >Fornecedor (opcional)<select formControlName="supplier">
             <option value="">Não identificado</option>
@@ -1150,6 +1458,7 @@ export class NonReceipts implements OnInit {
           </select></label
         ><label
           >Motivo<select formControlName="reason">
+            <option value="">Selecione o motivo</option>
             <option value="invoice_mismatch">
               Divergência entre nota e pedido
             </option>
@@ -1184,6 +1493,10 @@ export class NonReceipts implements OnInit {
   </div>`,
 })
 export class NonReceiptCreate implements OnInit {
+  candidates = signal<Appointment[]>([]);
+  appointmentLabel(a: Appointment) {
+    return `${a.vehicle_plate || "Veículo sem placa"} · ${a.supplier_name} · ${a.date} ${a.time}`;
+  }
   private api = inject(Api);
   catalog = inject(Catalog);
   private router = inject(Router);
@@ -1194,7 +1507,7 @@ export class NonReceiptCreate implements OnInit {
   form = this.fb.nonNullable.group({
     appointment: [""],
     supplier: [""],
-    reason: ["unscheduled_no_capacity"],
+    reason: ["", Validators.required],
     description: ["", Validators.required],
     occurred_at: [nowLocal(), Validators.required],
     origin: ["operacional_registrado"],
@@ -1204,6 +1517,12 @@ export class NonReceiptCreate implements OnInit {
       this.route.snapshot.queryParamMap.get("appointment") ?? "",
     );
     void this.catalog.load().catch((e) => this.error.set(apiError(e)));
+    void appointmentOptions(this.api)
+      .then((rows) => {
+        this.candidates.set(rows.filter((a) => !a.started_at));
+        this.appointmentChanged();
+      })
+      .catch((e) => this.error.set(apiError(e)));
   }
   async save() {
     this.busy.set(true);
@@ -1215,12 +1534,23 @@ export class NonReceiptCreate implements OnInit {
         appointment: v.appointment || null,
         supplier: v.supplier || null,
         occurred_at: localTimestamp(v.occurred_at),
+        expected_revision: v.appointment
+          ? this.candidates().find((a) => a.id === v.appointment)?.revision
+          : undefined,
       });
       await this.router.navigateByUrl("/nao-recebimentos");
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
       this.busy.set(false);
+    }
+  }
+  appointmentChanged() {
+    const a = this.candidates().find(
+      (a) => a.id === this.form.controls.appointment.value,
+    );
+    if (a) {
+      this.form.patchValue({ supplier: a.supplier, origin: a.origin });
     }
   }
 }
