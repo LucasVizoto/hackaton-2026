@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Recebimento Cocapec</string>
+    <string name="title_activity_main">Recebimento Cocapec</string>
+    <string name="package_name">br.cocapec.recebimento.demo</string>
+    <string name="custom_url_scheme">br.cocapec.recebimento.demo</string>
+</resources>
