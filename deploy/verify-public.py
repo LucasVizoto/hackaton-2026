@@ -17,7 +17,7 @@ password = os.environ['DEMO_PASSWORD']
 
 
 def request(path, token='', data=None, extra=None):
-    headers = {'Accept': 'application/json', **(extra or {})}
+    headers = {'Accept': 'application/json', 'User-Agent': 'Cocapec-Deployment-Check/1.1', **(extra or {})}
     if token:
         headers['Authorization'] = 'Token ' + token
     body = None

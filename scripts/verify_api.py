@@ -28,7 +28,7 @@ def main():
     token = ""
 
     def request(path, data=None):
-        headers = {"Accept": "application/json"}
+        headers = {"Accept": "application/json", "User-Agent": "Cocapec-Deployment-Check/1.1"}
         if token:
             headers["Authorization"] = "Token " + token
         payload = None if data is None else json.dumps(data).encode()
