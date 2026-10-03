@@ -1,67 +1,140 @@
-import { Component, inject, input, OnInit, signal } from "@angular/core";
+import { Component, effect, inject, input, OnInit, output, signal, untracked } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { IonButton, IonSpinner } from "@ionic/angular/standalone";
 import { Api, apiError, dateTime, Page } from "../core/api";
 import { invoiceNumber } from "../core/workflow";
+import { Arrival, GateLive, GateMessage } from "../core/gate-live";
 import { readInvoiceImage } from "./invoice-code";
 import { FeedbackState, PageHeader } from "../shared/ui";
 
-interface Arrival {
-  id: string;
-  vehicle_plate: string;
-  tractor_plate: string;
-  driver_name: string;
-  invoice_number: string;
-  created_at: string;
-  seen_at: string | null;
-  created_by_name: string;
+function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" | "portaria" | "review"): Arrival[] {
+  const arrival = message.arrival;
+  const index = rows.findIndex((row) => row.id === arrival.id);
+  if (message.event === "created") {
+    if (board !== "warehouse" || index >= 0) return rows;
+    return [arrival, ...rows];
+  }
+  if (index < 0) {
+    if (board === "review" && message.event === "rejected") return [arrival, ...rows];
+    if (board === "portaria") return [arrival, ...rows];
+    return rows;
+  }
+  const next = rows.slice();
+  next[index] = arrival;
+  return next;
 }
 
 @Component({
   selector: "app-arrival-list",
   standalone: true,
   imports: [IonButton],
-  template: `<div class="arrival-list">
+  template: `<div class="arrival-grid decisions">
     @for (item of rows(); track item.id) {
       <article class="arrival-card">
-        <div>
-          <strong>{{ item.driver_name }}</strong>
-          <span>{{ item.vehicle_plate }} · cavalo {{ item.tractor_plate }}</span>
-          <span>Nota {{ item.invoice_number }} · {{ when(item.created_at) }}</span>
-          @if (!item.seen_at && !seenIds().has(item.id) && api.can("warehouse")) {
+        <div class="arrival-copy">
+          <div class="arrival-head">
+            <strong>{{ item.driver_name }}</strong>
+            <span [class]="'status ' + tone(item)">{{ label(item) }}</span>
+          </div>
+          <span>Placa {{ item.vehicle_plate }}</span>
+          <span>Cavalo {{ item.tractor_plate }}</span>
+          <span>Nota {{ item.invoice_number }}</span>
+          <span>{{ when(item.created_at) }}</span>
+          @if (board() === "warehouse" && !item.seen_at && !seenIds().has(item.id)) {
             <span class="status pending">Nova</span>
           }
+          @if (item.decision === "authorized") {
+            <span class="pass">A portaria pode liberar a entrada.</span>
+          }
+          @if (item.decision === "rejected") {
+            <span class="hold">Encaminhada para revisão de Compras.</span>
+          }
         </div>
-        <ion-button fill="outline" size="small" (click)="open(item)">Ver nota</ion-button>
+        <div class="arrival-actions">
+          @if (board() === "warehouse" && item.decision === "pending") {
+            <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized')">Aceitar</ion-button>
+            <ion-button size="small" color="danger" fill="outline" [disabled]="busyId() === item.id" (click)="decide(item, 'rejected')">Recusar</ion-button>
+          }
+          <ion-button fill="outline" size="small" (click)="open(item)">Ver nota</ion-button>
+        </div>
+        @if (openId() === item.id && imageError()) {
+          <p class="error">{{ imageError() }}</p>
+        }
+        @if (decisionError() && errorId() === item.id) {
+          <p class="error">{{ decisionError() }}</p>
+        }
+        @if (openId() === item.id && image()) {
+          <img class="note-preview" [src]="image()" alt="Nota fiscal de {{ item.driver_name }}" />
+        }
       </article>
-      @if (openId() === item.id && imageError()) {
-        <p class="error">{{ imageError() }}</p>
-      }
-      @if (openId() === item.id && image()) {
-        <img class="note-preview" [src]="image()" alt="Nota fiscal de {{ item.driver_name }}" />
-      }
     }
   </div>`,
   styles: [
     `
-      .arrival-list { display: grid; gap: 12px; }
-      .arrival-card { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-      .arrival-card div { display: grid; gap: 4px; }
+      .arrival-grid { display: grid; gap: 16px; }
+      .arrival-grid.decisions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .arrival-card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+      }
+      .arrival-copy, .arrival-head { display: grid; gap: 4px; }
+      .arrival-head { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
       .arrival-card span { color: var(--muted); }
-      .note-preview { display: block; max-width: 100%; max-height: 420px; border-radius: 12px; }
+      .arrival-card .pass { color: var(--success); }
+      .arrival-card .hold { color: var(--danger); }
+      .arrival-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .note-preview { display: block; max-width: 100%; max-height: 220px; border-radius: 12px; object-fit: contain; }
+      @media (max-width: 960px) {
+        .arrival-grid.decisions { grid-template-columns: 1fr; }
+      }
     `,
   ],
 })
 export class ArrivalList {
-  api = inject(Api);
+  private api = inject(Api);
   rows = input.required<Arrival[]>();
+  board = input<"warehouse" | "portaria" | "review">("portaria");
+  updated = output<Arrival>();
   openId = signal("");
   image = signal("");
   imageError = signal("");
   seenIds = signal<ReadonlySet<string>>(new Set());
+  decisionError = signal("");
+  errorId = signal("");
+  busyId = signal("");
   when = dateTime;
-  private generation=0;
+  private generation = 0;
+  tone(item: Arrival) {
+    if (item.decision === "authorized") return "approved";
+    if (item.decision === "rejected") return "rejected";
+    return "pending";
+  }
+  label(item: Arrival) {
+    if (item.decision === "authorized") return "Pode passar";
+    if (item.decision === "rejected") return "Recusada";
+    return "Aguardando";
+  }
+  async decide(item: Arrival, decision: "authorized" | "rejected") {
+    this.busyId.set(item.id);
+    this.decisionError.set("");
+    this.errorId.set("");
+    try {
+      const saved = await this.api.post<Arrival>(`gate-arrivals/${item.id}/decision/`, { decision });
+      this.updated.emit(saved);
+    } catch (e) {
+      this.errorId.set(item.id);
+      this.decisionError.set(apiError(e));
+    } finally {
+      this.busyId.set("");
+    }
+  }
   async open(item: Arrival) {
     const generation=++this.generation;
     if (this.image()) URL.revokeObjectURL(this.image());
@@ -72,7 +145,7 @@ export class ArrivalList {
       const blob = await this.api.blob(`gate-arrivals/${item.id}/file/`);
       if(generation!==this.generation)return;
       this.image.set(URL.createObjectURL(blob));
-      if (!item.seen_at && !this.seenIds().has(item.id) && this.api.can("warehouse")) {
+      if (this.board() === "warehouse" && !item.seen_at && !this.seenIds().has(item.id)) {
         const seen = await this.api.post<Arrival>(`gate-arrivals/${item.id}/seen/`, {});
         if (seen.seen_at) this.seenIds.update(ids => new Set([...ids, item.id]));
       }
@@ -85,7 +158,7 @@ export class ArrivalList {
 
 @Component({
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, IonButton, IonSpinner, PageHeader, FeedbackState, ArrivalList],
+  imports: [RouterLink, ReactiveFormsModule, IonButton, IonSpinner, PageHeader, FeedbackState],
   template: `<div class="page form-page">
     <app-page-header title="Aviso de chegada com foto" subtitle="Envie placas, motorista e uma foto da nota ao armazém."><ion-button routerLink="/portaria" fill="outline">Recebimentos da Portaria</ion-button></app-page-header>
     <p class="notice">Este aviso fica separado dos recebimentos. A entrada e a saída da unidade são registradas no recebimento correspondente.</p>
@@ -135,11 +208,6 @@ export class ArrivalList {
         </ion-button>
       </div>
     </form>
-    <section class="panel">
-      <h2>Chegadas enviadas</h2><ion-button fill="outline" [disabled]="listBusy()" (click)="load()">Atualizar avisos</ion-button>
-      <app-arrival-list [rows]="rows()" />
-      <div class="pagination"><ion-button fill="outline" [disabled]="listBusy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} avisos</span><ion-button fill="outline" [disabled]="listBusy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
-    </section>
   </div>`,
   styles: [
     `
@@ -148,17 +216,17 @@ export class ArrivalList {
     `,
   ],
 })
-export class GateDesk implements OnInit {
+export class GateDesk {
   private api = inject(Api);
+  private live = inject(GateLive);
   private fb = inject(FormBuilder);
   busy = signal(false);
   reading = signal(false);
   error = signal("");
   notice = signal("");
   preview = signal("");
-  rows = signal<Arrival[]>([]);
   file: File | null = null;
-  suggestion=signal('');private fileGeneration=0;listBusy=signal(false);page=1;count=signal(0);hasNext=signal(false);
+  suggestion=signal('');private fileGeneration=0;
   form = this.fb.nonNullable.group({
     vehicle_plate: ["", Validators.required],
     tractor_plate: ["", Validators.required],
@@ -166,8 +234,19 @@ export class GateDesk implements OnInit {
     invoice_number: ["", [Validators.required, Validators.pattern(/^[1-9][0-9]{0,8}$/)]],
     number_confirmed: [false, Validators.requiredTrue],
   });
-  ngOnInit() {
-    void this.load();
+  constructor() {
+    effect(() => {
+      const message = this.live.last();
+      if (!message || message.event === "created") return;
+      untracked(() => {
+        const driver = message.arrival.driver_name;
+        this.notice.set(
+          message.event === "authorized"
+            ? `${driver} pode passar.`
+            : `Chegada de ${driver} recusada. O processo foi encaminhado para Compras.`,
+        );
+      });
+    });
   }
   async onFile(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -217,7 +296,6 @@ export class GateDesk implements OnInit {
       this.file = null;
       if (this.preview()) URL.revokeObjectURL(this.preview());
       this.preview.set("");
-      await this.load(1);
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
@@ -226,7 +304,6 @@ export class GateDesk implements OnInit {
   }
   numberEdited(){this.form.controls.number_confirmed.setValue(false);}
   enterManually(){this.fileGeneration++;this.reading.set(false);this.suggestion.set('');this.form.controls.number_confirmed.setValue(false);this.notice.set('Informe o número impresso na nota e confirme a conferência da imagem.');}
-  async load(page=this.page){this.listBusy.set(true);try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.listBusy.set(false);}}
   ngOnDestroy(){this.fileGeneration++;if(this.preview())URL.revokeObjectURL(this.preview());}
 
 }
@@ -235,7 +312,7 @@ export class GateDesk implements OnInit {
   standalone: true,
   imports: [RouterLink, IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
-    <app-page-header title="Chegadas com foto" subtitle="Avisos enviados pela Portaria; abrir a foto marca o aviso como visto."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
+    <app-page-header title="Chegadas na portaria" subtitle="Aceite libera a entrada na portaria. A recusa segue para Compras. Abrir a foto marca o aviso como visto."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
     <p class="notice">Um aviso com foto não cria agendamento nem registra entrada ou saída automaticamente. <a routerLink="/operacao">Consultar recebimentos</a></p>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
@@ -244,18 +321,162 @@ export class GateDesk implements OnInit {
       <p class="notice">Nenhuma chegada informada.</p>
     }
     <section class="panel">
-      <app-arrival-list [rows]="rows()" />
+      <app-arrival-list [rows]="rows()" board="warehouse" (updated)="replace($event)" />
       <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} avisos</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
     </section>
   </div>`,
 })
 export class ArrivalInbox implements OnInit {
   private api = inject(Api);
+  private live = inject(GateLive);
   rows = signal<Arrival[]>([]);
   error = signal("");
   busy=signal(false);page=1;count=signal(0);hasNext=signal(false);
+  constructor() {
+    effect(() => {
+      const message = this.live.last();
+      if (!message) return;
+      untracked(() => this.rows.update((rows) => applyArrival(rows, message, "warehouse")));
+    });
+  }
+  ngOnInit() {
+    void this.load();
+  }
+  replace(arrival: Arrival) {
+    this.rows.update((rows) => applyArrival(rows, { event: arrival.decision === "pending" ? "created" : arrival.decision, arrival }, "warehouse"));
+  }
+  async load(page=this.page){this.busy.set(true);this.error.set('');try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
+}
+
+@Component({
+  standalone: true,
+  imports: [IonButton, PageHeader, FeedbackState, ArrivalList],
+  template: `<div class="page">
+    <app-page-header title="Revisão de chegadas" subtitle="Chegadas recusadas na portaria, encaminhadas para Compras."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar revisões</ion-button></app-page-header>
+    @if (error()) {
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
+    }
+    @if (notice()) {
+      <p class="notice">{{ notice() }}</p>
+    }
+    @if (!rows().length && !error()) {
+      <p class="notice">Nenhuma chegada recusada.</p>
+    }
+    <section class="panel">
+      <app-arrival-list [rows]="rows()" board="review" />
+      <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} revisões</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
+    </section>
+  </div>`,
+})
+export class ArrivalReview implements OnInit {
+  private api = inject(Api);
+  private live = inject(GateLive);
+  rows = signal<Arrival[]>([]);
+  error = signal("");
+  notice = signal("");
+  busy=signal(false);page=1;count=signal(0);hasNext=signal(false);
+  constructor() {
+    effect(() => {
+      const message = this.live.last();
+      if (!message || message.event !== "rejected") return;
+      untracked(() => {
+        this.rows.update((rows) => applyArrival(rows, message, "review"));
+        this.notice.set(`Chegada de ${message.arrival.driver_name} recusada na portaria. Revise o processo.`);
+      });
+    });
+  }
   ngOnInit() {
     void this.load();
   }
   async load(page=this.page){this.busy.set(true);this.error.set('');try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
+}
+
+@Component({
+  standalone: true,
+  imports: [IonButton, PageHeader, FeedbackState, ArrivalList],
+  template: `<div class="page">
+    <app-page-header title="Chegadas enviadas" subtitle="Avisos com foto enviados por você. O filtro inicial mostra só o que ainda aguarda o armazém."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar</ion-button></app-page-header>
+    <div class="actions">
+      @for (option of filters; track option.value) {
+        <ion-button size="small" [fill]="filter() === option.value ? 'solid' : 'outline'" (click)="choose(option.value)">{{ option.label }}</ion-button>
+      }
+    </div>
+    @if (error()) {
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
+    }
+    @if (notice()) {
+      <p class="notice">{{ notice() }}</p>
+    }
+    @if (!rows().length && !error()) {
+      <p class="notice">{{ emptyLabel() }}</p>
+    }
+    <section class="panel">
+      <app-arrival-list [rows]="rows()" board="portaria" />
+      <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} chegadas</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
+    </section>
+  </div>`,
+})
+export class SentArrivals implements OnInit {
+  private api = inject(Api);
+  private live = inject(GateLive);
+  readonly filters = [
+    { value: "pending" as const, label: "Aguardando" },
+    { value: "authorized" as const, label: "Pode passar" },
+    { value: "rejected" as const, label: "Recusada" },
+    { value: "" as const, label: "Todas" },
+  ];
+  filter = signal<"pending" | "authorized" | "rejected" | "">("pending");
+  rows = signal<Arrival[]>([]);
+  error = signal("");
+  notice = signal("");
+  busy = signal(false);
+  page = 1;
+  count = signal(0);
+  hasNext = signal(false);
+  constructor() {
+    effect(() => {
+      const message = this.live.last();
+      if (!message || message.event === "created") return;
+      untracked(() => {
+        const driver = message.arrival.driver_name;
+        this.notice.set(
+          message.event === "authorized"
+            ? `${driver} pode passar.`
+            : `Chegada de ${driver} recusada. O processo foi encaminhado para Compras.`,
+        );
+        void this.load(this.page);
+      });
+    });
+  }
+  ngOnInit() {
+    void this.load();
+  }
+  choose(value: "pending" | "authorized" | "rejected" | "") {
+    this.filter.set(value);
+    this.notice.set("");
+    void this.load(1);
+  }
+  emptyLabel() {
+    if (this.filter() === "pending") return "Nenhuma chegada aguardando.";
+    if (this.filter() === "authorized") return "Nenhuma chegada liberada.";
+    if (this.filter() === "rejected") return "Nenhuma chegada recusada.";
+    return "Nenhuma chegada enviada.";
+  }
+  async load(page = this.page) {
+    this.busy.set(true);
+    this.error.set("");
+    try {
+      const decision = this.filter();
+      const query = decision ? `&decision=${decision}` : "";
+      const result = await this.api.get<Page<Arrival>>(`gate-arrivals/?page=${page}${query}`);
+      this.page = page;
+      this.rows.set(result.results);
+      this.count.set(result.count);
+      this.hasNext.set(!!result.next);
+    } catch (e) {
+      this.error.set(apiError(e));
+    } finally {
+      this.busy.set(false);
+    }
+  }
 }

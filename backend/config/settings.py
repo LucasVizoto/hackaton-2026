@@ -21,6 +21,7 @@ ALLOWED_HOSTS = [
     if x.strip()
 ]
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     "analytics",
     "imports",
     "integrations",
+    "channels",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -62,6 +64,8 @@ TEMPLATES = [
     }
 ]
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

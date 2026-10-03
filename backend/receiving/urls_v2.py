@@ -2,7 +2,12 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import AttachmentDownload
-from .gate import GateArrivalFileView, GateArrivalListView, GateArrivalSeenView
+from .gate import (
+    GateArrivalDecisionView,
+    GateArrivalFileView,
+    GateArrivalListView,
+    GateArrivalSeenView,
+)
 from .views_v2 import (AppointmentsV2, AvailabilityV2, AssignCapacityV2, InvoicesV2,
                        VisitsV2, NonReceiptsV2, NotificationsV2, PurchaseOrdersV2)
 
@@ -15,6 +20,7 @@ router.register("notifications", NotificationsV2, basename="v2-notifications")
 router.register("purchase-orders", PurchaseOrdersV2, basename="v2-purchase-orders")
 urlpatterns = [
     path("gate-arrivals/", GateArrivalListView.as_view()),
+    path("gate-arrivals/<uuid:pk>/decision/", GateArrivalDecisionView.as_view()),
     path("gate-arrivals/<uuid:pk>/seen/", GateArrivalSeenView.as_view()),
     path("gate-arrivals/<uuid:pk>/file/", GateArrivalFileView.as_view()),
     path("slots/availability/", AvailabilityV2.as_view()),

@@ -274,6 +274,8 @@ class GateArrivalSerializer(serializers.ModelSerializer):
             "driver_name",
             "invoice_number",
             "created_at",
+            "decision",
+            "decided_at",
             "seen_at",
             "created_by_name",
         ]

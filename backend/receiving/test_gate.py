@@ -31,6 +31,8 @@ class GateArrivalTests(TestCase):
         UserProfile.objects.create(user=self.warehouse, role="warehouse")
         self.supplier = User.objects.create_user("fornecedor-test", password="isolated-test-only-password")
         UserProfile.objects.create(user=self.supplier, role="supplier")
+        self.purchasing = User.objects.create_user("compras-test", password="isolated-test-only-password")
+        UserProfile.objects.create(user=self.purchasing, role="purchasing")
         self.client = APIClient()
 
     def login(self, user):
@@ -61,6 +63,7 @@ class GateArrivalTests(TestCase):
         self.assertEqual(created.data["tractor_plate"], "XYZ9E87")
         self.assertEqual(created.data["driver_name"], "João da Silva")
         self.assertEqual(created.data["invoice_number"], "123456")
+        self.assertEqual(created.data["decision"], "pending")
         self.assertIsNone(created.data["seen_at"])
 
         self.login(self.warehouse)
@@ -185,3 +188,89 @@ class GateArrivalTests(TestCase):
         self.assertEqual(repeated.data["seen_at"], seen.data["seen_at"])
         self.assertEqual(GateArrival.objects.get(id=seen.data["id"]).seen_by, self.warehouse)
         self.assertEqual(self.client.get("/api/v2/gate-arrivals/?summary=1").data["unread"], 50)
+
+    def test_accept_authorizes_and_reject_goes_to_purchasing(self):
+        self.login(self.gate)
+        created = self.create_arrival("v1", driver_name="João da Silva")
+        self.assertEqual(created.status_code, 201)
+        arrival_id = created.data["id"]
+        self.login(self.purchasing)
+        self.assertEqual(self.client.get("/api/v1/gate-arrivals/").data["results"], [])
+
+        self.login(self.warehouse)
+        accepted = self.client.post(
+            f"/api/v1/gate-arrivals/{arrival_id}/decision/",
+            {"decision": "authorized"},
+            format="json",
+        )
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.data["decision"], "authorized")
+        repeated = self.client.post(
+            f"/api/v1/gate-arrivals/{arrival_id}/decision/",
+            {"decision": "rejected"},
+            format="json",
+        )
+        self.assertEqual(repeated.status_code, 400)
+
+        self.login(self.gate)
+        second = self.create_arrival("v1", driver_name="João da Silva")
+        self.assertEqual(second.status_code, 201)
+        second_id = second.data["id"]
+        self.login(self.warehouse)
+        rejected = self.client.post(
+            f"/api/v1/gate-arrivals/{second_id}/decision/",
+            {"decision": "rejected"},
+            format="json",
+        )
+        self.assertEqual(rejected.status_code, 200)
+        self.assertEqual(rejected.data["decision"], "rejected")
+
+        self.login(self.purchasing)
+        review = self.client.get("/api/v1/gate-arrivals/")
+        self.assertEqual(review.status_code, 200)
+        self.assertEqual([item["id"] for item in review.data["results"]], [second_id])
+        self.assertEqual(review.data["unread"], 1)
+        image = self.client.get(f"/api/v1/gate-arrivals/{second_id}/file/")
+        self.assertEqual(image.status_code, 200)
+        self.assertEqual(b"".join(image.streaming_content), TINY_PNG)
+        hidden = self.client.get(f"/api/v1/gate-arrivals/{arrival_id}/file/")
+        self.assertEqual(hidden.status_code, 404)
+
+        self.login(self.gate)
+        own = self.client.get("/api/v1/gate-arrivals/")
+        decisions = {item["id"]: item["decision"] for item in own.data["results"]}
+        self.assertEqual(decisions[arrival_id], "authorized")
+        self.assertEqual(decisions[second_id], "rejected")
+        waiting = self.client.get("/api/v1/gate-arrivals/?decision=pending")
+        self.assertEqual(waiting.data["results"], [])
+        self.assertEqual(waiting.data["count"], 0)
+
+    def test_portaria_socket_receives_the_decision(self):
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        from channels.testing import WebsocketCommunicator
+        from rest_framework.authtoken.models import Token
+
+        from config.asgi import application
+
+        token = Token.objects.create(user=self.gate)
+
+        async def receive():
+            communicator = WebsocketCommunicator(
+                application,
+                f"/ws/gate/?token={token.key}",
+                headers=[(b"origin", b"http://localhost")],
+            )
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            await get_channel_layer().group_send(
+                f"gate-user-{self.gate.id}",
+                {"type": "gate.event", "payload": {"event": "authorized", "arrival": {"driver_name": "João da Silva"}}},
+            )
+            message = await communicator.receive_json_from()
+            await communicator.disconnect()
+            return message
+
+        message = async_to_sync(receive)()
+        self.assertEqual(message["event"], "authorized")
+        self.assertEqual(message["arrival"]["driver_name"], "João da Silva")

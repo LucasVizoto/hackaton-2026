@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 from core.permissions import require_role, user_role
 
 from .models import GateArrival
+from .realtime import notify_arrival
 from .serializers import GateArrivalSerializer
 from .xml_parser import validate_invoice_number
 
@@ -31,9 +32,20 @@ def _plate(value, field):
 
 def _arrival_queryset(user):
     queryset = GateArrival.objects.select_related("created_by")
-    if user_role(user) == "gatehouse":
+    role = user_role(user)
+    if role == "gatehouse":
         return queryset.filter(created_by=user)
-    return queryset
+    if role == "purchasing":
+        return queryset.filter(decision="rejected")
+    if role in {"warehouse", "admin"}:
+        return queryset
+    return queryset.none()
+
+
+def _unread(user, queryset):
+    if user_role(user) == "purchasing":
+        return queryset.filter(decision="rejected").count()
+    return queryset.filter(seen_at__isnull=True).count()
 
 
 def _image_type(content):
@@ -68,15 +80,21 @@ class GateArrivalListView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):
-        require_role(request.user, "portaria", "warehouse")
+        require_role(request.user, "portaria", "warehouse", "purchasing")
         queryset = _arrival_queryset(request.user)
         if request.query_params.get("summary") == "1":
-            require_role(request.user, "warehouse")
-            return Response({"unread": queryset.filter(seen_at__isnull=True).count()})
+            require_role(request.user, "warehouse", "purchasing")
+            return Response({"unread": _unread(request.user, queryset)})
+        decision = request.query_params.get("decision")
+        listed = queryset
+        if decision:
+            if decision not in {"pending", "authorized", "rejected"}:
+                raise ValidationError({"decision": "Filtro de decisão inválido."})
+            listed = queryset.filter(decision=decision)
         paginator = GateArrivalPagination()
-        arrivals = paginator.paginate_queryset(queryset.order_by("-created_at", "-id"), request, view=self)
+        arrivals = paginator.paginate_queryset(listed.order_by("-created_at", "-id"), request, view=self)
         response = paginator.get_paginated_response(GateArrivalSerializer(arrivals, many=True).data)
-        response.data["unread"] = queryset.filter(seen_at__isnull=True).count()
+        response.data["unread"] = _unread(request.user, queryset)
         return response
 
     def post(self, request):
@@ -101,7 +119,29 @@ class GateArrivalListView(APIView):
             media_type=media or "image/jpeg",
             created_by=request.user,
         )
+        notify_arrival(arrival, "created")
         return Response(GateArrivalSerializer(arrival).data, status=status.HTTP_201_CREATED)
+
+
+class GateArrivalDecisionView(APIView):
+    def post(self, request, pk):
+        require_role(request.user, "warehouse")
+        arrival = get_object_or_404(GateArrival, id=pk)
+        choice = request.data.get("decision")
+        if choice not in {"authorized", "rejected"}:
+            raise ValidationError({"decision": "Informe se a chegada foi aceita ou recusada."})
+        if arrival.decision != "pending":
+            raise ValidationError({"decision": "Esta chegada já foi decidida."})
+        now = timezone.now()
+        arrival.decision = choice
+        arrival.decided_at = now
+        arrival.decided_by = request.user
+        if arrival.seen_at is None:
+            arrival.seen_at = now
+            arrival.seen_by = request.user
+        arrival.save(update_fields=["decision", "decided_at", "decided_by", "seen_at", "seen_by"])
+        notify_arrival(arrival, choice)
+        return Response(GateArrivalSerializer(arrival).data)
 
 
 class GateArrivalSeenView(APIView):
@@ -118,7 +158,7 @@ class GateArrivalSeenView(APIView):
 
 class GateArrivalFileView(APIView):
     def get(self, request, pk):
-        require_role(request.user, "portaria", "warehouse")
+        require_role(request.user, "portaria", "warehouse", "purchasing")
         arrival = get_object_or_404(_arrival_queryset(request.user), id=pk)
         response = FileResponse(
             arrival.file.open("rb"),

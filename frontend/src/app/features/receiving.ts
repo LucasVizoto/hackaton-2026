@@ -210,7 +210,7 @@ export class AppointmentList implements OnInit {
   ],
   template: `<div class="page">
     <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
-      <a routerLink="/agenda">Voltar à agenda</a>
+      <a [routerLink]="api.can('gatehouse') ? '/portaria' : '/agenda'">{{ api.can('gatehouse') ? 'Voltar à portaria' : 'Voltar à agenda' }}</a>
     </app-page-header>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>

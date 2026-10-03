@@ -216,6 +216,11 @@ class ReceivingEvent(UUIDModel):
 
 
 class GateArrival(UUIDModel):
+    DECISIONS = [
+        ("pending", "Pendente"),
+        ("authorized", "Autorizada"),
+        ("rejected", "Recusada"),
+    ]
     vehicle_plate = models.CharField(max_length=15)
     tractor_plate = models.CharField(max_length=15)
     driver_name = models.CharField(max_length=120)
@@ -227,6 +232,14 @@ class GateArrival(UUIDModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="gate_arrivals"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    decision = models.CharField(max_length=20, choices=DECISIONS, default="pending")
+    decided_at = models.DateTimeField(null=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="gate_arrivals_decided",
+    )
     seen_at = models.DateTimeField(null=True)
     seen_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
