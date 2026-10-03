@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, signal } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { RouterLink } from "@angular/router";
-import { IonButton, IonSpinner } from "@ionic/angular/standalone";
+import { IonButton } from "@ionic/angular/standalone";
 import {
   Api,
   apiError,
@@ -12,6 +12,17 @@ import {
   today,
 } from "../core/api";
 import { Catalog } from "../core/catalog";
+import { chartDateLabel, chartItems, operationalMetric } from "../core/chart-data";
+import { decimal } from "../core/presentation";
+import {
+  BarChart,
+  EmptyState,
+  FeedbackState,
+  FilterBlock,
+  LoadingState,
+  MetricCard,
+  PageHeader,
+} from "../shared/ui";
 import { Bulletin } from "./bulletins";
 interface SourceRecords<T> {
   records: T[];
@@ -114,21 +125,22 @@ interface Scenario {
   conditional: boolean;
   assumptions: string[];
 }
-const imports = [ReactiveFormsModule, IonButton, IonSpinner];
+const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, FeedbackState];
 @Component({
   standalone: true,
-  imports: [...imports, RouterLink],
+  imports: [...imports, RouterLink, MetricCard, BarChart, FilterBlock, EmptyState],
   template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>Gestão por local e período</h1>
-        <p class="muted">
-          Compare produção e piso com a operação registrada e a cobertura
-          disponível.
-        </p>
-      </div>
-    </div>
-    <form class="filters" [formGroup]="filters" (ngSubmit)="load()">
+    <app-page-header
+      title="Gestão por local e período"
+      subtitle="Compare produção e piso com a operação registrada e a cobertura disponível."
+    />
+    <form
+      app-filter-block
+      class="filters"
+      aria-label="Filtrar indicadores"
+      [formGroup]="filters"
+      (ngSubmit)="load()"
+    >
       <label>De<input type="date" formControlName="date_from" /></label
       ><label>Até<input type="date" formControlName="date_to" /></label
       ><label
@@ -158,173 +170,73 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
       </div>
     }
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (busy()) {
-      <div class="loading"><ion-spinner /> Consultando indicadores…</div>
-    }
-    @if (costs(); as c) {
-      <section class="section">
-        <h2>Custo dos boletins fechados</h2>
-        <p class="muted">
-          Resultados aplicados: {{ origin(c.origin) }} ·
-          {{ c.period.date_from }} a {{ c.period.date_to }}.
-        </p>
-        <p class="muted">
-          Piso aplicado a cada boletim antes de agregar. Pessoas distintas são
-          contadas por matrícula; custos e frações não são deduplicados.
-        </p>
-        <div class="table-wrap">
-          <table class="finance">
-            <thead>
-              <tr>
-                <th>Produção (P)</th>
-                <th>Diárias (E)</th>
-                <th>Total a pagar (T)</th>
-                <th>Complemento (C)</th>
-                <th>Complemento / total</th>
-                <th>Boletins abaixo do piso</th>
-                <th>Pessoas distintas</th>
-                <th>Boletins</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>{{ money(c.summary.production) }}</td>
-                <td>{{ show(c.summary.equivalent_days) }}</td>
-                <td>
-                  <strong>{{ money(c.summary.total_payable) }}</strong>
-                </td>
-                <td>{{ money(c.summary.supplement) }}</td>
-                <td>{{ percent(c.summary.supplement_share) }}</td>
-                <td>{{ c.summary.days_below_floor }}</td>
-                <td>{{ c.summary.people_count }}</td>
-                <td>{{ c.summary.bulletin_count }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        @if (c.groups.length) {
-          <div class="table-wrap section">
-            <table>
-              <thead>
-                <tr>
-                  <th>Local / período</th>
-                  <th class="numeric">Produção</th>
-                  <th class="numeric">Diárias</th>
-                  <th class="numeric">Total a pagar</th>
-                  <th class="numeric">Complemento</th>
-                  <th class="numeric">Complemento / total</th>
-                  <th>Leitura do resultado</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (g of c.groups; track g.warehouse + g.period) {
-                  <tr>
-                    <td>
-                      {{ g.warehouse_name }}<br /><small>{{
-                        show(g.period)
-                      }}</small>
-                    </td>
-                    <td class="numeric">{{ money(g.production) }}</td>
-                    <td class="numeric">{{ g.equivalent_days }}</td>
-                    <td class="numeric">{{ money(g.total_payable) }}</td>
-                    <td class="numeric">{{ money(g.supplement) }}</td>
-                    <td class="numeric">{{ percent(g.supplement_share) }}</td>
-                    <td class="wrap metric-description">{{ g.diagnosis }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <div class="empty section">
-            Não há boletins fechados para esta origem e período. Não há base
-            para concluir dimensionamento em reais.
-          </div>
-        }
-        <details>
-          <summary>Origem e cobertura financeira</summary>
-          <dl class="metadata">
-            @for (entry of entries(c.coverage); track entry[0]) {
-              <div>
-                <dt>{{ fieldLabel(entry[0]) }}</dt>
-                <dd>{{ show(entry[1]) }}</dd>
-              </div>
-            }
-          </dl>
-        </details>
-        @if (c.source_records; as sources) {
-          <details class="section">
-            <summary>Boletins que sustentam os custos</summary>
-            <p class="muted">
-              {{ sources.returned_count }} de {{ sources.count }} boletins
-              fechados neste recorte. Abra o registro para conferir produção,
-              participantes e precisão do cálculo.
-            </p>
-            @if (sources.truncated) {
-              <p class="notice">
-                A consulta mostra até 100 registros. Reduza o período ou
-                selecione um local para conferir os demais boletins.
-              </p>
-            }
-            @if (sources.records.length) {
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Data / local</th>
-                      <th class="numeric">Produção</th>
-                      <th class="numeric">Diárias</th>
-                      <th class="numeric">Total a pagar</th>
-                      <th class="numeric">Complemento</th>
-                      <th>Registro</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (record of sources.records; track record.id) {
-                      <tr>
-                        <td class="wrap">
-                          {{ record.reference_date }}<br />{{ record.warehouse_name }}
-                        </td>
-                        <td class="numeric">{{ money(record.production) }}</td>
-                        <td class="numeric">{{ record.equivalent_days }}</td>
-                        <td class="numeric">{{ money(record.total_payable) }}</td>
-                        <td class="numeric">{{ money(record.supplement) }}</td>
-                        <td>
-                          <a [routerLink]="['/boletins', record.id]">Abrir boletim</a>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            } @else {
-              <p class="muted">Nenhum boletim fechado neste recorte.</p>
-            }
-          </details>
-        }
-        @for (w of c.warnings; track w) {
-          <p class="notice section">{{ w }}</p>
-        }
-      </section>
+      <app-loading-state label="Consultando indicadores…" />
     }
     @if (operations(); as o) {
       <section class="section">
         <h2>Operação e recursos</h2>
         <p class="muted">
           Resultados aplicados: {{ origin(o.origin) }} ·
-          {{ o.period.date_from }} a {{ o.period.date_to }}.
+          {{ date(o.period.date_from) }} a {{ date(o.period.date_to) }}.
         </p>
         <p class="muted">
           Um caminhão conta uma vez globalmente. Totais por destino podem não
           ser aditivos. Recursos por descarga medem intensidade, não efetivo
           diário.
         </p>
+        <div class="metric-grid">
+          <app-metric-card
+            label="Cargas recebidas"
+            [value]="metric('received_loads')"
+            hint="Caminhões concluídos, sem duplicar destinos"
+            tone="brand"
+          />
+          <app-metric-card
+            label="Espera média"
+            [value]="metric('average_wait_minutes', 'min')"
+            hint="Da chegada ao início da descarga"
+          />
+          <app-metric-card
+            label="Descarga média"
+            [value]="metric('average_unloading_minutes', 'min')"
+            hint="Do início à conclusão registrada"
+            tone="info"
+          />
+          <app-metric-card
+            label="Chapas por recebimento"
+            [value]="metric('average_workers_per_receipt')"
+            hint="Média das cargas com recursos confirmados"
+          />
+        </div>
+        <div class="chart-grid section">
+          <app-bar-chart
+            title="Cargas por data"
+            description="Caminhões concluídos por data de conclusão."
+            [items]="dateChart()"
+            [emptyLabel]="chartEmptyLabel('loads_by_date', 'Nenhuma carga concluída no período.')"
+          />
+          <app-bar-chart
+            title="Cargas por local"
+            description="Contagem por destino. Um caminhão pode passar por mais de um local."
+            [items]="warehouseChart()"
+            [emptyLabel]="chartEmptyLabel('loads_by_warehouse', 'Nenhum destino registrado no período.')"
+          />
+          <app-bar-chart
+            title="Não recebimentos por motivo"
+            description="Ocorrências por data do não recebimento."
+            [items]="reasonChart()"
+            [emptyLabel]="chartEmptyLabel('non_receipts_by_reason', 'Nenhum não recebimento no período.')"
+          />
+        </div>
+        <details class="section">
+          <summary>Distribuições e recursos em tabelas</summary>
         @for (group of operationGroups(); track group.key) {
           <h3 class="section">{{ fieldLabel(group.key) }}</h3>
           @if (group.rows.length) {
-            <div class="table-wrap">
+            <div class="table-wrap" tabindex="0" role="region" [attr.aria-label]="fieldLabel(group.key)">
               <table>
                 <thead>
                   <tr>
@@ -356,8 +268,9 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
             <p class="muted">Sem registros no recorte.</p>
           }
         }
+        </details>
         @if (operationsSummary()) {
-          <details open>
+          <details>
             <summary>Resumo operacional</summary>
             <dl class="metadata">
               @for (entry of entries(operationsSummary()); track entry[0]) {
@@ -397,7 +310,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
               </p>
             }
             @if (sources.records.length) {
-              <div class="table-wrap">
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Recebimentos concluídos que sustentam os indicadores">
                 <table>
                   <thead>
                     <tr>
@@ -411,7 +324,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
                   <tbody>
                     @for (record of sources.records; track record.id) {
                       <tr>
-                        <td>{{ record.slot_date }}</td>
+                        <td>{{ date(record.slot_date) }}</td>
                         <td>{{ dt(record.arrived_at) }}</td>
                         <td>{{ dt(record.started_at) }}</td>
                         <td>{{ dt(record.finished_at) }}</td>
@@ -437,7 +350,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
               <p class="notice">Consulta limitada a 100 registros. Reduza o período ou selecione um local.</p>
             }
             @if (sources.arrivals.records.length) {
-              <div class="table-wrap">
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Chegadas que sustentam a distribuição por hora">
                 <table>
                   <thead><tr><th>Chegada</th><th>Registro</th></tr></thead>
                   <tbody>
@@ -464,13 +377,13 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
               <p class="notice">Consulta limitada a 100 registros. Reduza o período ou selecione um local.</p>
             }
             @if (sources.bookings.records.length) {
-              <div class="table-wrap">
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Agendamentos que sustentam a distribuição por horário">
                 <table>
                   <thead><tr><th>Data / horário</th><th>Registro</th></tr></thead>
                   <tbody>
                     @for (record of sources.bookings.records; track record.id) {
                       <tr>
-                        <td>{{ record.slot_date }} · {{ record.slot_time }}</td>
+                        <td>{{ date(record.slot_date) }} · {{ record.slot_time }}</td>
                         <td><a [routerLink]="['/agenda', record.id]">Abrir recebimento</a></td>
                       </tr>
                     }
@@ -491,7 +404,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
               <p class="notice">Consulta limitada a 100 registros. Reduza o período ou selecione um local.</p>
             }
             @if (sources.non_receipts.records.length) {
-              <div class="table-wrap">
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Ocorrências que sustentam os não recebimentos">
                 <table>
                   <thead><tr><th>Ocorrência</th><th>Motivo</th><th>Registro</th></tr></thead>
                   <tbody>
@@ -515,6 +428,180 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
         }
       </section>
     }
+    @if (costs(); as c) {
+      <section class="section">
+        <h2>Custo dos boletins fechados</h2>
+        <p class="muted">
+          Resultados aplicados: {{ origin(c.origin) }} ·
+          {{ date(c.period.date_from) }} a {{ date(c.period.date_to) }}.
+        </p>
+        <p class="muted">
+          Piso aplicado a cada boletim antes de agregar. Pessoas distintas são
+          contadas por matrícula; custos e frações não são deduplicados.
+        </p>
+        <div class="metric-grid">
+          <app-metric-card
+            label="Produção"
+            [value]="money(c.summary.production)"
+            hint="Valor oficial dos boletins fechados"
+          />
+          <app-metric-card
+            label="Total a pagar"
+            [value]="money(c.summary.total_payable)"
+            hint="Piso aplicado por boletim"
+            tone="brand"
+          />
+          <app-metric-card
+            label="Complemento"
+            [value]="money(c.summary.supplement)"
+            [hint]="supplementHint(c.summary.supplement_share)"
+            tone="info"
+          />
+          <app-metric-card
+            label="Boletins abaixo do piso"
+            [value]="show(c.summary.days_below_floor)"
+            [hint]="show(c.summary.bulletin_count) + ' boletins fechados no período'"
+            tone="warning"
+          />
+        </div>
+        <details class="section">
+          <summary>Resumo financeiro completo</summary>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Resumo financeiro completo dos boletins">
+          <table class="finance">
+            <thead>
+              <tr>
+                <th>Produção (P)</th>
+                <th>Diárias (E)</th>
+                <th>Total a pagar (T)</th>
+                <th>Complemento (C)</th>
+                <th>Complemento / total</th>
+                <th>Boletins abaixo do piso</th>
+                <th>Pessoas distintas</th>
+                <th>Boletins</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{ money(c.summary.production) }}</td>
+                <td>{{ decimal(c.summary.equivalent_days) }}</td>
+                <td>
+                  <strong>{{ money(c.summary.total_payable) }}</strong>
+                </td>
+                <td>{{ money(c.summary.supplement) }}</td>
+                <td>{{ percent(c.summary.supplement_share) }}</td>
+                <td>{{ c.summary.days_below_floor }}</td>
+                <td>{{ c.summary.people_count }}</td>
+                <td>{{ c.summary.bulletin_count }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        </details>
+        @if (c.groups.length) {
+          <div class="table-wrap section" tabindex="0" role="region" aria-label="Comparação de custos por local e período">
+            <table>
+              <thead>
+                <tr>
+                  <th>Local / período</th>
+                  <th class="numeric">Produção</th>
+                  <th class="numeric">Diárias</th>
+                  <th class="numeric">Total a pagar</th>
+                  <th class="numeric">Complemento</th>
+                  <th class="numeric">Complemento / total</th>
+                  <th>Leitura do resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (g of c.groups; track g.warehouse + g.period) {
+                  <tr>
+                    <td>
+                      {{ g.warehouse_name }}<br /><small>{{
+                        show(g.period)
+                      }}</small>
+                    </td>
+                    <td class="numeric">{{ money(g.production) }}</td>
+                    <td class="numeric">{{ decimal(g.equivalent_days) }}</td>
+                    <td class="numeric">{{ money(g.total_payable) }}</td>
+                    <td class="numeric">{{ money(g.supplement) }}</td>
+                    <td class="numeric">{{ percent(g.supplement_share) }}</td>
+                    <td class="wrap metric-description">{{ g.diagnosis }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div app-empty-state class="empty section">
+            Não há boletins fechados para esta origem e período. Não há base
+            para concluir dimensionamento em reais.
+          </div>
+        }
+        <details>
+          <summary>Origem e cobertura financeira</summary>
+          <dl class="metadata">
+            @for (entry of entries(c.coverage); track entry[0]) {
+              <div>
+                <dt>{{ fieldLabel(entry[0]) }}</dt>
+                <dd>{{ show(entry[1]) }}</dd>
+              </div>
+            }
+          </dl>
+        </details>
+        @if (c.source_records; as sources) {
+          <details class="section">
+            <summary>Boletins que sustentam os custos</summary>
+            <p class="muted">
+              {{ sources.returned_count }} de {{ sources.count }} boletins
+              fechados neste recorte. Abra o registro para conferir produção,
+              participantes e precisão do cálculo.
+            </p>
+            @if (sources.truncated) {
+              <p class="notice">
+                A consulta mostra até 100 registros. Reduza o período ou
+                selecione um local para conferir os demais boletins.
+              </p>
+            }
+            @if (sources.records.length) {
+              <div class="table-wrap" tabindex="0" role="region" aria-label="Boletins fechados que sustentam os custos">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data / local</th>
+                      <th class="numeric">Produção</th>
+                      <th class="numeric">Diárias</th>
+                      <th class="numeric">Total a pagar</th>
+                      <th class="numeric">Complemento</th>
+                      <th>Registro</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (record of sources.records; track record.id) {
+                      <tr>
+                        <td class="wrap">
+                          {{ date(record.reference_date) }}<br />{{ record.warehouse_name }}
+                        </td>
+                        <td class="numeric">{{ money(record.production) }}</td>
+                        <td class="numeric">{{ decimal(record.equivalent_days) }}</td>
+                        <td class="numeric">{{ money(record.total_payable) }}</td>
+                        <td class="numeric">{{ money(record.supplement) }}</td>
+                        <td>
+                          <a [routerLink]="['/boletins', record.id]">Abrir boletim</a>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p class="muted">Nenhum boletim fechado neste recorte.</p>
+            }
+          </details>
+        }
+        @for (w of c.warnings; track w) {
+          <p class="notice section">{{ w }}</p>
+        }
+      </section>
+    }
     <section class="panel section">
       <h2>Cenário condicional de diárias</h2>
       <p>
@@ -528,6 +615,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
         recomenda reduzir a equipe.
       </p>
       <form
+        app-filter-block
         class="filters"
         [formGroup]="scenarioForm"
         (ngSubmit)="calculateScenario()"
@@ -537,7 +625,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
             <option value="">Selecione um boletim</option>
             @for (b of bulletins(); track b.id) {
               <option [value]="b.id">
-                {{ b.reference_date }} · {{ b.warehouse_name }} ·
+                {{ date(b.reference_date) }} · {{ b.warehouse_name }} ·
                 {{ origin(b.origin) }}
               </option>
             }
@@ -557,7 +645,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
       </form>
       @if (scenario(); as s) {
         <p class="muted">
-          Cenário calculado: {{ s.warehouse_name }} · {{ s.reference_date }} ·
+          Cenário calculado: {{ s.warehouse_name }} · {{ date(s.reference_date) }} ·
           {{ origin(s.origin) }}.
         </p>
         @if (s.origin === "demo_sintetico") {
@@ -570,7 +658,7 @@ const imports = [ReactiveFormsModule, IonButton, IonSpinner];
           Diferença financeira condicional:
           <strong>{{ money(s.difference) }}</strong>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Comparação do boletim com o cenário condicional">
           <table>
             <thead>
               <tr>
@@ -625,7 +713,9 @@ export class Management implements OnInit {
   error = signal("");
   busy = signal(false);
   money = money;
+  decimal = decimal;
   dt = dateTime;
+  date = chartDateLabel;
   percent = (value: string | null) =>
     value === null
       ? "Não disponível"
@@ -634,6 +724,36 @@ export class Management implements OnInit {
           maximumFractionDigits: 2,
         }).format(Number(value));
   origin = originLabel;
+  supplementHint(value: string | null) {
+    return value === null
+      ? "Participação no total não disponível"
+      : `${this.percent(value)} do total a pagar`;
+  }
+  metric(key: string, unit = "") {
+    const value = operationalMetric(this.operations(), key);
+    return value === null
+      ? "Não disponível"
+      : `${this.show(value)}${unit ? " " + unit : ""}`;
+  }
+  dateChart() {
+    return chartItems(this.operations()?.["loads_by_date"], "date", chartDateLabel);
+  }
+  warehouseChart() {
+    return chartItems(this.operations()?.["loads_by_warehouse"], "warehouse_name");
+  }
+  reasonChart() {
+    return chartItems(
+      this.operations()?.["non_receipts_by_reason"],
+      "reason",
+      (value) => this.fieldLabel(value),
+    );
+  }
+  chartEmptyLabel(key: string, emptyLabel: string) {
+    const value = this.operations()?.[key];
+    return !Array.isArray(value) || value.length > 0
+      ? "Medição não disponível para este recorte."
+      : emptyLabel;
+  }
   entries = (v: RecordData) => Object.entries(v);
   show = (v: unknown): string =>
     v === null || v === undefined
@@ -652,7 +772,9 @@ export class Management implements OnInit {
               ? new Intl.NumberFormat("pt-BR", {
                   maximumFractionDigits: 2,
                 }).format(v)
-              : String(v);
+              : typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)
+                ? this.date(v)
+                : String(v);
   ngOnInit() {
     void this.catalog.load().catch((e) => this.error.set(apiError(e)));
     void this.load();
@@ -836,7 +958,9 @@ export class Management implements OnInit {
       "collective_floor",
     ].includes(k)
       ? money(v)
-      : this.show(v);
+      : k === "equivalent_days"
+        ? decimal(v)
+        : this.show(v);
   }
   async calculateScenario() {
     this.busy.set(true);
@@ -859,34 +983,31 @@ export class Management implements OnInit {
   standalone: true,
   imports,
   template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>Origem e cobertura dos dados</h1>
-        <p class="muted">
-          A ausência de registro permanece ausência; não é convertida em zero.
-        </p>
-      </div>
+    <app-page-header
+      title="Origem e cobertura dos dados"
+      subtitle="A ausência de registro permanece ausência; não é convertida em zero."
+    >
       <ion-button fill="outline" (click)="load()" [disabled]="busy()"
         >Atualizar</ion-button
       >
-    </div>
+    </app-page-header>
     <div class="notice">
       O histórico fornecido contém documentos e movimentações, sem identificador
       confiável de caminhão operacional e sem série de boletins por armazém.
       Tempos só são calculados dos eventos registrados na aplicação.
     </div>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (busy()) {
-      <div class="loading"><ion-spinner /> Consultando importações…</div>
+      <app-loading-state label="Consultando importações…" />
     }
     @if (data(); as d) {
       @for (e of entries(d); track e[0]) {
         <section class="panel">
           <h2>{{ label(e[0]) }}</h2>
           @if (isRows(e[1])) {
-            <div class="table-wrap">
+            <div class="table-wrap" tabindex="0" role="region" [attr.aria-label]="label(e[0])">
               <table>
                 <thead>
                   <tr>

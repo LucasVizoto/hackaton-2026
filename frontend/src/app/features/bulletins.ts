@@ -1,3 +1,4 @@
+import { DatePipe } from "@angular/common";
 import { Component, inject, OnInit, signal } from "@angular/core";
 import {
   FormArray,
@@ -16,7 +17,16 @@ import {
   previousDay,
 } from "../core/api";
 import { Catalog } from "../core/catalog";
-import { Origin, Status } from "../shared/ui";
+import { decimal } from "../core/presentation";
+import {
+  EmptyState,
+  FeedbackState,
+  FilterBlock,
+  LoadingState,
+  Origin,
+  PageHeader,
+  Status,
+} from "../shared/ui";
 interface Line {
   category: string;
   label?: string;
@@ -57,20 +67,36 @@ export interface Bulletin {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner, Status],
+  imports: [
+    DatePipe,
+    ReactiveFormsModule,
+    RouterLink,
+    IonButton,
+    EmptyState,
+    FeedbackState,
+    FilterBlock,
+    LoadingState,
+    PageHeader,
+    Status,
+  ],
   template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>Boletins diários</h1>
-        <p class="muted">
-          Produção, equipe e piso por local e data de referência.
-        </p>
+    <app-page-header
+      title="Boletins diários"
+      subtitle="Produção, equipe e pagamento por local e data de referência."
+    >
+      <div actions class="actions">
+        @if (api.can("warehouse")) {
+          <ion-button routerLink="/boletins/novo">Novo boletim</ion-button>
+        }
       </div>
-      @if (api.can("warehouse")) {
-        <ion-button routerLink="/boletins/novo">Novo boletim</ion-button>
-      }
-    </div>
-    <form class="filters" [formGroup]="filters" (ngSubmit)="load(true)">
+    </app-page-header>
+    <form
+      app-filter-block
+      class="filters"
+      aria-label="Filtrar boletins"
+      [formGroup]="filters"
+      (ngSubmit)="load(true)"
+    >
       <label
         >Local<select formControlName="warehouse">
           <option value="">Todos os locais</option>
@@ -91,16 +117,21 @@ export interface Bulletin {
       >
     </form>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (busy()) {
-      <div class="loading"><ion-spinner /> Carregando boletins…</div>
+      <app-loading-state label="Carregando boletins…" />
     } @else if (rows().length) {
-      <div class="table-wrap">
+      <div
+        class="table-wrap"
+        tabindex="0"
+        role="region"
+        aria-label="Boletins diários, locais, referências e valores"
+      >
         <table>
           <thead>
             <tr>
-              <th>Data / local</th>
+              <th>Local / referência</th>
               <th>Origem</th>
               <th>Estado</th>
               <th class="numeric">Pessoas</th>
@@ -108,40 +139,44 @@ export interface Bulletin {
               <th class="numeric">Produção</th>
               <th class="numeric">Total a pagar</th>
               <th class="numeric">Complemento</th>
-              <th></th>
+              <th><span class="sr-only">Ações</span></th>
             </tr>
           </thead>
           <tbody>
             @for (b of rows(); track b.id) {
               <tr>
-                <td>
-                  {{ b.reference_date }}<br /><strong>{{
-                    b.warehouse_name
-                  }}</strong>
+                <td class="wrap">
+                  <strong>{{ b.warehouse_name }}</strong><br />
+                  <span class="muted">{{ b.reference_date | date: "dd/MM/yyyy" }}</span>
                 </td>
                 <td class="wrap">{{ origin(b.origin) }}</td>
                 <td><app-status [value]="b.status" /></td>
-                <td class="numeric">{{ b.calculation.people_count }}</td>
-                <td class="numeric">{{ b.calculation.equivalent_days }}</td>
+                <td class="numeric">{{ decimal(b.calculation.people_count) }}</td>
+                <td class="numeric">{{ decimal(b.calculation.equivalent_days) }}</td>
                 <td class="numeric">{{ money(b.calculation.production) }}</td>
                 <td class="numeric">
-                  {{ money(b.calculation.total_payable) }}
+                  <strong>{{ money(b.calculation.total_payable) }}</strong>
                 </td>
                 <td class="numeric">{{ money(b.calculation.supplement) }}</td>
-                <td><a [routerLink]="['/boletins', b.id]">Abrir boletim</a></td>
+                <td>
+                  <a
+                    [routerLink]="['/boletins', b.id]"
+                    [attr.aria-label]="'Abrir boletim de ' + b.warehouse_name + ', referência ' + (b.reference_date | date: 'dd/MM/yyyy')"
+                    >Abrir boletim</a
+                  >
+                </td>
               </tr>
             }
           </tbody>
         </table>
       </div>
     } @else {
-      <div class="empty">
+      <div app-empty-state class="empty">
         <h2>Nenhum boletim encontrado</h2>
-        <p>
-          Registre produção e participantes por local/data, incluindo remoção e
-          transferência.
-        </p>
-        <a routerLink="/boletins/novo">Criar boletim</a>
+        <p>Confira o local, as datas e a origem selecionados nos filtros.</p>
+        @if (api.can("warehouse")) {
+          <ion-button routerLink="/boletins/novo" fill="outline">Criar boletim</ion-button>
+        }
       </div>
     }
     @if (count() > 0) {
@@ -161,7 +196,7 @@ export interface Bulletin {
       </div>
     }
     <p class="site-note">
-      Valores calculados pelo servidor. Complemento indica produção abaixo do
+      Valores da apuração oficial. Complemento indica produção abaixo do
       piso; sozinho não comprova ociosidade.
     </p>
   </div>`,
@@ -182,6 +217,7 @@ export class BulletinList implements OnInit {
   error = signal("");
   busy = signal(false);
   money = money;
+  decimal = decimal;
   origin = originLabel;
   ngOnInit() {
     void this.catalog.load().catch((e) => this.error.set(apiError(e)));
@@ -216,37 +252,41 @@ export class BulletinList implements OnInit {
 @Component({
   standalone: true,
   imports: [
+    DatePipe,
     ReactiveFormsModule,
     RouterLink,
     IonButton,
     IonSpinner,
+    FeedbackState,
     Status,
     Origin,
+    PageHeader,
+    LoadingState,
   ],
-  template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>{{ bulletin() ? "Boletim diário" : "Novo boletim" }}</h1>
-        <p class="muted">
-          Lance as três modalidades e confirme a equipe por matrícula.
-        </p>
-      </div>
-      <a routerLink="/boletins">Voltar aos boletins</a>
-    </div>
+  template: `<div class="page" [attr.aria-busy]="busy()">
+    <app-page-header
+      [title]="bulletin() ? 'Boletim diário' : 'Novo boletim'"
+      subtitle="Registre a produção, confirme a equipe e confira a apuração."
+    >
+      <ion-button actions fill="outline" routerLink="/boletins">Voltar aos boletins</ion-button>
+    </app-page-header>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (success()) {
-      <div class="success" role="status">{{ success() }}</div>
+      <div app-feedback tone="success" class="success">{{ success() }}</div>
     }
     <app-origin [value]="form.controls.origin.value" />
     @if (bulletin(); as b) {
-      <div class="actions" style="margin-bottom:20px">
+      <div class="actions record-context">
         <app-status [value]="b.status" /><span class="muted"
           >Revisão {{ b.revision }} · {{ b.warehouse_name }} ·
-          {{ b.reference_date }}</span
+          {{ b.reference_date | date: "dd/MM/yyyy" }}</span
         >
       </div>
+    }
+    @if (busy() && !lines.length) {
+      <app-loading-state label="Carregando referência, categorias e equipe…" />
     }
     <form [formGroup]="form" (ngSubmit)="save()">
       <section class="panel">
@@ -296,10 +336,16 @@ export class BulletinList implements OnInit {
       <section class="panel">
         <h2>Produção por categoria</h2>
         <p class="muted">
-          Quantidades não negativas. As tarifas são retornadas pelo backend; não
-          use a folha de RH ou encargos.
+          Informe as quantidades de descarga, remoção e transferência.
+          As tarifas oficiais acompanham cada categoria.
         </p>
-        <div class="table-wrap" formArrayName="lines">
+        <div
+          class="table-wrap"
+          formArrayName="lines"
+          tabindex="0"
+          role="region"
+          aria-label="Produção por categoria, descarga, remoção e transferência"
+        >
           <table>
             <thead>
               <tr>
@@ -317,7 +363,7 @@ export class BulletinList implements OnInit {
                     {{ rateLabel(row.controls.category.value) }}
                   </td>
                   <td class="numeric">
-                    {{ ratePrice(row.controls.category.value) }}
+                    {{ decimal(ratePrice(row.controls.category.value)) }}
                   </td>
                   <td>
                     <input
@@ -365,7 +411,7 @@ export class BulletinList implements OnInit {
       <section class="panel">
         <div class="page-head">
           <div>
-            <h2>Equipe / matrículas</h2>
+            <h2>Equipe participante</h2>
             <p class="muted">
               Até 20 pessoas. Matrícula única no boletim. Fração: uma ou meia
               diária.
@@ -382,13 +428,19 @@ export class BulletinList implements OnInit {
           }
         </div>
         @if (participants.length) {
-          <div class="table-wrap" formArrayName="participants">
+          <div
+            class="table-wrap"
+            formArrayName="participants"
+            tabindex="0"
+            role="region"
+            aria-label="Equipe participante, matrículas e frações de diária"
+          >
             <table>
               <thead>
                 <tr>
                   <th>Matrícula / nome</th>
                   <th>Fração</th>
-                  <th></th>
+                  <th><span class="sr-only">Ações</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -453,7 +505,7 @@ export class BulletinList implements OnInit {
       <section class="panel">
         <div class="page-head">
           <div>
-            <h2>Apuração no servidor</h2>
+            <h2>Apuração oficial</h2>
             <p class="muted">
               Total a pagar = maior valor entre produção e piso coletivo.
             </p>
@@ -469,36 +521,29 @@ export class BulletinList implements OnInit {
           }
         </div>
         @if (calculation(); as c) {
-          <div class="table-wrap">
-            <table class="finance">
-              <tbody>
-                <tr>
-                  <th>Pessoas distintas</th>
-                  <td class="numeric">{{ c.people_count }}</td>
-                  <th>Diárias equivalentes</th>
-                  <td class="numeric">{{ c.equivalent_days }}</td>
-                </tr>
-                <tr>
-                  <th>Produção (P)</th>
-                  <td class="numeric">{{ money(c.production) }}</td>
-                  <th>Piso coletivo (E × R)</th>
-                  <td class="numeric">{{ money(c.collective_floor) }}</td>
-                </tr>
-                <tr class="total">
-                  <th>Total a pagar</th>
-                  <td class="numeric">{{ money(c.total_payable) }}</td>
-                  <th>Complemento</th>
-                  <td class="numeric">{{ money(c.supplement) }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="financial-summary" aria-live="polite">
+            <div class="financial-total">
+              <span>Total a pagar</span>
+              <strong>{{ money(c.total_payable) }}</strong>
+              <p class="field-help">
+                {{ closed() ? "Valor preservado no boletim fechado." : "Confira a prévia antes de fechar o boletim." }}
+              </p>
+            </div>
+            <dl class="metadata">
+              <div><dt>Produção</dt><dd>{{ money(c.production) }}</dd></div>
+              <div><dt>Piso coletivo</dt><dd>{{ money(c.collective_floor) }}</dd></div>
+              <div><dt>Complemento</dt><dd>{{ money(c.supplement) }}</dd></div>
+              <div><dt>Pessoas distintas</dt><dd>{{ decimal(c.people_count) }}</dd></div>
+              <div><dt>Diárias equivalentes</dt><dd>{{ decimal(c.equivalent_days) }}</dd></div>
+              <div><dt>Piso por diária</dt><dd>{{ money(c.floor_per_day) }}</dd></div>
+            </dl>
           </div>
           <details>
             <summary>Precisão e origem do cálculo</summary>
             <p>
-              P: {{ c.production }} · E: {{ c.equivalent_days }} · R:
-              {{ c.floor_per_day }} · T: {{ c.total_payable }} · C:
-              {{ c.supplement }}.
+              P: {{ decimal(c.production) }} · E: {{ decimal(c.equivalent_days) }} · R:
+              {{ decimal(c.floor_per_day) }} · T: {{ decimal(c.total_payable) }} · C:
+              {{ decimal(c.supplement) }}.
             </p>
             <p class="muted">
               Centavos só na apresentação. Meia diária segue E × 90,1731. A
@@ -507,8 +552,7 @@ export class BulletinList implements OnInit {
           </details>
         } @else {
           <p class="muted">
-            Calcule a prévia para ver a apuração. Nenhum valor é estimado pelo
-            navegador.
+            Calcule a prévia para conferir produção, piso coletivo e total a pagar.
           </p>
         }
       </section>
@@ -556,7 +600,7 @@ export class BulletinList implements OnInit {
         <div class="actions section">
           <ion-button type="submit" [disabled]="busy() || reopenForm.invalid"
             >Confirmar reabertura</ion-button
-          ><ion-button fill="outline" (click)="showReopen.set(false)"
+          ><ion-button type="button" fill="outline" (click)="showReopen.set(false)"
             >Cancelar</ion-button
           >
         </div>
@@ -582,6 +626,7 @@ export class BulletinEditor implements OnInit {
   showReopen = signal(false);
   dirty = signal(false);
   money = money;
+  decimal = decimal;
   private line = (category: string, l?: Line) =>
     this.fb.nonNullable.group({
       category: [category],
@@ -724,7 +769,7 @@ export class BulletinEditor implements OnInit {
           })
         : await this.api.post<Bulletin>("bulletins/", payload);
       this.apply(result);
-      this.success.set("Boletim salvo no PostgreSQL.");
+      this.success.set("Boletim salvo.");
       if (!b) await this.router.navigate(["/boletins", result.id]);
     } catch (e) {
       this.error.set(apiError(e));
