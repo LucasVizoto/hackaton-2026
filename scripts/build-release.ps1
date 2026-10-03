@@ -9,6 +9,14 @@ function Invoke-Checked {
     & $taskExecutable @taskArguments
     if ($LASTEXITCODE -ne 0) { throw "Falha em $taskExecutable (exit $LASTEXITCODE)." }
 }
+Set-Location -LiteralPath $taskRoot
+if (git status --porcelain) { throw 'Release APK requires a clean committed checkout.' }
+$releaseId = (git rev-parse --short=12 HEAD).Trim()
+$sourceDir = Join-Path $taskPrivate "source-$releaseId"
+$sourceArchive = Join-Path $taskPrivate "source-$releaseId.tar"
+New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+Invoke-Checked git archive --format=tar "--output=$sourceArchive" HEAD
+Invoke-Checked tar -xf $sourceArchive -C $sourceDir
 if (!$JavaHome) {
     $jdkRoot = Join-Path $taskPrivate 'jdk21'
     $jdkBin = Get-ChildItem -LiteralPath $jdkRoot -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'bin/java.exe') } | Select-Object -First 1
@@ -44,7 +52,7 @@ try {
     if (!(Test-Path -LiteralPath $keystore)) {
         Invoke-Checked keytool -genkeypair -keystore $keystore '-storepass:env' COCAPEC_STORE_PASSWORD '-keypass:env' COCAPEC_KEY_PASSWORD -alias cocapec -keyalg RSA -keysize 3072 -validity 10000 -dname 'CN=Cocapec Hackathon, O=Hackathon 2026, C=BR' -noprompt
     }
-    Push-Location (Join-Path $taskRoot 'frontend')
+    Push-Location (Join-Path $sourceDir 'frontend')
     try {
         Invoke-Checked npm.cmd ci
         Invoke-Checked npm.cmd run lint
@@ -53,7 +61,6 @@ try {
         Invoke-Checked npx.cmd cap sync android
         Push-Location android
         try { Invoke-Checked '.\gradlew.bat' :app:testReleaseUnitTest :app:assembleRelease } finally { Pop-Location }
-        $releaseId = (git rev-parse --short=12 HEAD).Trim()
         $apkPath = Join-Path $taskPrivate "cocapec-$releaseId.apk"
         Copy-Item -LiteralPath 'android/app/build/outputs/apk/release/app-release.apk' -Destination $apkPath
         Invoke-Checked "$AndroidSdk/build-tools/36.0.0/apksigner.bat" verify --verbose --print-certs $apkPath

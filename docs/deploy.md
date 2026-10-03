@@ -47,7 +47,7 @@ Os logs do Supervisor ficam em `/var/log/cocapec`, com 20 MB e cinco arquivos an
 .\scripts\build-release.ps1
 ```
 
-O script prepara JDK 21 com checksum, usa SDK 36, gera assinatura privada fora do Git, configura HTTPS somente no build ignorado e produz APK e SHA-256 em `.private/android-release`. Conserve a chave e seu arquivo de senhas para atualizar versões futuras. O APK release não atualiza instalações com assinatura debug; use uma instalação de QA separada. A API remota dispensa `adb reverse`.
+O script prepara JDK 21 com checksum e um checkout isolado do commit, usa SDK 36, gera assinatura privada fora do Git, configura HTTPS somente no build ignorado e produz APK e SHA-256 em `.private/android-release`. Conserve a chave e seu arquivo de senhas para atualizar versões futuras. O APK release não atualiza instalações com assinatura debug; use uma instalação de QA separada. A API remota dispensa `adb reverse`.
 
 ## Aceite
 
