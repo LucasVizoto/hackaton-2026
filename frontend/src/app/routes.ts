@@ -2,10 +2,22 @@ import { inject } from "@angular/core";
 import { CanActivateFn, Router, Routes } from "@angular/router";
 import { Api } from "./core/api";
 const auth: CanActivateFn = () =>
-  inject(Api).user() ? true : inject(Router).createUrlTree(["/login"]);
+  inject(Api).user()
+    ? true
+    : inject(Router).createUrlTree(["/login"], {
+        queryParams: { perfil: "operador" },
+      });
+const guest: CanActivateFn = () =>
+  inject(Api).user() ? inject(Router).createUrlTree(["/agenda"]) : true;
 export const routes: Routes = [
   {
+    path: "",
+    canActivate: [guest],
+    loadComponent: () => import("./features/home").then((m) => m.Home),
+  },
+  {
     path: "login",
+    canActivate: [guest],
     loadComponent: () => import("./features/login").then((m) => m.Login),
   },
   {
@@ -88,6 +100,5 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./features/management").then((m) => m.DataQuality),
   },
-  { path: "", pathMatch: "full", redirectTo: "agenda" },
-  { path: "**", redirectTo: "agenda" },
+  { path: "**", redirectTo: "" },
 ];

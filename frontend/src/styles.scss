@@ -58,6 +58,24 @@
   --ion-color-danger-tint: #c43333;
   --ion-item-background: var(--surface);
   --ion-toolbar-background: var(--surface);
+  --brand: #005ba0;
+  --brand-secondary: #4cb033;
+  --brand-tertiary: #f5c304;
+  --login-canvas: #f3f6fb;
+  --login-card: #ffffff;
+  --login-navy: #0b3d73;
+  --login-navy-hover: #08325f;
+  --login-ink: #1c2a3a;
+  --login-muted: #6b7789;
+  --login-line: #e6ebf3;
+  --login-input: #f4f7fb;
+  --login-bean: #c5d0e0;
+  --positive: #16a34a;
+  --positive-bg: #ecfdf3;
+  --negative: #dc2626;
+  --negative-bg: #fef2f2;
+  --radius-lg: 24px;
+  --radius-md: 14px;
 }
 [data-theme="dark"] {
   color-scheme: dark;
@@ -94,8 +112,22 @@
   --ion-color-danger-contrast: #492c32;
   --ion-color-danger-shade: #f59e97;
   --ion-color-danger-tint: #ffccc7;
+  --login-canvas: #0b1220;
+  --login-card: #141b2a;
+  --login-navy: #7eb4ea;
+  --login-navy-hover: #9cc7f2;
+  --login-ink: #f3f4f6;
+  --login-muted: #9ca3af;
+  --login-line: #262b38;
+  --login-input: #1b2233;
+  --login-bean: #243044;
+  --positive: #9de8b5;
+  --positive-bg: #233e32;
+  --negative: #ffb4ad;
+  --negative-bg: #492c32;
 }
 * { box-sizing: border-box; }
+html,body,app-root,ion-app { height: 100%; }
 body { margin: 0; background: var(--paper); color: var(--text); font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
 a { color: var(--blue); text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
@@ -224,18 +256,6 @@ tbody tr:hover { background: var(--surface-hover); }
 .finance .total { font-weight: 700; }
 .origin { font-size: 12px; color: var(--warning); }
 .pagination { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 20px; font-size: 13px; color: var(--muted); }
-.login-page { display: grid; place-items: center; min-height: 100%; height: 100%; overflow-y: auto; background: var(--paper); padding: 32px 20px; }
-.login { width: 100%; max-width: 460px; background: var(--surface); padding: 36px; border-radius: var(--radius-card); box-shadow: var(--shadow-card); margin: auto; }
-.login-brand { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 28px; margin-bottom: 28px; border-bottom: 1px solid var(--line); }
-.login h1 { font-size: 25px; }
-.login > .muted { font-size: 14px; margin-top: 8px; }
-.login form { display: flex; flex-direction: column; gap: 12px; }
-.login form > label:first-child { margin: 8px 0 4px; }
-.login form > label:not(:first-child) { margin-top: 8px; }
-.login ion-button { width: 100%; margin-top: 16px; min-height: 48px; }
-.password-field { position: relative; }
-.password-field input { padding-right: 52px; }
-.password-field .icon-button { position: absolute; right: 1px; top: 1px; }
 .audit { list-style: none; margin: 0; padding: 0; }
 .audit li { position: relative; padding: 0 0 24px 28px; }
 .audit li::before { content: ""; position: absolute; left: 3px; top: 7px; width: 9px; height: 9px; border-radius: var(--radius-full); background: var(--green); }
@@ -348,9 +368,6 @@ app-bar-chart { min-width: 0; }
   .chart-panel { padding: 20px; }
   .financial-summary { grid-template-columns: 1fr; gap: 12px; }
   .financial-total { padding: 0 0 16px; border-bottom: 1px solid var(--line); }
-  .login-page { padding: max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom)); }
-  .login { padding: 28px 24px; }
-  .login h1 { font-size: 23px; }
   .pill-nav { position: fixed; z-index: 40; display: flex; justify-content: center; gap: 4px; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom,0px)); transform: translateX(-50%); max-width: calc(100vw - 24px); padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-full); box-shadow: var(--shadow-overlay); }
   .pill-nav a,.pill-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 64px; min-height: 54px; padding: 6px 8px; border: 0; background: transparent; color: var(--muted); border-radius: var(--radius-full); font: 500 10px/1.4 var(--font-body); text-decoration: none; cursor: pointer; }
   .pill-nav .active { background: var(--green); color: var(--brand-contrast); }
@@ -359,7 +376,6 @@ app-bar-chart { min-width: 0; }
 @media (max-width: 359px) {
   .metric-grid { grid-template-columns: 1fr; }
   .metadata,.financial-summary .metadata { grid-template-columns: 1fr; }
-  .login { padding: 24px 20px; }
   .pill-nav a,.pill-nav button { width: 59px; }
   .topbar-context > span:first-of-type { max-width: 110px; }
 }
