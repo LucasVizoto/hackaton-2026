@@ -1,0 +1,6 @@
+inter-latin-ext.woff2: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2
+OFL-Inter.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/inter/OFL.txt
+inter-latin.woff2: https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2
+OFL-Plus-Jakarta-Sans.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/plusjakartasans/OFL.txt
+jakarta-latin-ext.woff2: https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko40yyygA.woff2
+jakarta-latin.woff2: https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yw.woff2
