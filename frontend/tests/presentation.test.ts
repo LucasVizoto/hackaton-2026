@@ -7,6 +7,7 @@ import {
   localTimestamp,
   originLabel,
   apiError,
+  sessionCookieAssignment,
 } from "../src/app/core/api";
 import { HttpErrorResponse } from "@angular/common/http";
 
@@ -51,6 +52,12 @@ test("ausência de medição e ausência monetária não aparecem como zero", ()
 test("origem sintética permanece explicitamente identificada", () => {
   assert.equal(originLabel("demo_sintetico"), "Demonstração sintética");
   assert.equal(originLabel("historico_importado"), "Histórico importado");
+});
+test("cookie de sessão não recebe prazo e sobrevive só ao recarregamento", () => {
+  const cookie = sessionCookieAssignment("abc123");
+  assert.match(cookie, /^cocapec_session=abc123; Path=\/; SameSite=Lax$/);
+  assert.equal(cookie.includes("Max-Age"), false);
+  assert.equal(cookie.includes("Expires"), false);
 });
 test("evento local preserva instante e horário de São Paulo", () => {
   assert.equal(

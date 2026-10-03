@@ -240,6 +240,7 @@ tbody tr:hover { background: var(--surface-hover); }
 .table-input { min-width: 88px; max-width: 135px; text-align: right; }
 .notice,.error,.success { padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-control); margin-bottom: 20px; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
 .notice { background: var(--surface-subtle); color: var(--muted); }
+.arrival-alert { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: var(--radius-full); background: var(--warning-soft); color: var(--warning); font-size: 13px; font-weight: 700; text-decoration: none; }
 .notice.synthetic { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
 .notice.info { background: var(--info-soft); color: var(--blue); border-color: transparent; }
 .error { background: var(--danger-soft); color: var(--danger); border-color: transparent; white-space: pre-wrap; }

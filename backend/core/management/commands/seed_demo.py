@@ -58,6 +58,7 @@ class Command(BaseCommand):
             ("compras_demo", "purchasing", None),
             ("armazem_demo", "warehouse", None),
             ("gestao_demo", "management", None),
+            ("portaria_demo", "portaria", None),
         ):
             user, created = User.objects.get_or_create(username=username)
             if created:
@@ -201,7 +202,7 @@ class Command(BaseCommand):
             )
         self.stdout.write(
             self.style.SUCCESS(
-                "Seed sintético concluído, idempotente e sem sobrescrever registros. Contas: fornecedor_demo, fornecedor_b_demo, compras_demo, armazem_demo, gestao_demo. Senha somente no .env privado."
+                "Seed sintético concluído, idempotente e sem sobrescrever registros. Contas: fornecedor_demo, fornecedor_b_demo, compras_demo, armazem_demo, gestao_demo, portaria_demo. Senha somente no .env privado."
             )
         )
 

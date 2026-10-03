@@ -20,6 +20,22 @@ export interface Page<T> {
   previous?: string | null;
 }
 export type RecordData = Record<string, unknown>;
+const sessionCookie = "cocapec_session";
+export function sessionCookieAssignment(token: string, secure = false): string {
+  return `${sessionCookie}=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
+}
+function readSessionCookie(): string {
+  if (typeof document === "undefined" || !document.cookie) return "";
+  const row = document.cookie.split("; ").find((item) => item.startsWith(`${sessionCookie}=`));
+  return row ? decodeURIComponent(row.slice(sessionCookie.length + 1)) : "";
+}
+function writeSessionCookie(token: string) {
+  const secure = globalThis.location?.protocol === "https:";
+  document.cookie = sessionCookieAssignment(token, secure);
+}
+function clearSessionCookie() {
+  document.cookie = `${sessionCookie}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
 const privateAttachment = registerPlugin<{
   save(options: {
     base64: string;
@@ -64,7 +80,21 @@ export class Api {
     });
     this.token.set(r.token);
     this.user.set(r.user);
+    writeSessionCookie(r.token);
     return r;
+  }
+  async restoreSession() {
+    const token = readSessionCookie();
+    if (!token) return;
+    this.token.set(token);
+    try {
+      const user = await this.get<User>("auth/me/");
+      this.user.set(user);
+    } catch {
+      this.token.set("");
+      this.user.set(null);
+      clearSessionCookie();
+    }
   }
   async logout() {
     try {
@@ -76,7 +106,14 @@ export class Api {
   clear() {
     this.token.set("");
     this.user.set(null);
+    clearSessionCookie();
     void this.router.navigateByUrl("/login");
+  }
+  async blob(path: string) {
+    await this.configure();
+    return firstValueFrom(
+      this.http.get(`${this.base}/${path}`, { responseType: "blob" }),
+    );
   }
   async download(path: string, filename: string) {
     await this.configure();

@@ -599,9 +599,9 @@ export class Login {
       const { username, password, remember } = this.form.getRawValue();
       if (remember) localStorage.setItem(rememberedKey, username);
       else localStorage.removeItem(rememberedKey);
-      await this.api.login(username, password);
+      const session = await this.api.login(username, password);
       this.form.controls.password.reset();
-      await this.router.navigateByUrl("/agenda");
+      await this.router.navigateByUrl(session.user.role === "portaria" ? "/portaria" : "/agenda");
     } catch (e) {
       this.error.set(apiError(e, "login"));
     } finally {
