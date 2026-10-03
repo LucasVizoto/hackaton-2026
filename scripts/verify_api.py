@@ -95,6 +95,7 @@ def main():
 
     bulletins = all_records("bulletins/")
     appointments = all_records("appointments/")
+    non_receipts = all_records("non-receipts/")
     official = next(b for b in bulletins if b["reference_date"] == "2025-11-17")
     assert Decimal(official["calculation"]["production"]) == Decimal("918.1952")
     assert Decimal(official["calculation"]["total_payable"]) == Decimal("991.9041")
@@ -122,9 +123,22 @@ def main():
                     "arrived_at",
                     "started_at",
                     "finished_at",
+                    "date",
+                    "time",
+                    "purchase_status",
+                    "warehouse_status",
+                    "worker_count",
+                    "equipment_ids",
+                    "resources_confirmed",
+                    "visits",
+                    "capacity_holds",
                 )
             }
             for a in appointments
+        },
+        "non_receipts": {
+            r["id"]: {k: r[k] for k in ("origin", "reason", "occurred_at")}
+            for r in non_receipts
         },
     }
     if args.checkpoint:
