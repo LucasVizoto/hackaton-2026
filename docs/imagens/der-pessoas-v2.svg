@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1630" height="1080" viewBox="0 0 1630 1080">
+<title>DER v2 · Pessoa/dia e responsabilidade financeira</title>
+<rect width="100%" height="100%" fill="white"/>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#597085"/></marker></defs>
+<text x="35" y="44" dominant-baseline="middle" text-anchor="start" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#152c40">DER v2 · Pessoa/dia e responsabilidade financeira</text>
+<text x="35" y="89" dominant-baseline="middle" text-anchor="start" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">Atividade física e apuração usam o mesmo WorkerDay; somente uma participação financeira por pessoa/data/origem</text>
+<polyline points="340,235.0 450,235.0" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="750,235.0 860,235.0" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="1160,235.0 1270,235.0" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="600.0,320 600.0,450" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="340,535.0 450,535.0" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="190.0,620 190.0,750" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="190.0,620 190,700 600,700 600.0,750" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="190.0,450 190,370 1010,370 1010.0,450" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="190.0,620 190,670 1420,670 1420.0,620" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="40,535.0 20,535 20,980 1010,980 1010.0,920" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<polyline points="40,535.0 10,535 10,1015 1420,1015 1420.0,920" fill="none" stroke="#597085" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="40" y="150" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="190.0" y="209.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Worker</text>
+<text x="190.0" y="234.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">PK id · matrícula única</text>
+<text x="190.0" y="259.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">is_active preserva histórico</text>
+<rect x="450" y="150" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="600.0" y="209.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">WorkerDay</text>
+<text x="600.0" y="234.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK worker</text>
+<text x="600.0" y="259.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">UNIQUE pessoa/data/origem</text>
+<rect x="860" y="150" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="1010.0" y="197.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">LaborActivity</text>
+<text x="1010.0" y="222.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK WorkerDay / local</text>
+<text x="1010.0" y="247.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Recebimento? / equipamento?</text>
+<text x="1010.0" y="272.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Presença / uso / horários</text>
+<rect x="1270" y="150" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="1420.0" y="209.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">LaborActivityRevision</text>
+<text x="1420.0" y="234.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK activity / actor</text>
+<text x="1420.0" y="259.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Motivo + snapshot</text>
+<rect x="40" y="450" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="190.0" y="497.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">DailyBulletin</text>
+<text x="190.0" y="522.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">UNIQUE local responsável/data</text>
+<text x="190.0" y="547.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Versão / revisão / cálculo</text>
+<text x="190.0" y="572.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">DRAFT ou CLOSED</text>
+<rect x="450" y="450" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="600.0" y="497.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">BulletinParticipant</text>
+<text x="600.0" y="522.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin / worker</text>
+<text x="600.0" y="547.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">WorkerDay único (novos)</text>
+<text x="600.0" y="572.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Fração 1 ou 0,5</text>
+<rect x="860" y="450" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="1010.0" y="497.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">IndividualAllocation</text>
+<text x="1010.0" y="522.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin / worker / day</text>
+<text x="1010.0" y="547.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">UNIQUE boletim/revisão/pessoa</text>
+<text x="1010.0" y="572.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Exato, centavos, política, ativo</text>
+<rect x="1270" y="450" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="1420.0" y="509.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">BulletinRevision</text>
+<text x="1420.0" y="534.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin / actor</text>
+<text x="1420.0" y="559.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Motivo + snapshot</text>
+<rect x="40" y="750" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="190.0" y="809.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">BulletinLine</text>
+<text x="190.0" y="834.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin · categoria única</text>
+<text x="190.0" y="859.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">3 movimentos / preço</text>
+<rect x="450" y="750" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="600.0" y="809.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">BulletinDailyService</text>
+<text x="600.0" y="834.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin · tipo único</text>
+<text x="600.0" y="859.5" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FULL 90.1731 / HALF 45.0786</text>
+<rect x="860" y="750" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="1010.0" y="797.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">ProductionRecord</text>
+<text x="1010.0" y="822.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin</text>
+<text x="1010.0" y="847.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">UNIQUE source_key/origem</text>
+<text x="1010.0" y="872.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Quantidade / preço</text>
+<rect x="1270" y="750" width="300" height="170" rx="7" fill="#e8f1f7" stroke="#597085"/>
+<text x="1420.0" y="797.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">LaborRuleOccurrence</text>
+<text x="1420.0" y="822.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">FK bulletin / worker?</text>
+<text x="1420.0" y="847.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Fração proposta / atividade?</text>
+<text x="1420.0" y="872.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Pendente bloqueia este boletim</text>
+<rect x="379.0" y="213.0" width="32.0" height="20" fill="white"/>
+<text x="395.0" y="223.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="789.0" y="213.0" width="32.0" height="20" fill="white"/>
+<text x="805.0" y="223.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="1199.0" y="213.0" width="32.0" height="20" fill="white"/>
+<text x="1215.0" y="223.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="550.25" y="400" width="99.5" height="20" fill="white"/>
+<text x="600" y="410" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">0..1 financeiro</text>
+<rect x="379.0" y="513.0" width="32.0" height="20" fill="white"/>
+<text x="395.0" y="523.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="174.0" y="663.0" width="32.0" height="20" fill="white"/>
+<text x="190.0" y="673.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="379.0" y="678.0" width="32.0" height="20" fill="white"/>
+<text x="395.0" y="688.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="864.0" y="348" width="32.0" height="20" fill="white"/>
+<text x="880" y="358" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="789.0" y="648.0" width="32.0" height="20" fill="white"/>
+<text x="805.0" y="658.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="499.0" y="958.0" width="32.0" height="20" fill="white"/>
+<text x="515.0" y="968.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+<rect x="699.0" y="993.0" width="32.0" height="20" fill="white"/>
+<text x="715.0" y="1003.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">1:N</text>
+</svg>

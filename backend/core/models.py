@@ -22,6 +22,7 @@ class UserProfile(models.Model):
         ("supplier", "Fornecedor"),
         ("purchasing", "Compras"),
         ("warehouse", "Armazém"),
+        ("gatehouse", "Portaria"),
         ("management", "Gestão"),
         ("admin", "Administrador"),
     ]

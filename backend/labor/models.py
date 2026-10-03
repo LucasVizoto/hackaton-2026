@@ -26,6 +26,7 @@ class DailyBulletin(UUIDModel):
     revision = models.PositiveIntegerField(default=1)
     floor_per_day = models.DecimalField(max_digits=18, decimal_places=4, default=FLOOR)
     calculation = models.JSONField(default=dict)
+    financial_version = models.CharField(max_length=30, default="boletim-v1")
     closed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     source_file = models.ForeignKey(
@@ -68,6 +69,10 @@ class BulletinParticipant(UUIDModel):
     )
     worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT)
     fraction = models.DecimalField(max_digits=2, decimal_places=1)
+    worker_day = models.OneToOneField(
+        "WorkerDay", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="financial_participation",
+    )
 
     class Meta:
         constraints = [
@@ -85,3 +90,117 @@ class BulletinRevision(UUIDModel):
     reason = models.TextField()
     snapshot = models.JSONField()
     recorded_at = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class WorkerDay(UUIDModel):
+    worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT, related_name="work_days")
+    reference_date = models.DateField(db_index=True)
+    origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["worker", "reference_date", "origin"], name="unique_worker_day_origin"
+        )]
+
+
+class BulletinDailyService(UUIDModel):
+    KINDS = [("FULL", "Diária Completa"), ("HALF", "Meia Diária")]
+    bulletin = models.ForeignKey(DailyBulletin, on_delete=models.CASCADE, related_name="daily_services")
+    kind = models.CharField(max_length=8, choices=KINDS)
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    price = models.DecimalField(max_digits=18, decimal_places=4)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["bulletin", "kind"], name="unique_bulletin_daily_service"),
+            models.CheckConstraint(condition=models.Q(quantity__gte=0, price__gte=0), name="daily_service_nonnegative"),
+        ]
+
+
+class IndividualAllocation(UUIDModel):
+    bulletin = models.ForeignKey(DailyBulletin, on_delete=models.PROTECT, related_name="allocations")
+    worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT, related_name="allocations")
+    worker_day = models.ForeignKey(WorkerDay, on_delete=models.PROTECT, related_name="allocations")
+    bulletin_revision = models.PositiveIntegerField()
+    policy_version = models.CharField(max_length=40, default="proportional-largest-remainder-v1")
+    fraction = models.DecimalField(max_digits=2, decimal_places=1)
+    exact = models.JSONField()
+    display = models.JSONField()
+    total_payable = models.DecimalField(max_digits=24, decimal_places=2)
+    active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["bulletin", "bulletin_revision", "worker"], name="unique_individual_allocation_revision"
+        )]
+
+
+class LaborActivity(UUIDModel):
+    worker_day = models.ForeignKey(WorkerDay, on_delete=models.PROTECT, related_name="activities")
+    warehouse = models.ForeignKey("catalog.Warehouse", on_delete=models.PROTECT)
+    appointment = models.ForeignKey("receiving.Appointment", on_delete=models.PROTECT, null=True, blank=True)
+    equipment = models.ForeignKey("catalog.Equipment", on_delete=models.PROTECT, null=True, blank=True)
+    activity_type = models.CharField(max_length=20, choices=[
+        ("RECEIVING", "Recebimento"), ("INTERNAL", "Movimentação interna"),
+        ("MACHINE", "Máquinas / implementos"), ("OTHER", "Outro"),
+    ])
+    attendance_state = models.CharField(max_length=10, choices=[
+        ("PLANNED", "Prevista"), ("PRESENT", "Presente"), ("ABSENT", "Ausente"),
+    ], default="PLANNED")
+    used = models.BooleanField(default=False)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    revision = models.PositiveIntegerField(default=1)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class LaborActivityRevision(UUIDModel):
+    activity = models.ForeignKey(LaborActivity, on_delete=models.PROTECT, related_name="history")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    reason = models.TextField()
+    snapshot = models.JSONField()
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+
+class LaborRuleOccurrence(UUIDModel):
+    bulletin = models.ForeignKey(DailyBulletin, on_delete=models.PROTECT, related_name="rule_occurrences")
+    worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT, null=True, blank=True)
+    code = models.CharField(max_length=40, choices=[
+        ("FRACTION", "Fração excepcional"), ("EARLY_LEAVE", "Saída antecipada"),
+        ("OVERTIME", "Horas extras"), ("SPECIAL_DAILY", "Diária especial"), ("OTHER", "Outra regra"),
+    ])
+    description = models.TextField()
+    proposed_fraction = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    activity = models.ForeignKey(LaborActivity, on_delete=models.PROTECT, null=True, blank=True)
+    policy_version = models.CharField(max_length=40, blank=True)
+    resolution_type = models.CharField(max_length=30, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="labor_occurrences")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="labor_resolutions")
+    resolution = models.TextField(blank=True)
+
+
+class ProductionRecord(UUIDModel):
+    """A source event belongs to one bulletin; activities never duplicate its production."""
+    bulletin = models.ForeignKey(DailyBulletin, on_delete=models.PROTECT, related_name="production_records")
+    source_key = models.CharField(max_length=200)
+    origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES)
+    category = models.CharField(max_length=40, choices=CATEGORY_CHOICES)
+    movement = models.CharField(max_length=15, choices=[("unloading", "Descarga"), ("removal", "Remoção"), ("transfer", "Transferência")])
+    quantity = models.DecimalField(max_digits=18, decimal_places=4)
+    price = models.DecimalField(max_digits=18, decimal_places=4)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["source_key", "origin"], name="unique_production_source_origin"),
+            models.CheckConstraint(condition=models.Q(quantity__gte=0, price__gte=0), name="production_record_nonnegative"),
+        ]

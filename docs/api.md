@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** O contrato atual está em [API v2](v2/api.md). Os campos, permissões e limites abaixo descrevem a versão anterior.
+
 # Contrato da API implementada
 
 Base local: `http://localhost:8000/api/v1/`. Todas as rotas abaixo incluem a barra final. IDs de domínio são UUID; os exemplos usam apenas nomes de campos e não contêm registros reais. Web e Android consomem a mesma API PostgreSQL.

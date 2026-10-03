@@ -7,6 +7,6 @@ const config: CapacitorConfig = {
   loggingBehavior: "none",
   server: production
     ? { androidScheme: "https", cleartext: false, appStartPath: "/login" }
-    : { androidScheme: "http", cleartext: true },
+    : { androidScheme: "http", cleartext: true, appStartPath: "/login" },
 };
 export default config;

@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** O [roteiro v2](v2/roteiro_8_minutos.md) inclui Portaria, várias notas, pessoas e boletim único. Os resultados anteriores de APK/GitHub abaixo não validam automaticamente a nova versão.
+
 # Roteiro da demonstração — oito minutos
 
 Preparar previamente PostgreSQL, backend, aplicação Angular e seed sintético. Abrir perfis necessários em sessões distintas, com credenciais locais fora dos slides. Usar documento artificial. Não transmitir nomes/CNPJ/chaves dos originais nem abrir a folha de RH. Confirmar o período/origem na gestão antes do pitch.

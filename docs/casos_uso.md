@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** Consulte os [casos de uso v2](v2/casos_uso.md) para os perfis e responsabilidades atuais.
+
 # Casos de uso UML
 
 ![Diagrama UML de casos de uso](imagens/casos-uso.svg)

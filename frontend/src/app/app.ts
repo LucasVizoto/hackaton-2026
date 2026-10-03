@@ -11,10 +11,13 @@ interface NavigationItem { route: string; label: string; shortLabel?: string; ic
 const MODULES: NavigationItem[] = [
   { route: "/agenda", label: "Agenda", icon: "calendar-outline" },
   { route: "/compras", label: "Compras", icon: "checkmark-circle-outline", roles: ["purchasing"] },
+  { route: "/portaria", label: "Portaria", icon: "trail-sign-outline", roles: ["gatehouse"] },
+  { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
   { route: "/operacao", label: "Operação", icon: "trail-sign-outline", roles: ["warehouse"] },
   { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse"] },
   { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse"] },
   { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"] },
+  { route: "/integracoes", label: "Integrações", icon: "grid-outline", roles: ["warehouse", "purchasing", "management"] },
   { route: "/qualidade", label: "Origem dos dados", shortLabel: "Origem", icon: "shield-checkmark-outline", roles: ["management", "warehouse", "purchasing"] },
 ];
 @Component({ selector: "app-root", standalone: true,
@@ -49,7 +52,7 @@ export class AppComponent {
   readonly navItems = computed(() => MODULES.filter(item => !item.roles || this.api.can(...item.roles)));
   readonly primaryItems = computed(() => {
     const role = this.api.user()?.role;
-    const priority = role === "warehouse" || role === "admin" ? ["/agenda", "/operacao", "/boletins"] : role === "purchasing" ? ["/agenda", "/compras", "/gestao"] : ["/agenda", "/gestao", "/qualidade"];
+    const priority = role === "warehouse" || role === "admin" ? ["/agenda", "/operacao", "/boletins"] : role === "gatehouse" ? ["/portaria", "/agenda"] : role === "purchasing" ? ["/agenda", "/compras", "/gestao"] : ["/agenda", "/gestao", "/qualidade"];
     return priority.map(route => this.navItems().find(item => item.route === route)).filter((item): item is NavigationItem => !!item);
   });
   readonly extraItems = computed(() => this.navItems().filter(item => !this.primaryItems().includes(item)));
@@ -68,5 +71,5 @@ export class AppComponent {
     });
   }
   active(route: string): boolean { return this.path() === route || this.path().startsWith(route + "/"); }
-  roleLabel() { return ({ admin: "Administrador", supplier: "Fornecedor", purchasing: "Compras", warehouse: "Armazém", management: "Gestão" } as Record<string, string>)[this.api.user()?.role ?? ""] ?? ""; }
+  roleLabel() { return ({ admin: "Administrador", supplier: "Fornecedor", purchasing: "Compras", warehouse: "Armazém", management: "Gestão", gatehouse: "Portaria" } as Record<string, string>)[this.api.user()?.role ?? ""] ?? ""; }
 }

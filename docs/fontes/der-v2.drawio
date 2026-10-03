@@ -1,0 +1,204 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="page_0" name="DER v2 · Carga, notas e conferência">
+    <mxGraphModel dx="1480" dy="1010" grid="1" page="1" pageWidth="1480" pageHeight="1010">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="heading" value="&lt;b&gt;DER v2 · Carga, notas e conferência&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#597085;fontColor=#152c40;fontSize=16;strokeColor=none;align=left;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="35" y="24" width="1410" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="&lt;b&gt;Recorte das relações reais do backend · cardinalidades indicam um para muitos, salvo relação opcional explicitada&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#597085;fontColor=#152c40;fontSize=16;strokeColor=none;align=left;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="35" y="78" width="1410" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="supplier" value="&lt;b&gt;Supplier&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;PK id · código único&lt;br/&gt;Fornecedor da carga" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="invoice" value="&lt;b&gt;Invoice&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;PK id · FK supplier&lt;br/&gt;Original privado / hash" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="400" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="link" value="&lt;b&gt;AppointmentInvoice&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK appointment / invoice&lt;br/&gt;Par e posição únicos" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="760" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="ap" value="&lt;b&gt;Appointment&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;PK id · FK supplier / slot&lt;br/&gt;Versão, revisão, 4 marcos&lt;br/&gt;invoice principal legado" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="order" value="&lt;b&gt;PurchaseOrder&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK supplier · referência&lt;br/&gt;Confirmação local com autor" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="40" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="orderline" value="&lt;b&gt;PurchaseOrderLine&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK order · posição única&lt;br/&gt;Quantidade pedida / unidade" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="400" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="receipt" value="&lt;b&gt;ReceiptLine&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK carga / NF / item?&lt;br/&gt;FK item pedido? / anterior?&lt;br/&gt;Observado = aceito + recusado" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="760" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="visit" value="&lt;b&gt;WarehouseVisit&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK appointment / warehouse&lt;br/&gt;Sequência única por carga&lt;br/&gt;Entrada / saída / recursos" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="item" value="&lt;b&gt;InvoiceItem&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK invoice · posição única&lt;br/&gt;Declarado / unidade" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="400" y="750" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="warehouse" value="&lt;b&gt;Warehouse&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;PK id · código único&lt;br/&gt;Local físico atendido" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="750" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="supplier" target="invoice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="invoice" target="link">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="N:1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="link" target="ap">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="supplier" target="order">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="order" target="orderline">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="orderline" target="receipt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ap" target="visit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="warehouse" target="visit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="invoice" target="item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="730" y="235" />
+              <mxPoint x="730" y="835" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="item" target="receipt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="910" y="835" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="ap" target="receipt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1270" y="385" />
+              <mxPoint x="910" y="385" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_1" name="DER v2 · Pessoa/dia e responsabilidade financeira">
+    <mxGraphModel dx="1630" dy="1080" grid="1" page="1" pageWidth="1630" pageHeight="1080">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="heading" value="&lt;b&gt;DER v2 · Pessoa/dia e responsabilidade financeira&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#597085;fontColor=#152c40;fontSize=16;strokeColor=none;align=left;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="35" y="24" width="1560" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="&lt;b&gt;Atividade física e apuração usam o mesmo WorkerDay; somente uma participação financeira por pessoa/data/origem&lt;/b&gt;" style="text;html=1;whiteSpace=wrap;fillColor=#ffffff;strokeColor=#597085;fontColor=#152c40;fontSize=16;strokeColor=none;align=left;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="35" y="78" width="1560" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" value="&lt;b&gt;Worker&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;PK id · matrícula única&lt;br/&gt;is_active preserva histórico" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="day" value="&lt;b&gt;WorkerDay&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK worker&lt;br/&gt;UNIQUE pessoa/data/origem" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="450" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="activity" value="&lt;b&gt;LaborActivity&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK WorkerDay / local&lt;br/&gt;Recebimento? / equipamento?&lt;br/&gt;Presença / uso / horários" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="860" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="history" value="&lt;b&gt;LaborActivityRevision&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK activity / actor&lt;br/&gt;Motivo + snapshot" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="150" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="bulletin" value="&lt;b&gt;DailyBulletin&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;UNIQUE local responsável/data&lt;br/&gt;Versão / revisão / cálculo&lt;br/&gt;DRAFT ou CLOSED" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="40" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="participant" value="&lt;b&gt;BulletinParticipant&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin / worker&lt;br/&gt;WorkerDay único (novos)&lt;br/&gt;Fração 1 ou 0,5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="450" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="allocation" value="&lt;b&gt;IndividualAllocation&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin / worker / day&lt;br/&gt;UNIQUE boletim/revisão/pessoa&lt;br/&gt;Exato, centavos, política, ativo" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="860" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="revision" value="&lt;b&gt;BulletinRevision&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin / actor&lt;br/&gt;Motivo + snapshot" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="450" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="line" value="&lt;b&gt;BulletinLine&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin · categoria única&lt;br/&gt;3 movimentos / preço" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="40" y="750" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="daily" value="&lt;b&gt;BulletinDailyService&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin · tipo único&lt;br/&gt;FULL 90.1731 / HALF 45.0786" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="450" y="750" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="production" value="&lt;b&gt;ProductionRecord&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin&lt;br/&gt;UNIQUE source_key/origem&lt;br/&gt;Quantidade / preço" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="860" y="750" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="issue" value="&lt;b&gt;LaborRuleOccurrence&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;FK bulletin / worker?&lt;br/&gt;Fração proposta / atividade?&lt;br/&gt;Pendente bloqueia este boletim" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e8f1f7;strokeColor=#597085;fontColor=#152c40;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="750" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="worker" target="day">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="day" target="activity">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="activity" target="history">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="0..1 financeiro" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="day" target="participant">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="participant">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="line">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="daily">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="700" />
+              <mxPoint x="600" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="allocation">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="370" />
+              <mxPoint x="1010" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="revision">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="670" />
+              <mxPoint x="1420" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="production">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="20" y="535" />
+              <mxPoint x="20" y="980" />
+              <mxPoint x="1010" y="980" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="1:N" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#597085;fontSize=14;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="bulletin" target="issue">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="10" y="535" />
+              <mxPoint x="10" y="1015" />
+              <mxPoint x="1420" y="1015" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

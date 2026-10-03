@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** Consulte o [relatório v2](v2/relatorio_gerencial.md) para a regra individual, serviço de diária separado da presença e o estado atual de validação. Alegações de publicação/Android abaixo pertencem à rodada anterior.
+
 # Relatório gerencial — dimensionamento da equipe
 
 **Conclusão que a evidência permite:** o complemento mostra quanto a remuneração da equipe ultrapassou o valor de produção lançado. Ele ajuda a selecionar dias e locais para investigação, mas não comprova ociosidade. Para decidir se falta ou sobra equipe, deve ser confrontado com espera, recusas, simultaneidade, trabalho dos cooperados e cobertura dos registros. O histórico entregue não contém série de boletins por armazém nem tempos medidos; não permite calcular uma economia real de redução de equipe.

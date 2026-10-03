@@ -21,6 +21,12 @@ from labor.services import (
 )
 
 
+def require_v1_compatible(bulletin):
+    if (bulletin.daily_services.exists() or bulletin.production_records.exists()
+            or bulletin.rule_occurrences.exists()):
+        raise ValidationError({'code': 'API_V2_REQUIRED', 'detail': 'Este boletim usa recursos v2; atualize o cliente antes de editar ou fechar.'})
+
+
 class RatesView(APIView):
     permission_classes = [IsInternal]
 
@@ -82,6 +88,7 @@ class BulletinListView(APIView):
                     warehouse=data["warehouse"],
                     reference_date=data["reference_date"],
                     origin=data["origin"],
+                    financial_version="boletim-v2",
                     created_by=request.user,
                 )
                 replace_contents(bulletin, data)
@@ -105,6 +112,7 @@ class BulletinDetailView(APIView):
                 DailyBulletin.objects.select_for_update().select_related("warehouse"), pk=pk
             )
             check_revision(bulletin, request.data.get("revision"))
+            require_v1_compatible(bulletin)
             if bulletin.status != "DRAFT":
                 raise ValidationError(
                     "Boletim fechado é imutável; reabra com motivo para corrigir."
@@ -139,7 +147,9 @@ class BulletinCloseView(APIView):
 
     def post(self, request, pk):
         require_role(request.user, "warehouse")
-        get_object_or_404(DailyBulletin, pk=pk)
+        bulletin = get_object_or_404(DailyBulletin, pk=pk)
+        if request.path.startswith('/api/v1/'):
+            require_v1_compatible(bulletin)
         return Response(values(close_bulletin(pk, request.user, request.data.get("revision"))))
 
 
@@ -148,7 +158,9 @@ class BulletinReopenView(APIView):
 
     def post(self, request, pk):
         require_role(request.user, "warehouse")
-        get_object_or_404(DailyBulletin, pk=pk)
+        bulletin = get_object_or_404(DailyBulletin, pk=pk)
+        if request.path.startswith('/api/v1/'):
+            require_v1_compatible(bulletin)
         return Response(
             values(
                 reopen_bulletin(

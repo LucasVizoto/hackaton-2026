@@ -263,6 +263,7 @@ class BulletinPersistenceTests(TestCase):
             self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 400
         )
         payload["warehouse"] = str(self.other_warehouse.id)
+        payload["participants"] = [{"worker": str(worker.pk), "fraction": "1"} for worker in self.workers[11:]]
         self.assertEqual(
             self.client.post("/api/v1/bulletins/", payload, format="json").status_code, 201
         )

@@ -1,12 +1,20 @@
 """Deterministic extraction only. No fiscal-signature or authenticity validation."""
 
 from decimal import Decimal, InvalidOperation
+import re
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
 from rest_framework.exceptions import ValidationError
 
 MAX_XML_BYTES = 5 * 1024 * 1024
+
+
+def validate_invoice_number(value):
+    value = str(value or "").strip()
+    if not re.fullmatch(r"[1-9][0-9]{0,8}", value):
+        raise ValidationError({"number": "Informe o número da NF: de 1 a 9 dígitos, sem letras, zero inicial ou chave de acesso."})
+    return value
 
 
 def parse_invoice_xml(content):
@@ -76,9 +84,15 @@ def parse_invoice_xml(content):
         }
         for volume in info.findall("transp/vol")
     ]
+    invoice_number = value(info, "ide/nNF")
+    if invoice_number:
+        validate_invoice_number(invoice_number)
     return {
         "access_key": access_key,
-        "number": value(info, "ide/nNF")[:50],
+        "number": invoice_number,
+        "series": value(info, "ide/serie"),
+        "carrier": {"name": value(info, "transp/transporta/xNome"),
+                    "document": value(info, "transp/transporta/CNPJ") or value(info, "transp/transporta/CPF")},
         "issued_at": value(info, "ide/dhEmi") or value(info, "ide/dEmi"),
         "issuer": {
             "name": value(info, "emit/xNome"),

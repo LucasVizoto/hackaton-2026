@@ -11,7 +11,7 @@ Invoke-Checked 'backend/.venv/Scripts/ruff.exe' @('check', 'backend')
 Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'check')
 Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'makemigrations', '--check', '--dry-run', '--noinput')
 Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'migrate', '--check')
-Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'test', 'core', 'receiving', 'labor', 'analytics', 'imports', '--noinput')
+Invoke-Checked 'backend/.venv/Scripts/python.exe' @('backend/manage.py', 'test', 'core', 'receiving', 'labor', 'analytics', 'imports', 'integrations', '--noinput')
 Push-Location -LiteralPath 'frontend'
 try {
     Invoke-Checked 'npm.cmd' @('run', 'lint')

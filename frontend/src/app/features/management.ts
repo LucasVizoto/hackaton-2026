@@ -13,6 +13,7 @@ import {
 } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { chartDateLabel, chartItems, operationalMetric } from "../core/chart-data";
+import { exportCsv } from "../core/workflow";
 import { decimal } from "../core/presentation";
 import {
   BarChart,
@@ -68,7 +69,11 @@ interface OperationalSources extends SourceRecords<OperationalSource> {
   bookings: SourceRecords<BookingSource>;
   non_receipts: SourceRecords<NonReceiptSource>;
 }
+interface IndividualCost {worker:string;registration:string;name:string;equivalent_days:string;production_attributed:string;supplement:string;total_payable:string;display:{production_attributed:string;supplement:string;total_payable:string};cost_warehouses:{id:string;name:string}[];activity_warehouses:{id:string;name:string}[];}
 interface Costs {
+  individuals?: SourceRecords<IndividualCost>;
+  presence?: {planned:number;present:number;used:number;coverage:number};
+  reconciliation?: {individual_display_total:string|null;collective_display_total:string|null;difference:string|null;legacy_bulletins_without_allocations:number};
   origin: string;
   period: { date_from: string; date_to: string };
   summary: {
@@ -211,6 +216,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
             hint="Média das cargas com recursos confirmados"
           />
         </div>
+        <div class="metric-grid section"><app-metric-card label="Espera após a portaria" [value]="metric('average_gate_wait_minutes','min')" hint="Entrada na unidade até primeira entrada em armazém" /><app-metric-card label="Permanência total" [value]="metric('average_total_stay_minutes','min')" hint="Entrada até saída da unidade; exige os dois registros" /><app-metric-card label="Saídas da unidade" [value]="metric('departed_loads')" hint="Descarga concluída não equivale a saída da portaria" /></div>
         <div class="chart-grid section">
           <app-bar-chart
             title="Cargas por data"
@@ -464,6 +470,8 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
             tone="warning"
           />
         </div>
+        @if(c.presence;as p){<section class="panel section"><h3>Presença e utilização registradas</h3><div class="metric-grid"><app-metric-card label="Pessoas previstas" [value]="show(p.planned)" hint="Conforme registros de atividade" /><app-metric-card label="Pessoas presentes" [value]="show(p.present)" hint="Presença confirmada" /><app-metric-card label="Pessoas utilizadas" [value]="show(p.used)" hint="Serviço confirmado; separado de remuneração" /></div><p class="field-help">Cobertura: {{p.coverage}} registros distintos de pessoa e dia.</p></section>}
+        @if(c.individuals;as individuals){<section class="panel section"><div class="page-head"><div><h3>Apuração por pessoa</h3><p class="muted">Produção atribuída e complemento de boletins fechados. Atuação por local permanece separada do armazém responsável pelo custo.</p></div><div class="actions"><ion-button fill="outline" (click)="exportIndividuals()" [disabled]="!individuals.records.length">Exportar pessoas</ion-button><ion-button fill="outline" (click)="print()">Imprimir</ion-button></div></div>@if(individuals.records.length){<div class="table-wrap" tabindex="0" role="region" aria-label="Custo individual por pessoa"><table><thead><tr><th>Pessoa</th><th>Diárias equivalentes</th><th>Produção atribuída</th><th>Complemento</th><th>Total</th><th>Armazéns do custo</th><th>Locais de atividade</th></tr></thead><tbody>@for(person of individuals.records;track person.worker){<tr><td><a [routerLink]="['/pessoas',person.worker]" [queryParams]="{date_from:c.period.date_from,date_to:c.period.date_to,origin:c.origin}">{{person.registration}} · {{person.name}}</a></td><td>{{decimal(person.equivalent_days)}}</td><td>{{money(person.display.production_attributed)}}</td><td>{{money(person.display.supplement)}}</td><td>{{money(person.display.total_payable)}}</td><td>{{names(person.cost_warehouses)}}</td><td>{{names(person.activity_warehouses)}}</td></tr>}</tbody></table></div>@if(individuals.truncated){<p class="notice">Exibindo {{individuals.returned_count}} de {{individuals.count}} pessoas. Reduza o período para exportar uma seleção completa.</p>}}@else{<p class="muted">Nenhuma parcela individual fechada disponível neste recorte.</p>}@if(c.reconciliation;as r){<dl class="metadata section"><div><dt>Soma das parcelas exibidas</dt><dd>{{money(r.individual_display_total)}}</dd></div><div><dt>Total coletivo do recorte</dt><dd>{{money(r.collective_display_total)}}</dd></div><div><dt>Diferença de conciliação</dt><dd>{{money(r.difference)}}</dd></div><div><dt>Boletins legados sem parcelas</dt><dd>{{r.legacy_bulletins_without_allocations}}</dd></div></dl>}</section>}
         <details class="section">
           <summary>Resumo financeiro completo</summary>
         <div class="table-wrap" tabindex="0" role="region" aria-label="Resumo financeiro completo dos boletins">
@@ -693,6 +701,9 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
   </div>`,
 })
 export class Management implements OnInit {
+  names(values:{name:string}[]){return values.map(v=>v.name).join(', ')||'Sem registro';}
+  print(){window.print();}
+  exportIndividuals(){const c=this.costs();if(!c?.individuals)return;exportCsv(`pessoas-${c.period.date_from}-${c.period.date_to}.csv`,[['Matrícula','Nome','Diárias equivalentes','Produção atribuída','Complemento','Total apurado','Armazéns do custo','Locais de atividade'],...c.individuals.records.map(p=>[p.registration,p.name,p.equivalent_days,p.display.production_attributed,p.display.supplement,p.display.total_payable,this.names(p.cost_warehouses),this.names(p.activity_warehouses)])]);}
   private api = inject(Api);
   catalog = inject(Catalog);
   private fb = inject(FormBuilder);
@@ -784,6 +795,14 @@ export class Management implements OnInit {
       (
         {
           summary: "Resumo",
+          warehouse_stays: "Permanência por armazém",
+          average_minutes: "Permanência média (min)",
+          visits: "Visitas medidas",
+          departures: "Saídas da portaria",
+          valid_total_stay_records: "Permanências totais medidas",
+          valid_gate_wait_records: "Esperas após portaria medidas",
+          excluded_warehouse_stays: "Visitas sem marcos suficientes",
+          event_time_basis: "Data de referência dos eventos",
           coverage: "Cobertura",
           warehouse_name: "Armazém",
           warehouse: "Local",

@@ -6,7 +6,7 @@ import {
 } from "@angular/common/http";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Router } from "@angular/router";
-import { firstValueFrom } from "rxjs";
+import { firstValueFrom, fromEvent, takeUntil } from "rxjs";
 export interface User {
   id: number;
   username: string;
@@ -33,7 +33,7 @@ export class Api {
   private router = inject(Router);
   readonly user = signal<User | null>(null);
   readonly token = signal("");
-  private base = "/api/v1";
+  private base = "/api/v2";
   private configured = false;
   async configure() {
     if (this.configured) return;
@@ -41,13 +41,15 @@ export class Api {
       const config = await firstValueFrom(
         this.http.get<{ nativeApiUrl: string }>("runtime-config.json"),
       );
-      this.base = config.nativeApiUrl.replace(/\/$/, "");
+      this.base = config.nativeApiUrl.replace(/\/$/, "").replace(/\/v1$/, "/v2");
     }
     this.configured = true;
   }
-  async get<T>(path: string) {
+  async get<T>(path: string, signal?: AbortSignal) {
     await this.configure();
-    return firstValueFrom(this.http.get<T>(`${this.base}/${path}`));
+    if (signal?.aborted) throw new DOMException("Consulta cancelada", "AbortError");
+    const request = this.http.get<T>(`${this.base}/${path}`);
+    return firstValueFrom(signal ? request.pipe(takeUntil(fromEvent(signal, "abort"))) : request);
   }
   async post<T>(path: string, body: unknown) {
     await this.configure();
@@ -117,7 +119,7 @@ export class Api {
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const api = inject(Api);
   return next(
-    api.token() && req.url.includes("/api/v1/")
+    api.token() && /\/api\/v[12]\//.test(req.url)
       ? req.clone({ setHeaders: { Authorization: `Token ${api.token()}` } })
       : req,
   );

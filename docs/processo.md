@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** O processo atual está em [BPMN v2](v2/processo.md), com Portaria, quatro marcos e conferência de todas as notas.
+
 # Processo de recebimento em BPMN 2.0
 
 ![Processo BPMN de recebimento e exceções](imagens/recebimento-bpmn.svg)

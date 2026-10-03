@@ -10,6 +10,7 @@ from core.permissions import require_role
 
 from .models import (
     Appointment,
+    AppointmentInvoice,
     CapacityHold,
     GlobalSlot,
     Holiday,
@@ -17,6 +18,7 @@ from .models import (
     ReceivingEvent,
     TIMES,
     WarehouseVisit,
+    EXCLUSIVE_PACKAGING,
 )
 
 
@@ -107,7 +109,7 @@ def occupancy(slot, exclude_appointment=None, exclude_hold=None):
     if exclude_hold:
         holds = holds.exclude(id=exclude_hold)
     reserved_units = sum(
-        2 if packaging == "batida" else 1
+        2 if packaging in EXCLUSIVE_PACKAGING else 1
         for packaging in appointments.values_list("packaging", flat=True)
     )
     held_units = holds.aggregate(total=Sum("units"))["total"] or 0
@@ -115,7 +117,7 @@ def occupancy(slot, exclude_appointment=None, exclude_hold=None):
         "reserved_units": reserved_units,
         "held_units": held_units,
         "occupied_units": reserved_units + held_units,
-        "has_batida": appointments.filter(packaging="batida").exists()
+        "has_batida": appointments.filter(packaging__in=EXCLUSIVE_PACKAGING).exists()
         or holds.filter(exclusive=True).exists(),
     }
 
@@ -124,9 +126,9 @@ def validate_capacity(
     slot, packaging, *, exclude_appointment=None, exclude_hold=None, nature_exception=False
 ):
     state = occupancy(slot, exclude_appointment, exclude_hold)
-    units = 2 if packaging == "batida" else 1
-    if state["has_batida"] or (packaging == "batida" and state["occupied_units"] > 0):
-        raise DomainConflict("Carga batida exige horário exclusivo para a cooperativa inteira.")
+    units = 2 if packaging in EXCLUSIVE_PACKAGING else 1
+    if state["has_batida"] or (packaging in EXCLUSIVE_PACKAGING and state["occupied_units"] > 0):
+        raise DomainConflict("Carga batida ou máquina/implemento exige horário exclusivo para a cooperativa inteira.")
     if state["occupied_units"] + units > 2 and not nature_exception:
         raise DomainConflict(
             "Horário sem capacidade global disponível. Vagas retidas exigem atribuição do armazém."
@@ -140,7 +142,7 @@ def _hold_capacity(appointment, user, reason):
         slot_id=appointment.slot_id,
         source_appointment=appointment,
         units=appointment.units,
-        exclusive=appointment.packaging == "batida",
+        exclusive=appointment.packaging in EXCLUSIVE_PACKAGING,
         created_by=user,
         reason=reason,
     )
@@ -184,6 +186,7 @@ def create_appointment(
         origin=actual_origin,
         created_by=user,
     )
+    AppointmentInvoice.objects.create(appointment=appointment, invoice=invoice, position=1)
     ReceivingEvent.objects.create(
         appointment=appointment,
         actor=user,
@@ -227,6 +230,9 @@ def update_appointment(user, appointment_id, data):
             changed = True
             invalidate = invalidate or name in {"invoice", "packaging"}
     if changed:
+        if "invoice" in data:
+            appointment.invoice_links.all().delete()
+            AppointmentInvoice.objects.create(appointment=appointment, invoice=appointment.invoice, position=1)
         if invalidate:
             appointment.purchase_status = "pending"
             appointment.purchase_reviewed_at = None

@@ -57,6 +57,7 @@ class Command(BaseCommand):
             ("fornecedor_b_demo", "supplier", suppliers[1]),
             ("compras_demo", "purchasing", None),
             ("armazem_demo", "warehouse", None),
+            ("portaria_demo", "gatehouse", None),
             ("gestao_demo", "management", None),
         ):
             user, created = User.objects.get_or_create(username=username)
@@ -201,7 +202,7 @@ class Command(BaseCommand):
             )
         self.stdout.write(
             self.style.SUCCESS(
-                "Seed sintético concluído, idempotente e sem sobrescrever registros. Contas: fornecedor_demo, fornecedor_b_demo, compras_demo, armazem_demo, gestao_demo. Senha somente no .env privado."
+                "Seed sintético concluído, idempotente e sem sobrescrever registros. Contas: fornecedor_demo, fornecedor_b_demo, compras_demo, armazem_demo, portaria_demo, gestao_demo. Senha somente no .env privado."
             )
         )
 
@@ -231,6 +232,12 @@ class Command(BaseCommand):
         close_bulletin(bulletin.pk, actor, 1)
 
     def invoice(self, user, supplier, number):
+        existing = Invoice.objects.filter(supplier=supplier, number=number, origin=DEMO).first()
+        if existing:
+            return existing
+        # Older demonstrations used an alphanumeric label as nNF. Preserve those
+        # existing documents; only newly generated XML uses a valid numeric nNF.
+        number = {"SYN-001": "900000001", "SYN-002": "900000002"}.get(number, number)
         existing = Invoice.objects.filter(supplier=supplier, number=number, origin=DEMO).first()
         if existing:
             return existing

@@ -9,6 +9,7 @@ const auth: CanActivateFn = () =>
       });
 const guest: CanActivateFn = () =>
   inject(Api).user() ? inject(Router).createUrlTree(["/agenda"]) : true;
+const roles = (...allowed: string[]): CanActivateFn => () => inject(Api).can(...allowed) ? true : inject(Router).createUrlTree(["/agenda"]);
 export const routes: Routes = [
   {
     path: "",
@@ -30,7 +31,7 @@ export const routes: Routes = [
     path: "agenda/novo",
     canActivate: [auth],
     loadComponent: () =>
-      import("./features/receiving").then((m) => m.AppointmentCreate),
+      import("./features/appointment-create").then((m) => m.AppointmentCreate),
   },
   {
     path: "agenda/:id",
@@ -40,14 +41,14 @@ export const routes: Routes = [
   },
   {
     path: "compras",
-    canActivate: [auth],
+    canActivate: [auth, roles("purchasing")],
     loadComponent: () =>
       import("./features/receiving").then((m) => m.AppointmentList),
     data: { mode: "compras" },
   },
   {
     path: "operacao",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse")],
     loadComponent: () =>
       import("./features/receiving").then((m) => m.AppointmentList),
     data: { mode: "operacao" },
@@ -72,33 +73,37 @@ export const routes: Routes = [
   },
   {
     path: "boletins",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse", "management")],
     loadComponent: () =>
       import("./features/bulletins").then((m) => m.BulletinList),
   },
   {
     path: "boletins/novo",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse")],
     loadComponent: () =>
       import("./features/bulletins").then((m) => m.BulletinEditor),
   },
   {
     path: "boletins/:id",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse", "management")],
     loadComponent: () =>
       import("./features/bulletins").then((m) => m.BulletinEditor),
   },
   {
     path: "gestao",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse", "management", "purchasing")],
     loadComponent: () =>
       import("./features/management").then((m) => m.Management),
   },
   {
     path: "qualidade",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse", "management", "purchasing")],
     loadComponent: () =>
       import("./features/management").then((m) => m.DataQuality),
   },
+  { path: "portaria", canActivate: [auth, roles("gatehouse")], loadComponent: () => import("./features/receiving").then(m => m.AppointmentList), data: {mode: "portaria"} },
+  { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
+  { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
+  { path: "integracoes", canActivate: [auth, roles("warehouse", "purchasing", "management")], loadComponent: () => import("./features/integrations").then(m => m.IntegrationsPage) },
   { path: "**", redirectTo: "" },
 ];

@@ -1,5 +1,26 @@
 # Documentação da entrega
 
+## Versão atual — v2
+
+Os links abaixo descrevem o código atual: Portaria e quatro marcos, várias notas por carga, conferência por item, pessoa/dia com boletim financeiro único, atividades em vários locais e parcelas auditáveis. A documentação não publica fontes privadas nem dados nominais reais.
+
+| Artefato | Texto atual | Imagem / fonte editável |
+|---|---|---|
+| Relatório gerencial | [Relatório v2](v2/relatorio_gerencial.md) | [Exemplos coletivos preservados](imagens/financeiro.svg) |
+| Casos de uso UML | [Casos de uso v2](v2/casos_uso.md) | [SVG](imagens/casos-uso-v2.svg), [draw.io](fontes/casos-uso-v2.drawio) |
+| Processo BPMN | [Processo v2](v2/processo.md) | [SVG](imagens/recebimento-bpmn-v2.svg), [draw.io](fontes/recebimento-bpmn-v2.drawio), [BPMN 2.0](fontes/recebimento-v2.bpmn) |
+| DER | [DER v2](v2/der.md) | [Recebimento](imagens/der-recebimento-v2.svg), [Pessoas](imagens/der-pessoas-v2.svg), [draw.io multipágina](fontes/der-v2.drawio) |
+
+Apoio atual: [API](v2/api.md), [indicadores](v2/indicadores.md), [integrações e configuração](v2/integracoes.md), [roteiro de oito minutos](v2/roteiro_8_minutos.md), [plano implementado](implementacao-v2.md), [estado de validação](validacao.md). Instalação e importação permanecem documentadas em [como rodar](como_rodar.md) e [importação privada](importacao.md).
+
+Planejamento futuro: [PRD da pré-folha e conciliação dos chapas](prd-folha-chapas.md), com regras, fluxo, etapas e decisões pendentes de validação com o RH.
+
+Os diagramas novos foram escritos em XML draw.io; SVG/PNG são produzidos pelo [gerador do mesmo grafo](fontes/gerar_diagramas_v2.py). O Desktop/CLI não estava disponível. Não se afirma publicação GitHub, teste de APK v2 ou execução de integração externa sem evidência específica no relatório de validação.
+
+## Memória da entrega anterior — v1
+
+O conteúdo a seguir foi preservado para rastreabilidade. Descreve artefatos, resultados de testes e publicação da versão anterior; não constitui validação automática do código v2.
+
 Os quatro artefatos exigidos pelo regulamento, seção H, estão abaixo. Cada um contém texto e imagem; os três diagramas têm fontes editáveis. Os documentos retratam o MVP implementado, as hipóteses adotadas e os limites dos dados. Não constituem certificação de produção.
 
 | Artefato obrigatório | Texto | Imagem e fonte editável |

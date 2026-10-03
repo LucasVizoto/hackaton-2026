@@ -536,7 +536,7 @@ class ReceivingTests(TestCase):
 class XmlTests(TestCase):
     def test_sparse_non_namespaced_xml_preserves_absent_values(self):
         result = parse_invoice_xml(
-            b"<infNFe><ide><nNF>DEMO-SPARSE</nNF></ide>"
+            b"<infNFe><ide><nNF>9009</nNF></ide>"
             b"<det><prod><cProd>SUPPLIER-ONLY</cProd></prod></det>"
             b"<transp><vol><esp>Declared by supplier</esp></vol></transp></infNFe>"
         )

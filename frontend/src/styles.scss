@@ -385,3 +385,13 @@ app-bar-chart { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Shared v2 forms and operational calendar, using the existing design tokens. */
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(140px, 1fr)); gap: 1rem; overflow-x: auto; margin-top: 1.5rem; }
+.calendar-day { grid-template-columns: minmax(0, 1fr); }
+.calendar-column { min-width: 0; }
+.calendar-column h3 { margin: 0 0 .5rem; }
+.calendar-booking { display: flex; flex-direction: column; gap: .4rem; padding: .85rem; margin: .75rem 0; border: 1px solid var(--line); border-radius: .5rem; color: inherit; text-decoration: none; background: var(--surface); }
+.calendar-booking:hover { border-color: var(--green); }
+@media print { .sidebar, .topbar, .pill-nav, .navigation-popover, .filters, ion-button, button, .actions, app-theme-toggle, app-notifications { display: none !important; } .shell, .main, .page { display: block !important; width: 100% !important; height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; } .table-wrap { overflow: visible !important; } table { min-width: 0 !important; font-size: 10pt; } .panel, .calendar-booking { break-inside: avoid; box-shadow: none !important; } .calendar-grid { grid-template-columns: repeat(7,1fr); overflow: visible; } }

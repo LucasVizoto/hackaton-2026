@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** As definições atuais de quatro marcos, presença e parcelas estão em [indicadores v2](v2/indicadores.md).
+
 # Indicadores, denominadores e cobertura
 
 O filtro de origem separa `operacional_registrado`, `historico_importado` e `demo_sintetico`. Um cenário é derivado com hipótese declarada; nunca é classificado como medição. Filtros de início/fim e local devem acompanhar todos os números apresentados.

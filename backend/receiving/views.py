@@ -42,13 +42,27 @@ from .serializers import (
     WarehouseReviewSerializer,
     WarehouseVisitSerializer,
 )
-from .xml_parser import parse_invoice_xml
+from .xml_parser import parse_invoice_xml, validate_invoice_number
 
 
 def supplier_scoped(queryset, user, field="supplier_id"):
     if user_role(user) == "supplier":
         return queryset.filter(**{field: user.profile.supplier_id})
+    if user_role(user) not in {"purchasing", "warehouse", "management", "admin", "gatehouse"}:
+        raise PermissionDenied("Perfil sem acesso ao recebimento.")
     return queryset
+
+
+def invoice_scoped(queryset, user):
+    queryset = supplier_scoped(queryset, user)
+    if user_role(user) == "gatehouse":
+        return queryset.filter(load_links__isnull=False).distinct()
+    return queryset
+
+
+def require_legacy(appointment):
+    if appointment.workflow_version >= 2:
+        raise services.DomainConflict("Este recebimento exige o aplicativo atualizado (API v2).")
 
 
 def _payload(serializer_class, request):
@@ -58,15 +72,17 @@ def _payload(serializer_class, request):
 
 
 class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
+    strict_identity = False
     queryset = (
         Invoice.objects.select_related("supplier").prefetch_related("items").order_by("-created_at")
     )
     serializer_class = InvoiceSerializer
 
     def get_queryset(self):
-        return supplier_scoped(self.queryset, self.request.user)
+        return invoice_scoped(self.queryset, self.request.user)
 
     @action(detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser])
+    @transaction.atomic
     def upload(self, request):
         require_role(request.user, "supplier", "purchasing", "warehouse")
         uploaded = request.FILES.get("file")
@@ -89,9 +105,30 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
                 raise PermissionDenied("Você só pode anexar documentos do seu fornecedor.")
         else:
             supplier = get_object_or_404(Supplier, id=request.data.get("supplier"))
+        # Serialize the content-addressed cache within a supplier, including the
+        # first upload, so simultaneous retries cannot create duplicate documents.
+        Supplier.objects.select_for_update().get(pk=supplier.pk)
+        supplied_number = str(request.data.get("number", "")).strip()
+        declared_number = extracted.get("number", "")
+        if declared_number and supplied_number and declared_number != supplied_number:
+            raise ValidationError({"number": "O número informado diverge do nNF do XML."})
+        number = declared_number or supplied_number
+        if self.strict_identity:
+            validate_invoice_number(number)
+        elif len(number) > 50:
+            raise ValidationError({"number": "Número da nota excede 50 caracteres."})
+        declared_key = extracted.get("access_key", "")
+        supplied_key = str(request.data.get("access_key", "")).strip()
+        if declared_key and supplied_key and declared_key != supplied_key:
+            raise ValidationError({"access_key": "A chave informada diverge da chave declarada no XML."})
+        access_key = declared_key or supplied_key
+        if access_key and (len(access_key) != 44 or not access_key.isascii() or not access_key.isdigit()):
+            raise ValidationError({"access_key": "Chave deve conter exatamente 44 dígitos."})
         digest = hashlib.sha256(content).hexdigest()
         existing = Invoice.objects.filter(supplier=supplier, sha256=digest).first()
         if existing:
+            if ((self.strict_identity or existing.number) and number != existing.number) or ((self.strict_identity or (access_key and existing.access_key)) and access_key != existing.access_key):
+                raise ValidationError({"number": "Este arquivo já está cadastrado com outra identificação; confira o documento existente."})
             return Response(InvoiceSerializer(existing).data)
         uploaded.seek(0)
         with transaction.atomic():
@@ -101,8 +138,8 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
                 original_name=Path(uploaded.name.replace("\\", "/")).name[:200],
                 media_type="application/xml" if suffix == ".xml" else "application/pdf",
                 sha256=digest,
-                number=extracted.get("number", request.data.get("number", ""))[:50],
-                access_key=extracted.get("access_key", request.data.get("access_key", ""))[:44],
+                number=number,
+                access_key=access_key,
                 extracted=extracted,
                 extraction_status="extracted_unverified" if suffix == ".xml" else "manual",
                 created_by=request.user,
@@ -118,7 +155,7 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AttachmentDownload(APIView):
     def get(self, request, pk):
-        invoice = get_object_or_404(supplier_scoped(Invoice.objects.all(), request.user), id=pk)
+        invoice = get_object_or_404(invoice_scoped(Invoice.objects.all(), request.user), id=pk)
         response = FileResponse(
             invoice.file.open("rb"),
             as_attachment=True,
@@ -140,6 +177,11 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         "capacity_holds__slot",
     )
     serializer_class = AppointmentSerializer
+
+    def get_object(self):
+        appointment = super().get_object()
+        require_legacy(appointment)
+        return appointment
 
     def get_queryset(self):
         queryset = supplier_scoped(self.queryset, self.request.user)
@@ -165,6 +207,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         require_role(request.user, "supplier", "purchasing", "warehouse")
         data = _payload(AppointmentCreateSerializer, request)
+        if data["packaging"] == "machine_implement" or "invoice_ids" in request.data:
+            raise services.DomainConflict("Máquinas e múltiplas notas exigem o aplicativo atualizado (API v2).")
         if user_role(request.user) == "supplier":
             supplier = request.user.profile.supplier
             if not supplier or (data.get("supplier") and data["supplier"].id != supplier.id):
@@ -190,6 +234,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         require_role(request.user, "supplier", "purchasing", "warehouse")
         appointment = self.get_object()
         data = _payload(AppointmentUpdateSerializer, request)
+        if data.get("packaging") == "machine_implement":
+            raise services.DomainConflict("Máquinas exigem o aplicativo atualizado (API v2).")
         forbidden = set(request.data) - {
             "invoice",
             "packaging",
@@ -245,6 +291,11 @@ class WarehouseVisitViewSet(viewsets.ReadOnlyModelViewSet):
     )
     serializer_class = WarehouseVisitSerializer
 
+    def get_object(self):
+        visit = super().get_object()
+        require_legacy(visit.appointment)
+        return visit
+
     def get_queryset(self):
         return supplier_scoped(self.queryset, self.request.user, "appointment__supplier_id")
 
@@ -276,6 +327,8 @@ class NonReceiptViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         require_role(request.user, "warehouse")
         data = _payload(NonReceiptSerializer, request)
+        if data.get("appointment"):
+            require_legacy(data["appointment"])
         result = services.create_non_receipt(request.user, data)
         return Response(self.get_serializer(result).data, status=status.HTTP_201_CREATED)
 
@@ -333,6 +386,6 @@ class AssignCapacityView(APIView):
         require_role(request.user, "warehouse")
         data = _payload(AssignCapacitySerializer, request)
         get_object_or_404(CapacityHold, id=data["hold_id"])
-        get_object_or_404(Appointment, id=data["appointment_id"])
+        require_legacy(get_object_or_404(Appointment, id=data["appointment_id"]))
         result = services.assign_cancelled_capacity(request.user, **data)
         return Response(AppointmentSerializer(result).data)

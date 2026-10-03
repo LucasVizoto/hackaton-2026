@@ -58,6 +58,8 @@ class BulletinInput(serializers.Serializer):
             raise serializers.ValidationError(
                 {"origin": "Equipe de demonstração exige origem demo_sintetico."}
             )
+        if origin == "demo_sintetico" and any(p["worker"].origin != "demo_sintetico" for p in people):
+            raise serializers.ValidationError({"origin": "Boletim de demonstração aceita somente pessoas sintéticas."})
         if origin == "historico_importado":
             raise serializers.ValidationError(
                 {"origin": "Histórico exige importação rastreável; não use no lançamento manual."}

@@ -1,4 +1,59 @@
-# Validação do seed e da demonstração
+# Validação da implementação v2
+
+Rodada de 03/10/2026, sobre a base `1ef6e68`, com alterações locais ainda não publicadas. Todos os cenários novos usam dados sintéticos em banco isolado. Os resultados antigos do seed e de outras versões estão preservados mais abaixo e não devem ser atribuídos automaticamente à v2.
+
+## Regras, migração e persistência
+
+- **187 testes Django passaram em PostgreSQL**, incluindo concorrência real de reserva e pessoa/data, permissões, compatibilidade v1, conferência/saldos, parcelas, pendências, paginação e integrações com respostas controladas. Ruff, Django check e `makemigrations --check --dry-run` passaram.
+- Migração final ensaiada em `cocapec_v2_migration_final`, restaurada do dump anterior. Aplicou primeiro as migrations já pertencentes à base e depois todas as novas, até `receiving/0006`. **37 tabelas e 130.761 registros anteriores mantiveram os hashes das colunas originais**, IDs e snapshots; novos marcos continuaram nulos nos legados. O banco operacional foi preservado.
+- Referências financeiras oficiais mantidas: produção `918.1952`, total `991.9041`, complemento `73.7089`; com 10,5 diárias equivalentes, total `946.81755`, complemento `28.62235`. Meia diária de serviço mantém `45.0786`, separada da fração de participação.
+- Jornada HTTP contra o servidor local: duas NFs, uma reserva exclusiva, entrada na Portaria, dois armazéns sequenciais, conferência por item e saída da unidade. Uma pessoa trabalhou em dois locais e recebeu uma única parcela em um boletim; tentativa de segundo vínculo financeiro foi recusada. Produção `45.0786`, total `90.1731`, valor exibido `90.17`, diferença de conciliação `0.00`.
+- Depois de interromper e reiniciar a API, a releitura confirmou igualdade de revisão, marcos, notas, itens, visitas e snapshot financeiro. Isso valida persistência no PostgreSQL através do reinício da aplicação; não é promessa de gravação offline nem teste de desastre do servidor de banco.
+
+## Interface web e Android
+
+Os 23 testes de apresentação/validação do frontend passaram, assim como ESLint, TypeScript e build Angular. A verificação visual usou o navegador interno do Codex; a verificação móvel usou o AVD `Cocapec_QA_API_36` (`emulator-5554`) via Maestro. O APK é de homologação local, com API acessada pelo redirecionamento `adb reverse tcp:8000 tcp:8000`.
+
+O problema anterior do horário foi reproduzido no navegador e no APK arquivado: tocar a linha de 10h não mudava o seletor de 08h; trocar para carga exclusiva mantinha 08h e o controle oferecia horários incompatíveis. O formulário novo tem apenas um seletor, inicia sem escolha, descarta resposta antiga e bloqueia horários incompatíveis. Na inspeção Android foi encontrada e corrigida também a perda visual de uma escolha ainda válida durante a reconstrução das opções; o controle passou a usar o acessor de formulário do Angular.
+
+O reteste do **APK final `99604d24`, versão 2.0.0-rc1**, passou: Batida às 10h → Paletizada preservou 10h; Paletizada às 08h → Batida limpou a escolha incompatível; mudar entre 05/10 e 06/10 preservou 10h quando elegível. Sábado 03/10 e domingo 04/10 limparam e desabilitaram o seletor. As opções incompatíveis ficaram desabilitadas. O comparativo, hashes e capturas estão em `.private/validation-v2/android-comparativo.md` e `android-final-*.png`. A consulta de Portaria no Android foi exercitada no APK intermediário; no build final, a projeção atual foi novamente verificada na web e pelos testes de API.
+
+Na web, a conferência individual e o painel mostraram uma pessoa em Adubo e Insumos com uma única parcela `R$ 90,17`; RH apareceu separado, sem registros fabricados. O painel exibiu um caminhão, espera de 10 minutos, permanência total de 55 minutos e diferença de conciliação `R$ 0,00`. O histórico do boletim apresentou revisão, autor, horário e motivo.
+
+Uma segunda jornada foi executada **pelos formulários da web**, com contas sintéticas separadas para Fornecedor, Compras, Armazém e Portaria: upload de duas notas, rejeição de número divergente e correção, reserva exclusiva, chegada, aprovação de Compras, atribuição de Adubo e Insumos, conferência de ambos os itens, entrada/saída em cada local e saída final da unidade. O detalhe confirmou descarga concluída enquanto a saída da Portaria ainda estava ausente; somente a ação da Portaria registrou esse último marco. Evidência: `web-journey.json` e `web-journey-completed.png`.
+
+Com a API desligada, web e Android exibiram erro de conexão, sem confirmar sucesso. Com o serviço restaurado, os dados persistidos voltaram a aparecer. Portaria consultou placas, transportadora e duas notas; a interface restringe suas ações e a API bloqueia dados financeiros e o conteúdo interno das decisões de Compras. A ausência de configuração de IA/clima/envios é exibida explicitamente.
+
+## Matriz dos critérios do plano
+
+| Critério | Evidência principal |
+|---|---|
+| 1. MultiNF e fornecedor | Testes PostgreSQL, jornada HTTP e reserva pela interface |
+| 2. Disponibilidade e concorrência | Testes de disputa pela vaga; reprodução e verificação do controle web/Android |
+| 3. Identidade da NF e nova tentativa | Parser/API testados; divergência digitada/XML recusada na web, dados preservados e reserva aceita após correção |
+| 4. Portaria | Testes de ACL, inclusive projeção v1, anexos e assinatura; inspeção web/Android |
+| 5. Quatro eventos | Testes de sequência/correção/recusa/repetição; jornada HTTP com dois locais |
+| 6–10. Boletim, pessoa, centavos, serviços e exceções | Referências oficiais, concorrência pessoa/data, maiores restos, política pendente e serviços de diária em testes PostgreSQL |
+| 11. Parciais e saldo | Testes de conferência, referência de complemento, cancelamento e limites de NF/pedido |
+| 12. Migração | Comparação dos hashes anteriores e verificação de marcos legados ausentes |
+| 13. Clientes | Mesmo recebimento consultado na web e APK; testes de bloqueio explícito do cliente v1 |
+| 14. Persistência | Checkpoint antes/depois de reiniciar API; indisponibilidade observada nos dois clientes |
+| 15. Painel/IA | Conciliação e cobertura testadas; IA somente leitura exercitada com resposta controlada, sem chamada externa real |
+
+## Limites de homologação e publicação
+
+Pacote final local: **2.0.0-rc1**, código Android **3**, bundle web `main-PNC54NOK.js`. O APK contém os mesmos **53 arquivos** da compilação web, comparados byte a byte. SHA-256 do APK: `99604d241e582331e196a237631d83ca151c0314b3863e62fe856e1f8d326755`. Cópia preservada em `.private/validation-v2/cocapec-v2-rc1-local.apk`, com manifesto em `release-manifest.json`. `assembleDebug` e a tarefa `testDebugUnitTest` concluíram com sucesso; o teste nativo existente era apenas o exemplo e estava atualizado, portanto a evidência funcional móvel é o percurso Maestro.
+
+- **Aparelho físico e iOS: não executados.** O teste Android refere-se ao emulador; Gradle compila o APK, mas seu teste unitário nativo de exemplo não comprova as regras do produto.
+- Integrações externas: nenhum envio real de email/WhatsApp/Google, OCR, IA ou consulta meteorológica foi realizado. Exigem configuração, contas e homologação; detalhes em [integrações v2](v2/integracoes.md).
+- Regras excepcionais de remuneração permanecem pendentes por decisão do plano. Não foram inventadas frações ou políticas.
+- Backend, web e APK **não foram publicados**. Ativação ampliada e distribuição aguardam o aceite conjunto previsto no plano. Credenciais, fontes reais e evidências nominais não são publicadas no repositório.
+
+Evidências técnicas locais: `.private/validation-v2/backend-final-checks.json`, `migration-final-result.json`, `http-journey.json`, `persistence-final.json`, `release-manifest.json`, `android-comparativo.md` e capturas `web-*.png`/`android-*.png`. Os scripts [verify_v2_migration.py](../scripts/verify_v2_migration.py) e [verify_v2_journey.py](../scripts/verify_v2_journey.py) permitem repetir a verificação usando uma cópia isolada e dia útil livre. A opção `--verify-checkpoint` apenas relê os registros da jornada.
+
+---
+
+# Histórico de validação do seed e da demonstração anterior
 
 Registro de execução em 03/10/2026, Windows/PowerShell, com PostgreSQL real. O documento distingue checks automatizados, percurso funcional e verificações pendentes. Não é certificação de produção. Nenhuma hipótese foi apresentada como confirmada pela Cocapec.
 

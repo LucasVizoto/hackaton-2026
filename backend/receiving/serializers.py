@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from catalog.models import Supplier
+from core.permissions import user_role
 
 from .models import (
     Appointment,
@@ -123,10 +124,32 @@ class AppointmentSerializer(serializers.ModelSerializer):
     )
     capacity_holds = CapacityHoldSerializer(many=True, read_only=True)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request and user_role(request.user) == "gatehouse":
+            for field in ("order_reference", "comparison_notes", "purchase_reviewed_at", "notes", "resubmission_reason"):
+                data.pop(field, None)
+            # Status is sufficient for access control. Internal purchase decisions
+            # and receipt analyses do not become visible through the audit trail.
+            operational = {"created", "arrived", "started", "finished", "cancelled", "not_received", "rescheduled",
+                           "gate_check_in", "gate_check_out", "warehouse_check_in", "warehouse_check_out", "timestamp_corrected"}
+            data["events"] = [
+                {key: value for key, value in event.items() if key not in {"data", "actor_name"}}
+                for event in data.get("events", []) if event["kind"] in operational
+            ]
+            for hold in data.get("capacity_holds", []):
+                hold.pop("reason", None)
+            # The v2 subclass adds these fields before this representation hook.
+            if "receipt_lines" in data:
+                data["receipt_lines"] = []
+        return data
+
     class Meta:
         model = Appointment
         fields = [
             "id",
+            "workflow_version",
             "supplier",
             "supplier_name",
             "invoice",

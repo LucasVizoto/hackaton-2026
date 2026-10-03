@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { HttpErrorResponse } from "@angular/common/http";
+import { Component, inject, OnInit, signal, viewChild } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { IonButton, IonSpinner } from "@ionic/angular/standalone";
@@ -14,8 +15,18 @@ import {
 } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { decimal } from "../core/presentation";
+import { AvailableAction, allowed, exportCsv } from "../core/workflow";
+import { SlotPicker } from "../shared/slot-picker";
+import { PurchaseOrders } from "./purchase-orders";
+import { AppointmentEdit } from "./appointment-edit";
+import { AgendaCalendar } from "./agenda-calendar";
+import { Notifications } from "../shared/notifications";
+import { ReceiptCheck, ReceiptLine } from "./receipt-check";
 import { EmptyState, FeedbackState, FilterBlock, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
 interface Visit {
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  available_actions?: AvailableAction[];
   id: string;
   warehouse: string;
   warehouse_name: string;
@@ -37,6 +48,19 @@ interface ReceivingEvent {
   actor_name?: string;
 }
 export interface Appointment {
+  workflow_version?: number;
+  articulated?: boolean;
+  booking_kind?: string;
+  assisted?: boolean;
+  exceptions?: {id:string;kind:string;description:string;occurred_at:string}[];
+  gate_checked_in_at?: string | null;
+  gate_checked_out_at?: string | null;
+  tractor_plate?: string;
+  carrier_name?: string;
+  driver_name?: string;
+  invoices?: InvoiceData[];
+  receipt_lines?: ReceiptLine[];
+  available_actions?: AvailableAction[];
   id: string;
   supplier: string;
   supplier_name: string;
@@ -75,7 +99,7 @@ export interface Appointment {
   }[];
   revision: number;
 }
-interface InvoiceData {
+export interface InvoiceData {
   id: string;
   number: string;
   access_key: string;
@@ -111,6 +135,7 @@ function appointmentDate(value?: string) {
 function packagingLabel(value: string) {
   return (
     ({
+      machine_implement: "Máquina / implemento",
       batida: "Batida",
       paletizada: "Paletizada",
       big_bag: "Big bag",
@@ -132,13 +157,16 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, Status, PageHeader, LoadingState, EmptyState, FeedbackState, FilterBlock],
+  imports: [ReactiveFormsModule, RouterLink, IonButton, Status, PageHeader, LoadingState, EmptyState, FeedbackState, FilterBlock, AgendaCalendar, Notifications, PurchaseOrders],
   template: `<div class="page">
     <app-page-header [title]="title" [subtitle]="subtitle">
-      @if (api.can("supplier", "warehouse")) {
+      @if (api.can("supplier", "warehouse", "purchasing")) {
         <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
       }
     </app-page-header>
+    @if(api.can('purchasing')){<app-purchase-orders />}
+    @if(api.can('warehouse','purchasing','gatehouse')){<app-notifications />}
+    <details class="section"><summary>Calendário diário ou semanal</summary>@defer(on idle){<app-agenda-calendar />}</details>
     <form app-filter-block class="filters panel" aria-label="Filtrar recebimentos" [formGroup]="filters" (ngSubmit)="load(true)">
       <label>Data<input type="date" formControlName="date" /></label
       ><label
@@ -228,7 +256,7 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
       <div app-empty-state class="empty">
         <h2>Nenhum recebimento encontrado</h2>
         <p>Altere os filtros ou crie um agendamento.</p>
-        @if (api.can("supplier", "warehouse")) {
+        @if (api.can("supplier", "warehouse", "purchasing")) {
           <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
         }
       </div>
@@ -261,6 +289,7 @@ export class AppointmentList implements OnInit {
       this.subtitle = "Compare a nota e o pedido antes de registrar a decisão.";
       this.filters.controls.purchase_status.setValue("pending");
     }
+    if(mode === "portaria") {this.title="Portaria";this.subtitle="Confira documentos, veículo e destinos; registre entrada e saída da unidade.";this.filters.controls.date.setValue(today());}
     if (mode === "operacao") {
       this.title = "Operação do armazém";
       this.subtitle =
@@ -289,246 +318,10 @@ export class AppointmentList implements OnInit {
       this.busy.set(false);
     }
   }
+  invoiceNumbers(a:Appointment){return a.invoices?.map(n=>n.number).join(', ')||a.invoice_number||'não informada';}
   change(n: number) {
     this.page += n;
     void this.load();
-  }
-}
-@Component({
-  standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner, PageHeader, LoadingState, FeedbackState],
-  template: `<div class="page form-page">
-    <app-page-header title="Agendar recebimento" subtitle="Anexe a nota e reserve um horário global.">
-      <a routerLink="/agenda">Voltar à agenda</a>
-    </app-page-header>
-    @if (error()) {
-      <div app-feedback tone="error" class="error">{{ error() }}</div>
-    }
-    <form [formGroup]="form" (ngSubmit)="save()">
-      <section class="panel">
-        <h2>Nota e carga</h2>
-        <div class="form-grid">
-          @if (api.can("warehouse", "purchasing")) {
-            <label
-              >Fornecedor<select formControlName="supplier">
-                <option value="">Selecione</option>
-                @for (s of catalog.suppliers(); track s.id) {
-                  <option [value]="s.id">{{ s.name }} · {{ s.code }}</option>
-                }
-              </select></label
-            >
-          }
-          <label
-            >Origem do registro<select formControlName="origin">
-              <option value="operacional_registrado">
-                Operação registrada
-              </option>
-              <option value="demo_sintetico">Demonstração sintética</option>
-            </select></label
-          ><label class="wide"
-            >Arquivo da nota<input
-              type="file"
-              accept=".pdf,.xml"
-              (change)="fileChange($event)"
-            /><span class="field-help"
-              >XML de até 5 MB ou PDF de até 10 MB. O anexo é privado e gravado
-              pela API.</span
-            ></label
-          ><label>Número da nota<input formControlName="number" /></label
-          ><label
-            >Placa do veículo<input
-              formControlName="vehicle_plate"
-              placeholder="Informe a identificação" /></label
-          ><label
-            >Acondicionamento<select formControlName="packaging">
-              <option value="paletizada">Paletizada</option>
-              <option value="big_bag">Big bag</option>
-              <option value="batida">Batida (horário exclusivo)</option>
-            </select></label
-          ><label class="wide"
-            >Observações<textarea formControlName="notes"></textarea>
-          </label>
-        </div>
-      </section>
-      <section class="panel">
-        <h2>Data e horário</h2>
-        <div class="form-grid">
-          <label
-            >Data<input
-              type="date"
-              formControlName="date"
-              (change)="availability()"
-            /><span class="field-help"
-              >Segunda a sexta, conforme o calendário configurado.</span
-            ></label
-          ><label
-            >Horário<select formControlName="time">
-              <option value="08:00">08h00</option>
-              <option value="10:00">10h00</option>
-              <option value="13:00">13h00</option>
-              <option value="15:00">15h00</option>
-            </select></label
-          >
-        </div>
-        @if (availabilityBusy()) {
-          <app-loading-state label="Consultando horários disponíveis…" />
-        } @else if (slots().length) {
-          <h3 class="section">Disponibilidade global no dia</h3>
-          <div class="table-wrap availability-table" tabindex="0" role="region" aria-label="Disponibilidade por horário">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Horário</th>
-                  <th scope="col">Capacidade ocupada</th>
-                  <th scope="col">Disponibilidade</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (s of slots(); track s.time) {
-                  <tr [class.selected-slot]="s.time === form.controls.time.value">
-                    <td><strong>{{ s.time }}</strong></td>
-                    <td class="numeric">
-                      {{ s.used_units ?? s.occupied_units ?? "Consultar" }}
-                    </td>
-                    <td>
-                      <span class="slot-availability"
-                        [class.available]="(s.available_units ?? s.remaining_units ?? -1) > 0"
-                        [class.unavailable]="(s.available_units ?? s.remaining_units) === 0">{{
-                        s.available_units ??
-                          s.remaining_units ??
-                          "A API confirmará a reserva"
-                      }}@if (s.available_units != null || s.remaining_units != null) { unidade(s) }</span>
-                      @if (s.can_batida === true) {
-                        <span class="table-cell-secondary">Batida exclusiva disponível</span>
-                      } @else if (s.can_batida === false) {
-                        <span class="table-cell-secondary">Batida exclusiva indisponível</span>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <p class="field-help section">A disponibilidade é uma consulta. A reserva será confirmada ao salvar.</p>
-        }
-        <p class="site-note">
-          Sem agendamento não há descarga. Um agendamento no ato também precisa
-          de validações antes da entrada.
-        </p>
-      </section>
-      <div class="actions">
-        <ion-button type="submit" [disabled]="busy() || form.invalid || !file">
-          @if (busy()) {
-            <ion-spinner name="dots" />
-          }
-          Salvar e reservar horário</ion-button
-        ><ion-button fill="outline" routerLink="/agenda"
-          >Cancelar edição</ion-button
-        >
-      </div>
-    </form>
-  </div>`,
-})
-export class AppointmentCreate implements OnInit {
-  api = inject(Api);
-  catalog = inject(Catalog);
-  private router = inject(Router);
-  private fb = inject(FormBuilder);
-  busy = signal(false);
-  availabilityBusy = signal(false);
-  error = signal("");
-  slots = signal<
-    {
-      time: string;
-      used_units?: number;
-      occupied_units?: number;
-      available_units?: number;
-      remaining_units?: number;
-      can_batida?: boolean;
-    }[]
-  >([]);
-  file: File | null = null;
-  invoiceId = "";
-  form = this.fb.nonNullable.group({
-    supplier: [""],
-    origin: ["operacional_registrado"],
-    number: [""],
-    vehicle_plate: ["", Validators.required],
-    packaging: ["paletizada", Validators.required],
-    notes: [""],
-    date: [today(), Validators.required],
-    time: ["08:00", Validators.required],
-  });
-  ngOnInit() {
-    if (this.api.can("warehouse", "purchasing"))
-      void this.catalog.load().catch((e) => this.error.set(apiError(e)));
-    void this.availability();
-  }
-  fileChange(event: Event) {
-    this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
-    this.invoiceId = "";
-  }
-  async availability() {
-    this.availabilityBusy.set(true);
-    this.slots.set([]);
-    try {
-      const r = await this.api.get<
-        { slots?: unknown[]; calendar_open?: boolean } | unknown[]
-      >(`slots/availability/?date=${this.form.controls.date.value}`);
-      if (!Array.isArray(r) && r.calendar_open === false) {
-        this.slots.set([]);
-        this.error.set(
-          "Não há recebimento na data escolhida, conforme o calendário do servidor. Escolha um dia de segunda a sexta sem feriado.",
-        );
-        return;
-      }
-      this.error.set("");
-      this.slots.set(
-        (Array.isArray(r) ? r : (r.slots ?? [])) as ReturnType<
-          typeof this.slots
-        >,
-      );
-    } catch (e) {
-      this.error.set(apiError(e));
-    } finally {
-      this.availabilityBusy.set(false);
-    }
-  }
-  async save() {
-    if (!this.file || this.form.invalid) return;
-    this.busy.set(true);
-    this.error.set("");
-    try {
-      const v = this.form.getRawValue();
-      if (!this.invoiceId) {
-        const fd = new FormData();
-        fd.append("file", this.file);
-        if (v.supplier) fd.append("supplier", v.supplier);
-        if (v.number) fd.append("number", v.number);
-        fd.append("origin", v.origin);
-        const invoice = await this.api.post<{ id: string; origin: string }>(
-          "invoices/upload/",
-          fd,
-        );
-        this.invoiceId = invoice.id;
-        this.form.controls.origin.setValue(invoice.origin);
-      }
-      const a = await this.api.post<Appointment>("appointments/", {
-        supplier: v.supplier || undefined,
-        invoice: this.invoiceId,
-        date: v.date,
-        time: v.time,
-        packaging: v.packaging,
-        vehicle_plate: v.vehicle_plate,
-        notes: v.notes,
-        origin: this.form.controls.origin.value,
-      });
-      await this.router.navigate(["/agenda", a.id]);
-    } catch (e) {
-      this.error.set(apiError(e));
-    } finally {
-      this.busy.set(false);
-    }
   }
 }
 @Component({
@@ -541,7 +334,7 @@ export class AppointmentCreate implements OnInit {
     Status,
     Origin,
     PageHeader,
-    LoadingState, FeedbackState,
+    LoadingState, FeedbackState, SlotPicker, ReceiptCheck, AppointmentEdit,
   ],
   template: `<div class="page">
     <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
@@ -582,25 +375,21 @@ export class AppointmentCreate implements OnInit {
         </dl>
         <dl class="metadata section">
           <div>
-            <dt>Chegada</dt>
-            <dd>{{ dt(item.arrived_at) }}</dd>
+            <dt>{{item.workflow_version === 2 ? "Entrada na portaria" : "Chegada legada"}}</dt>
+            <dd>{{ dt(item.workflow_version === 2 ? item.gate_checked_in_at : item.arrived_at) }}</dd>
           </div>
           <div>
-            <dt>Entrada</dt>
+            <dt>Início de descarga</dt>
             <dd>{{ dt(item.started_at) }}</dd>
           </div>
           <div>
-            <dt>Saída</dt>
-            <dd>{{ dt(item.finished_at) }}</dd>
+            <dt>{{item.workflow_version === 2 ? "Saída da portaria" : "Conclusão legada"}}</dt>
+            <dd>{{ dt(item.workflow_version === 2 ? item.gate_checked_out_at : item.finished_at) }}</dd>
           </div>
           <div>
-            <dt>Nota</dt>
+            <dt>Notas vinculadas</dt>
             <dd>
-              {{
-                item.invoice_number ||
-                  item.invoice_detail?.number ||
-                  "Número não informado"
-              }}
+              {{ invoiceNumbers() }}
             </dd>
           </div>
           <div>
@@ -618,72 +407,18 @@ export class AppointmentCreate implements OnInit {
             <p>{{ item.notes }}</p>
           </div>
         }
-        <h3 class="section">Ações do recebimento</h3>
-        <div class="actions section">
-          <ion-button fill="outline" (click)="download()" [disabled]="busy()"
-            >Salvar anexo privado</ion-button
-          >
-          @if (api.can("purchasing")) {
-            <ion-button (click)="open('purchase-review')" [disabled]="busy()"
-              >Conferir nota / pedido</ion-button
-            >
-          }
-          @if (api.can("warehouse")) {
-            <ion-button (click)="open('warehouse-review')" [disabled]="busy()"
-              >Confirmar destinos</ion-button
-            ><ion-button
-              fill="outline"
-              (click)="open('arrive')"
-              [disabled]="busy() || !!item.arrived_at"
-              >Registrar chegada</ion-button
-            ><ion-button
-              (click)="open('start')"
-              [disabled]="busy() || !!item.started_at"
-              >Registrar entrada</ion-button
-            ><ion-button
-              (click)="open('finish')"
-              [disabled]="busy() || !item.started_at || !!item.finished_at"
-              >Concluir recebimento</ion-button
-            ><ion-button
-              fill="outline"
-              (click)="open('reschedule')"
-              [disabled]="busy() || !!item.started_at"
-              >Reagendar por natureza</ion-button
-            ><ion-button
-              fill="outline"
-              color="danger"
-              (click)="open('cancel')"
-              [disabled]="busy() || !!item.started_at"
-              >Cancelar agendamento</ion-button
-            ><ion-button
-              fill="outline"
-              [routerLink]="['/nao-recebimentos/novo']"
-              [queryParams]="{ appointment: item.id }"
-              >Registrar não recebimento</ion-button
-            >
-          }
-          @if (
-            api.user()?.role === "supplier" &&
-            !item.started_at &&
-            !["cancelled", "completed", "not_received"].includes(
-              item.operation_status
-            )
-          ) {
-            <ion-button
-              fill="outline"
-              color="danger"
-              (click)="open('cancel')"
-              [disabled]="busy()"
-              >Cancelar agendamento</ion-button
-            >
-          }
-          @if (item.operation_status === "cancelled" && api.can("warehouse")) {
-            <ion-button (click)="open('assign-cancelled')"
-              >Atribuir vaga cancelada</ion-button
-            >
-          }
-        </div>
+        @if(api.can('supplier','warehouse','purchasing')&&(item.purchase_status==='rejected'||['cancelled','not_received'].includes(item.operation_status))){<a class="section" routerLink="/agenda/novo" [queryParams]="{previous_appointment:item.id}">Criar nova solicitação vinculada</a>}
+        <h3 class="section">Próxima etapa</h3>
+        @if(primaryCommand(); as command) {
+          <ion-button [disabled]="busy() || !loaded()" (click)="open(command.code, command.visitId)">{{command.label}}</ion-button>
+        } @else {<p class="muted">Não há uma etapa operacional disponível para seu perfil neste momento.</p>}
+        @if(blockedCommands().length){<details class="section"><summary>Condições para a próxima etapa</summary>@for(command of blockedCommands();track command.code){<p>{{commandLabel(command.code)}}: {{command.reason}}</p>}</details>}
+        @if(exceptionCommands().length){<details class="section"><summary>Exceções e correções</summary><div class="actions section">@for(command of exceptionCommands();track command.code){
+          @if(command.code==='non-receipt'){<a [routerLink]="['/nao-recebimentos/novo']" [queryParams]="{appointment:item.id}">Registrar não recebimento</a>}
+          @else{<ion-button fill="outline" [disabled]="busy() || !loaded()" (click)="open(command.code)">{{commandLabel(command.code)}}</ion-button>}
+        }</div></details>}
       </section>
+      <app-appointment-edit [appointment]="item" (changed)="load()" (updated)="applyUpdated($event)" /><section class="panel"><h2>Transporte e documentos</h2><dl class="metadata"><div><dt>Veículo / carreta</dt><dd>{{item.vehicle_plate || 'Identificação não confirmada'}}</dd></div><div><dt>Cavalo</dt><dd>{{item.tractor_plate || 'Não informado'}}</dd></div><div><dt>Transportadora</dt><dd>{{item.carrier_name || 'Não informada'}}</dd></div><div><dt>Motorista</dt><dd>{{item.driver_name || 'Não informado'}}</dd></div></dl><details class="section"><summary>Consultar documentos e relatórios</summary><div class="actions section">@for(invoice of invoices();track invoice.id){<button type="button" [attr.aria-pressed]="invoiceData()?.id===invoice.id" (click)="invoiceData.set(invoice)">Consultar NF {{invoice.number}}</button><ion-button fill="outline" [disabled]="busy()" (click)="download(invoice)">Salvar NF {{invoice.number}}</ion-button>}<button type="button" (click)="exportReceipt()">Exportar recebimento</button><button type="button" (click)="printReceipt()">Imprimir recebimento</button></div></details></section>
       @if (invoiceData(); as invoice) {
         <section class="panel">
           <h2>Dados declarados na nota</h2>
@@ -773,9 +508,11 @@ export class AppointmentCreate implements OnInit {
           }
         </section>
       }
+      @if(item.workflow_version === 2 && api.can("warehouse","purchasing")){<app-receipt-check [appointment]="item" [invoices]="invoices()" (changed)="load()" />}
       @if (action()) {
         <form class="panel form-page" [formGroup]="form" (ngSubmit)="execute()">
           <h2>{{ actionTitle() }}</h2>
+          @if(action()==='exceptions'){<label>Tipo<select formControlName="exception_kind"><option value="late">Atraso</option><option value="no_show">Ausência</option>@if(api.can('warehouse','purchasing')){<option value="nature">Impedimento por natureza</option><option value="invoice_mismatch">Divergência documental</option>}<option value="other">Outro</option></select></label><label>Descrição<textarea formControlName="notes" required></textarea></label><label>Quando ocorreu<input type="datetime-local" formControlName="occurred_at" /></label><p class="field-help">O registro não aplica multa ou bloqueio automático.</p>}
           @if (action() === "purchase-review") {
             <div class="form-grid">
               <label
@@ -820,6 +557,7 @@ export class AppointmentCreate implements OnInit {
             </label>
           }
           @if (
+            action() === "gate-check-in" || action() === "gate-check-out" || action() === "correct-time" ||
             action() === "arrive" ||
             action() === "start" ||
             action() === "finish" ||
@@ -835,7 +573,7 @@ export class AppointmentCreate implements OnInit {
               ></label
             >
           }
-          @if (action() === "finish" || action() === "visit-finish") {
+          @if (action() === "finish" || action() === "visit-finish" || action() === "visit-check-out") {
             <div class="form-grid section">
               <label
                 >Chapas utilizados<input
@@ -867,6 +605,7 @@ export class AppointmentCreate implements OnInit {
               >
             </div>
           }
+          @if(action() === "correct-time") {<div class="form-grid"><label>Marco<select formControlName="target"><option value="gate_check_in">Entrada na portaria</option><option value="gate_check_out">Saída da portaria</option><option value="warehouse_check_in">Entrada no armazém</option><option value="warehouse_check_out">Saída do armazém</option></select></label><label>Etapa do armazém<select formControlName="visit_id"><option value="">Não se aplica à portaria</option>@for(visit of item.visits;track visit.id){<option [value]="visit.id">{{visit.warehouse_name}}</option>}</select></label><label class="wide">Motivo da correção<textarea formControlName="reason" required></textarea></label></div>}
           @if (action() === "cancel") {
             <div class="notice">
               A capacidade ficará retida para decisão do armazém sobre quem
@@ -887,14 +626,8 @@ export class AppointmentCreate implements OnInit {
                   type="date"
                   formControlName="date"
                   required /></label
-              ><label
-                >Horário<select formControlName="time">
-                  <option value="08:00">08h00</option>
-                  <option value="10:00">10h00</option>
-                  <option value="13:00">13h00</option>
-                  <option value="15:00">15h00</option>
-                </select></label
-              ><label class="wide"
+              ><app-slot-picker [date]="form.controls.date.value" [packaging]="item.packaging" [exclude]="item.id" [natureException]="true" (selection)="rescheduleSelection($event)" />
+              <label class="wide"
                 >Caso fortuito / justificativa<textarea
                   formControlName="reason"
                   required
@@ -929,7 +662,7 @@ export class AppointmentCreate implements OnInit {
             >
           }
           <div class="actions section">
-            <ion-button type="submit" [color]="action() === 'cancel' ? 'danger' : 'primary'" [disabled]="busy()">
+            <ion-button type="submit" [color]="action() === 'cancel' ? 'danger' : 'primary'" [disabled]="busy() || (action() === 'reschedule' && !rescheduleReady())">
               @if (busy()) {
                 <ion-spinner name="dots" />
               }
@@ -951,8 +684,8 @@ export class AppointmentCreate implements OnInit {
               <thead>
                 <tr>
                   <th>Armazém</th>
-                  <th>Início</th>
-                  <th>Fim</th>
+                  <th>{{item.workflow_version===2 ? 'Entrada no armazém' : 'Início legado'}}</th>
+                  <th>{{item.workflow_version===2 ? 'Saída do armazém' : 'Fim legado'}}</th>
                   <th>Chapas</th>
                   <th><span class="sr-only">Ações da etapa</span></th>
                 </tr>
@@ -961,31 +694,11 @@ export class AppointmentCreate implements OnInit {
                 @for (v of item.visits; track v.id) {
                   <tr>
                     <td><strong class="table-cell-primary">{{ v.warehouse_name }}</strong></td>
-                    <td>{{ dt(v.started_at) }}</td>
-                    <td>{{ dt(v.finished_at) }}</td>
+                    <td>{{ dt(v.checked_in_at || v.started_at) }}</td>
+                    <td>{{ dt(v.checked_out_at || v.finished_at) }}</td>
                     <td>{{ v.worker_count ?? "Não registrado" }}</td>
                     <td>
-                      @if (
-                        api.can("warehouse") &&
-                        item.started_at &&
-                        !item.finished_at
-                      ) {
-                        @if (!v.started_at) {
-                          <ion-button
-                            size="small"
-                            fill="outline"
-                            (click)="open('visit-start', v.id)"
-                            >Iniciar etapa</ion-button
-                          >
-                        } @else if (!v.finished_at) {
-                          <ion-button
-                            size="small"
-                            fill="outline"
-                            (click)="open('visit-finish', v.id)"
-                            >Concluir etapa</ion-button
-                          >
-                        }
-                      }
+                      @if(api.can('warehouse')){@for(command of v.available_actions || [];track command.code){@if(command.allowed){<ion-button size="small" fill="outline" [disabled]="busy()" (click)="open('visit-' + command.code,v.id)">{{commandLabel('visit-' + command.code)}}</ion-button>}@else if(!v.checked_out_at && !v.finished_at && command.reason){<small class="field-help">{{command.reason}}</small>}}}
                     </td>
                   </tr>
                 }
@@ -1000,6 +713,7 @@ export class AppointmentCreate implements OnInit {
           global. Tempo sem registro de etapa fica indisponível por local.
         </p>
       </section>
+      @if(item.exceptions?.length){<section class="panel"><h2>Exceções registradas</h2>@for(exception of item.exceptions;track exception.id){<p><strong>{{exceptionLabel(exception.kind)}}</strong> · {{dt(exception.occurred_at)}}</p><p>{{exception.description}}</p>}</section>}
       <section class="panel">
         <h2>Histórico de decisões</h2>
         @if (item.events.length) {
@@ -1012,6 +726,7 @@ export class AppointmentCreate implements OnInit {
                 <div class="audit-meta">
                   <time [attr.datetime]="e.occurred_at || e.recorded_at || e.created_at">{{ dt(e.occurred_at || e.recorded_at || e.created_at) }}</time>
                   <span>{{ e.actor_name || "Responsável registrado" }}</span>
+                  @if(e.recorded_at){<span>Lançado em {{dt(e.recorded_at)}}</span>}
                 </div>
                 @if (e.data || e.details) {
                   <p class="muted">{{ eventDetail(e.data || e.details) }}</p>
@@ -1034,6 +749,11 @@ export class AppointmentDetail implements OnInit {
   private fb = inject(FormBuilder);
   a = signal<Appointment | null>(null);
   invoiceData = signal<InvoiceData | null>(null);
+  invoices = signal<InvoiceData[]>([]);
+  rescheduleReady = signal(false);
+  private reschedulePicker = viewChild(SlotPicker);
+  loaded = signal(false);
+  private idempotencyKey = "";
   candidates = signal<Appointment[]>([]);
   busy = signal(false);
   error = signal("");
@@ -1046,6 +766,29 @@ export class AppointmentDetail implements OnInit {
   origin = originLabel;
   date = appointmentDate;
   packaging = packagingLabel;
+  private readonly operationalCodes = ['gate-check-in','gate-check-out','purchase-review','warehouse-review','arrive','start','finish'];
+  private readonly exceptionalCodes = ['non-receipt','cancel','reschedule','assign-cancelled','correct-time','exceptions'];
+  primaryCommand(): {code:string;label:string;visitId:string} | undefined {
+    const item=this.a();
+    if(!item)return;
+    const visit=item.visits.flatMap(v=>(v.available_actions??[]).filter(c=>c.allowed).map(c=>({code:'visit-'+c.code,label:this.commandLabel('visit-'+c.code)+' · '+v.warehouse_name,visitId:v.id})))[0];
+    if(visit && this.api.can('warehouse'))return visit;
+    const command=this.operationalCodes.map(code=>item.available_actions?.find(c=>c.code===code&&c.allowed)).find(Boolean);
+    return command ? {code:command.code,label:this.commandLabel(command.code),visitId:''} : undefined;
+  }
+  exceptionCommands(){return (this.a()?.available_actions??[]).filter(c=>c.allowed&&this.exceptionalCodes.includes(c.code));}
+  blockedCommands(){
+    const item=this.a();if(!item||['completed','cancelled','not_received'].includes(item.operation_status))return [];
+    const own=this.api.can('gatehouse')?['gate-check-in','gate-check-out']:this.api.can('warehouse')?['warehouse-review','arrive','start','finish']:this.api.can('purchasing')?['purchase-review']:[];
+    return (item.available_actions??[]).filter(c=>!c.allowed&&c.reason&&own.includes(c.code));
+  }
+  invoiceNumbers(){return this.invoices().map(i=>i.number).join(', ')||this.a()?.invoice_number||'Número não informado';}
+  printReceipt(){window.print();}
+  exportReceipt(){const item=this.a();if(!item)return;exportCsv(`recebimento-${item.id}.csv`,[
+    ['Recebimento','Fornecedor','Veículo / carreta','Cavalo','Transportadora','Origem','Notas','Entrada portaria','Saída portaria'],
+    [item.id,item.supplier_name,item.vehicle_plate,item.tractor_plate,item.carrier_name,item.origin,this.invoiceNumbers(),item.gate_checked_in_at,item.gate_checked_out_at],
+    [],['Armazém','Entrada','Saída'],...item.visits.map(v=>[v.warehouse_name,v.checked_in_at||v.started_at,v.checked_out_at||v.finished_at]),
+    [],['Evento','Ocorrido em','Lançado em','Responsável'],...item.events.map(e=>[this.eventName(e.kind||e.action||e.event_type),e.occurred_at,e.recorded_at||e.created_at,e.actor_name])]);}
   form = this.fb.nonNullable.group({
     decision: ["pending"],
     order_reference: [""],
@@ -1055,14 +798,15 @@ export class AppointmentDetail implements OnInit {
     resources_confirmed: [false],
     reason: [""],
     date: [today()],
-    time: ["08:00"],
+    time: [""],
+    exception_kind:["late"],
     target_appointment: [""],
     hold_id: [""],
+    target: ["gate_check_in"],
+    visit_id: [""],
   });
-  ngOnInit() {
-    if (this.api.can("warehouse", "purchasing", "management"))
-      void this.catalog.load().catch((e) => this.error.set(apiError(e)));
-    void this.load();
+  async ngOnInit() {
+    try{if(this.api.can("warehouse","purchasing","management"))await this.catalog.load();await this.load();this.loaded.set(true);}catch(e){this.error.set(apiError(e));}
   }
   async load() {
     this.busy.set(true);
@@ -1072,9 +816,9 @@ export class AppointmentDetail implements OnInit {
           `appointments/${this.route.snapshot.paramMap.get("id")}/`,
         ),
       );
-      this.invoiceData.set(
-        await this.api.get<InvoiceData>(`invoices/${this.a()?.invoice}/`),
-      );
+      const item=this.a()!;
+      const invoices=item.invoices?.length ? item.invoices : item.invoice ? [await this.api.get<InvoiceData>(`invoices/${item.invoice}/`)] : [];
+      this.invoices.set(invoices);this.invoiceData.set(invoices[0]??null);
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
@@ -1082,6 +826,9 @@ export class AppointmentDetail implements OnInit {
     }
   }
   open(action: string, visitId = "") {
+    const commands = visitId ? this.a()?.visits.find(visit=>visit.id===visitId)?.available_actions : this.a()?.available_actions;
+    if(!this.loaded()||!allowed(commands,visitId?action.replace('visit-',''):action)) return;
+    this.idempotencyKey=crypto.randomUUID();this.rescheduleReady.set(false);
     this.action.set(action);
     this.visitId = visitId;
     this.error.set("");
@@ -1097,24 +844,10 @@ export class AppointmentDetail implements OnInit {
       void this.loadCandidates();
     }
   }
-  actionTitle() {
-    return (
-      (
-        {
-          "purchase-review": "Conferência de Compras",
-          "warehouse-review": "Confirmação de destinos",
-          arrive: "Chegada",
-          start: "Entrada",
-          finish: "Conclusão",
-          cancel: "Cancelamento",
-          reschedule: "Reagendamento",
-          "assign-cancelled": "Atribuição da vaga",
-          "visit-start": "Início da etapa",
-          "visit-finish": "Conclusão da etapa",
-        } as Record<string, string>
-      )[this.action()] ?? ""
-    );
-  }
+  applyUpdated(item:Appointment){const selected=this.invoiceData()?.id;this.a.set(item);this.invoices.set(item.invoices??[]);this.invoiceData.set(item.invoices?.find(invoice=>invoice.id===selected)??item.invoices?.[0]??null);}
+  rescheduleSelection(value:{time:string;ready:boolean}){this.form.controls.time.setValue(value.time);this.rescheduleReady.set(value.ready);}
+  commandLabel(code:string){return ({exceptions:'Registrar exceção',edit:'Corrigir documentos e transporte','gate-check-in':'Registrar entrada na portaria','gate-check-out':'Registrar saída da portaria','visit-check-in':'Registrar entrada no armazém','visit-check-out':'Registrar saída do armazém','correct-time':'Corrigir horário com motivo','purchase-review':'Conferir notas / pedido','warehouse-review':'Confirmar destinos',arrive:'Registrar chegada legada',start:'Iniciar recebimento legado',finish:'Concluir recebimento legado',cancel:'Cancelar agendamento',reschedule:'Postergar por natureza','assign-cancelled':'Atribuir vaga retida','visit-start':'Iniciar etapa legada','visit-finish':'Concluir etapa legada'} as Record<string,string>)[code]??code;}
+  actionTitle() {return this.commandLabel(this.action());}
   toggleWarehouse(id: string) {
     this.selectedWarehouses.update((v) =>
       v.includes(id) ? v.filter((x) => x !== id) : [...v, id],
@@ -1161,6 +894,13 @@ export class AppointmentDetail implements OnInit {
       (
         {
           created: "Agendamento criado",
+          gate_check_in: "Entrada na portaria",
+          gate_check_out: "Saída da portaria",
+          warehouse_check_in: "Entrada no armazém",
+          warehouse_check_out: "Saída do armazém",
+          time_corrected: "Horário corrigido com justificativa",
+          receipt_line_recorded: "Conferência física registrada",
+          receipt_line_reviewed: "Decisão sobre divergência",
           updated: "Dados do agendamento corrigidos",
           purchase_review: "Conferência de Compras",
           warehouse_review: "Destinos confirmados",
@@ -1225,7 +965,7 @@ export class AppointmentDetail implements OnInit {
             text = v
               .map(
                 (id) =>
-                  this.catalog.warehouses().find((w) => w.id === id)?.name ??
+                  this.catalog.warehouses().find((w) => w.id === id)?.name ?? this.a()?.visits.find(v=>v.warehouse===id)?.warehouse_name ??
                   "Destino registrado",
               )
               .join(", ");
@@ -1250,12 +990,12 @@ export class AppointmentDetail implements OnInit {
       "Decisão registrada; trilha completa preservada no servidor."
     );
   }
-  async download() {
+  async download(selected?: InvoiceData) {
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
     try {
-      const invoice =
+      const invoice = selected ??
         this.invoiceData() ??
         (await this.api.get<InvoiceData>(`invoices/${this.a()?.invoice}/`));
       const saved = await this.api.download(
@@ -1270,6 +1010,7 @@ export class AppointmentDetail implements OnInit {
     }
   }
   async execute() {
+    if(this.busy()||!this.loaded())return;
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
@@ -1278,6 +1019,7 @@ export class AppointmentDetail implements OnInit {
     let body: unknown = {};
     let endpoint = `appointments/${this.a()?.id}/${act}/`;
     try {
+      if(act==='exceptions'){if(!v.notes.trim())throw new Error('Descreva a exceção.');body={kind:v.exception_kind,description:v.notes,occurred_at:localTimestamp(v.occurred_at)};}
       if (act === "purchase-review") {
         if (!v.notes) throw new Error("Descreva a comparação nota/pedido.");
         body = {
@@ -1292,16 +1034,17 @@ export class AppointmentDetail implements OnInit {
         body = { warehouse_ids: this.selectedWarehouses(), notes: v.notes };
       }
       if (
-        ["arrive", "start", "finish", "visit-start", "visit-finish"].includes(
+        ["gate-check-in","gate-check-out","visit-check-in","visit-check-out","arrive", "start", "finish", "visit-start", "visit-finish"].includes(
           act,
         )
       ) {
         body = { occurred_at: localTimestamp(v.occurred_at) };
         if (act.startsWith("visit-"))
           endpoint = `warehouse-visits/${this.visitId}/${act.replace("visit-", "")}/`;
-        if (act === "finish" || act === "visit-finish") {
+        if (act === "finish" || act === "visit-finish" || act === "visit-check-out") {
           if (!v.resources_confirmed)
             throw new Error("Confirme os recursos, inclusive zero/nenhum.");
+          if(!/^\d+$/.test(String(v.worker_count))||Number(v.worker_count)>100)throw new Error('Confirme a quantidade inteira de pessoas, inclusive zero.');
           body = {
             occurred_at: localTimestamp(v.occurred_at),
             worker_count: Number(v.worker_count),
@@ -1338,7 +1081,10 @@ export class AppointmentDetail implements OnInit {
         if (act === "assign-cancelled")
           endpoint = "slots/assign-cancelled-capacity/";
       }
+      if(act==='reschedule' && !this.rescheduleReady()) throw new Error('Selecione um horário elegível.');
+      if(act==='correct-time'){if(!v.reason.trim())throw new Error('Informe o motivo da correção.');body={target:v.target,visit_id:v.visit_id||undefined,occurred_at:localTimestamp(v.occurred_at),reason:v.reason};}
       await this.api.post(endpoint, {
+        idempotency_key:this.idempotencyKey,
         ...(body as object),
         expected_revision:
           act === "assign-cancelled"
@@ -1348,31 +1094,21 @@ export class AppointmentDetail implements OnInit {
       });
       this.action.set("");
       await this.load();
-      this.success.set(`${this.actionTitleFor(act)}: registro salvo no servidor.`);
+      this.success.set(`${this.commandLabel(act)}: registro salvo no servidor.`);
     } catch (e) {
       this.error.set(apiError(e));
+      if(act === 'reschedule' && e instanceof HttpErrorResponse && e.status === 409){
+        this.rescheduleReady.set(false);
+        // Keep the date and reason while reloading the server revision and capacity.
+        await this.load();
+        this.reschedulePicker()?.refresh();
+      }
     } finally {
       this.busy.set(false);
     }
   }
-  private actionTitleFor(a: string) {
-    return (
-      (
-        {
-          "purchase-review": "Conferência",
-          "warehouse-review": "Destinos",
-          arrive: "Chegada",
-          start: "Entrada",
-          finish: "Conclusão",
-          cancel: "Cancelamento",
-          reschedule: "Reagendamento",
-          "assign-cancelled": "Atribuição",
-          "visit-start": "Início da etapa",
-          "visit-finish": "Conclusão da etapa",
-        } as Record<string, string>
-      )[a] ?? "Evento"
-    );
-  }
+  exceptionLabel(value:string){return ({late:'Atraso',no_show:'Ausência',nature:'Impedimento por natureza',invoice_mismatch:'Divergência documental',other:'Outra ocorrência'} as Record<string,string>)[value]??value;}
+
 }
 interface NonReceipt {
   id: string;
@@ -1498,7 +1234,7 @@ export class NonReceipts implements OnInit {
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
-    <form class="panel" [formGroup]="form" (ngSubmit)="save()">
+    <form class="panel" [formGroup]="form" (ngSubmit)="save()"><fieldset [disabled]="busy() || !loaded()">
       <h2>Dados da ocorrência</h2>
       <div class="form-grid">
         <label
@@ -1535,11 +1271,6 @@ export class NonReceipts implements OnInit {
             type="datetime-local"
             formControlName="occurred_at"
             required /></label
-        ><label
-          >Origem<select formControlName="origin">
-            <option value="operacional_registrado">Operação registrada</option>
-            <option value="demo_sintetico">Demonstração sintética</option>
-          </select></label
         ><label class="wide"
           >Descrição<textarea formControlName="description" required></textarea>
         </label>
@@ -1552,10 +1283,11 @@ export class NonReceipts implements OnInit {
           >Cancelar edição</ion-button
         >
       </div>
-    </form>
+    </fieldset></form>
   </div>`,
 })
 export class NonReceiptCreate implements OnInit {
+  loaded = signal(false);
   candidates = signal<Appointment[]>([]);
   appointmentLabel(a: Appointment) {
     return `${a.vehicle_plate || "Veículo sem placa"} · ${a.supplier_name} · ${a.date} ${a.time}`;
@@ -1573,21 +1305,20 @@ export class NonReceiptCreate implements OnInit {
     reason: ["", Validators.required],
     description: ["", Validators.required],
     occurred_at: [nowLocal(), Validators.required],
-    origin: ["operacional_registrado"],
   });
-  ngOnInit() {
+  async ngOnInit() {
     this.form.controls.appointment.setValue(
       this.route.snapshot.queryParamMap.get("appointment") ?? "",
     );
-    void this.catalog.load().catch((e) => this.error.set(apiError(e)));
-    void appointmentOptions(this.api)
-      .then((rows) => {
-        this.candidates.set(rows.filter((a) => !a.started_at));
-        this.appointmentChanged();
-      })
-      .catch((e) => this.error.set(apiError(e)));
+    try {
+      const [, rows] = await Promise.all([this.catalog.load(), appointmentOptions(this.api)]);
+      this.candidates.set(rows.filter(a => allowed(a.available_actions, 'non-receipt')));
+      this.appointmentChanged();
+      this.loaded.set(true);
+    } catch(e) { this.error.set(apiError(e)); }
   }
   async save() {
+    if (!this.loaded() || this.busy() || this.form.invalid) return;
     this.busy.set(true);
     this.error.set("");
     try {
@@ -1613,7 +1344,7 @@ export class NonReceiptCreate implements OnInit {
       (a) => a.id === this.form.controls.appointment.value,
     );
     if (a) {
-      this.form.patchValue({ supplier: a.supplier, origin: a.origin });
+      this.form.patchValue({ supplier: a.supplier });
     }
   }
 }

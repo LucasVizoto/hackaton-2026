@@ -39,6 +39,7 @@ class Worker(UUIDModel):
     origin = models.CharField(
         max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado"
     )
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["registration"]
@@ -52,6 +53,7 @@ class Equipment(UUIDModel):
     )
     mobile = models.BooleanField(default=False, null=True, blank=True)
     purpose = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["name"]

@@ -1,3 +1,5 @@
+> **Documento v1 preservado.** Consulte o [DER v2](v2/der.md) para Portaria, várias notas por carga, conferência, pessoa/dia e parcelas versionadas. As fontes originais abaixo foram mantidas.
+
 # DER — modelo efetivamente implementado
 
 ![DER do recebimento](imagens/der.svg)

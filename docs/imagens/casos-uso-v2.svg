@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1650" height="1040" viewBox="0 0 1650 1040">
+<title>UML v2 · Atores e casos de uso</title>
+<rect width="100%" height="100%" fill="white"/>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#597085"/></marker></defs>
+<text x="35" y="44" dominant-baseline="middle" text-anchor="start" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#152c40">UML v2 · Atores e casos de uso</text>
+<text x="35" y="89" dominant-baseline="middle" text-anchor="start" font-family="Arial,sans-serif" font-size="14" font-weight="normal" fill="#152c40">Associações representam permissões; a ordem temporal está no BPMN. Administrador executa as ações autorizadas dos perfis.</text>
+<rect x="250" y="125" width="1110" height="870" fill="#f9fbfd" stroke="#cad6df"/>
+<text x="262" y="143" dominant-baseline="middle" text-anchor="start" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Sistema de recebimento e mão de obra</text>
+<polyline points="200,267.5 250.0,267.5 250.0,240.0 300,240.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="200,537.5 250.0,537.5 250.0,530.0 300,530.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="200,807.5 250.0,807.5 250.0,820.0 300,820.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="1450,327.5 1375.0,327.5 1375.0,240.0 1300,240.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="1450,327.5 1375.0,327.5 1375.0,455.0 1300,455.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="1450,327.5 1390,327 1390,670 1300,670.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="1450,717.5 1375.0,717.5 1375.0,885.0 1300,885.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<polyline points="1450,717.5 1375.0,717.5 1375.0,670.0 1300,670.0" fill="none" stroke="#597085" stroke-width="1.5"/>
+<g fill="none" stroke="#597085" stroke-width="1.5"><circle cx="125.0" cy="210" r="10"/><path d="M125.0 220V264 M95.0 238H155.0 M99.0 296L125.0 264L151.0 296"/></g>
+<text x="125.0" y="318" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Fornecedor</text>
+<g fill="none" stroke="#597085" stroke-width="1.5"><circle cx="125.0" cy="480" r="10"/><path d="M125.0 490V534 M95.0 508H155.0 M99.0 566L125.0 534L151.0 566"/></g>
+<text x="125.0" y="588" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Compras</text>
+<g fill="none" stroke="#597085" stroke-width="1.5"><circle cx="125.0" cy="750" r="10"/><path d="M125.0 760V804 M95.0 778H155.0 M99.0 836L125.0 804L151.0 836"/></g>
+<text x="125.0" y="858" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Portaria</text>
+<g fill="none" stroke="#597085" stroke-width="1.5"><circle cx="1525.0" cy="270" r="10"/><path d="M1525.0 280V324 M1495.0 298H1555.0 M1499.0 356L1525.0 324L1551.0 356"/></g>
+<text x="1525.0" y="378" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Armazém</text>
+<g fill="none" stroke="#597085" stroke-width="1.5"><circle cx="1525.0" cy="660" r="10"/><path d="M1525.0 670V714 M1495.0 688H1555.0 M1499.0 746L1525.0 714L1551.0 746"/></g>
+<text x="1525.0" y="768" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Gestão</text>
+<ellipse cx="485.0" cy="240.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="485.0" y="227.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Anexar / vincular notas</text>
+<text x="485.0" y="252.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Solicitar a própria carga</text>
+<ellipse cx="485.0" cy="530.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="485.0" y="517.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Conferir documentos</text>
+<text x="485.0" y="542.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Decidir divergências / pedido</text>
+<ellipse cx="485.0" cy="820.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="485.0" y="807.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Registrar chegada e saída</text>
+<text x="485.0" y="832.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Corrigir marcos com motivo</text>
+<ellipse cx="1115.0" cy="240.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="1115.0" y="227.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Executar visitas / conferência</text>
+<text x="1115.0" y="252.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Recursos, exceções, quantidades</text>
+<ellipse cx="1115.0" cy="455.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="1115.0" y="442.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Registrar atividades e boletim</text>
+<text x="1115.0" y="467.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Fechar / reabrir / transferir</text>
+<ellipse cx="1115.0" cy="670.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="1115.0" y="657.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Cadastrar / inativar pessoas</text>
+<text x="1115.0" y="682.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Equipamentos: Armazém/admin</text>
+<ellipse cx="1115.0" cy="885.0" rx="185.0" ry="60.0" fill="#e8f1f7" stroke="#597085" stroke-width="1.5"/>
+<text x="1115.0" y="872.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="bold" fill="#152c40">Consultar apuração e RH</text>
+<text x="1115.0" y="897.0" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" font-weight="normal" fill="#152c40">Cobertura / cenário / ocorrências</text>
+</svg>

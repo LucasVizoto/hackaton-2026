@@ -7,6 +7,10 @@ export interface CatalogEntry {
   registration?: string;
   label?: string;
   origin?: string;
+  is_active?: boolean;
+  warehouse?: string|null;
+  mobile?:boolean;
+  purpose?:string;
 }
 export interface ServiceRate {
   code: string;

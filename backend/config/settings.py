@@ -1,6 +1,8 @@
+import json
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -9,8 +11,6 @@ load_dotenv(REPO_DIR / ".env")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY:
-    from django.core.exceptions import ImproperlyConfigured
-
     raise ImproperlyConfigured("Configure DJANGO_SECRET_KEY no ambiente ou no .env privado.")
 DEBUG = os.environ.get("DJANGO_DEBUG", os.environ.get("DEBUG", "false")).lower() in {"true", "1"}
 ALLOWED_HOSTS = [
@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "labor",
     "analytics",
     "imports",
+    "integrations",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -109,7 +110,43 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 100,
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "core.exceptions.exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"login": "20/minute"},
+    "DEFAULT_THROTTLE_RATES": {"login": "20/minute", "assistant": "10/hour"},
 }
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# Optional providers remain off until configured and the operational workflow is accepted.
+OPTIONAL_INTEGRATIONS_ENABLED = os.environ.get("OPTIONAL_INTEGRATIONS_ENABLED", "false").lower() == "true"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "")
+OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "")
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_TIMEOUT = 30
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "")
+DIGEST_EMAIL_RECIPIENTS = [item.strip() for item in os.environ.get("DIGEST_EMAIL_RECIPIENTS", "").split(",") if item.strip()]
+try:
+    NOTIFICATION_EMAIL_RECIPIENTS = json.loads(os.environ.get("NOTIFICATION_EMAIL_RECIPIENTS", "{}"))
+except (ValueError, TypeError) as error:
+    raise ImproperlyConfigured("NOTIFICATION_EMAIL_RECIPIENTS deve ser um objeto JSON por perfil.") from error
+if not isinstance(NOTIFICATION_EMAIL_RECIPIENTS, dict) or any(
+    role not in {"warehouse", "purchasing", "gatehouse"}
+    or not isinstance(recipients, list)
+    or any(not isinstance(address, str) or not address.strip() for address in recipients)
+    for role, recipients in NOTIFICATION_EMAIL_RECIPIENTS.items()
+):
+    raise ImproperlyConfigured("NOTIFICATION_EMAIL_RECIPIENTS exige listas de endereços para perfis operacionais.")
+GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "")
+GOOGLE_CALENDAR_ACCESS_TOKEN = os.environ.get("GOOGLE_CALENDAR_ACCESS_TOKEN", "")
+WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "")
+WHATSAPP_PHONE_ID = os.environ.get("WHATSAPP_PHONE_ID", "")
+WHATSAPP_API_VERSION = os.environ.get("WHATSAPP_API_VERSION", "")
+WHATSAPP_TEMPLATE = os.environ.get("WHATSAPP_TEMPLATE", "")
+WHATSAPP_TEMPLATE_LANGUAGE = os.environ.get("WHATSAPP_TEMPLATE_LANGUAGE", "pt_BR")
+WHATSAPP_RECIPIENTS = [item.strip() for item in os.environ.get("WHATSAPP_RECIPIENTS", "").split(",") if item.strip()]
+WEATHER_LATITUDE = os.environ.get("WEATHER_LATITUDE")
+WEATHER_LONGITUDE = os.environ.get("WEATHER_LONGITUDE")

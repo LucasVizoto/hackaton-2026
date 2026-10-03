@@ -17,6 +17,9 @@ import {
   previousDay,
 } from "../core/api";
 import { Catalog } from "../core/catalog";
+import { IndividualAllocation, RuleOccurrence } from "../core/labor-v2";
+import { exportCsv, quantity } from "../core/workflow";
+import { ProductionRecords, ProductionRecord } from "./production-records";
 import { decimal } from "../core/presentation";
 import {
   EmptyState,
@@ -42,6 +45,10 @@ interface Participant {
   fraction: string;
 }
 export interface Calculation {
+  individual_allocations?: IndividualAllocation[];
+  provisional?: boolean;
+  status?: string;
+  allocation_status?: string;
   people_count: number;
   equivalent_days: string;
   production: string;
@@ -52,6 +59,7 @@ export interface Calculation {
   production_per_equivalent_day: string | null;
   display: { production: string; total_payable: string; supplement: string };
 }
+interface BulletinAudit {id:string;revision:number;reason:string;recorded_at:string;actor:number|null;snapshot:{status?:string;financial_version?:string};}
 export interface Bulletin {
   id: string;
   warehouse: string;
@@ -60,6 +68,12 @@ export interface Bulletin {
   origin: string;
   status: string;
   revision: number;
+  financial_version?: string;
+  production_records?: ProductionRecord[];
+  daily_services?: {kind:string;quantity:string}[];
+  individual_allocations?: IndividualAllocation[];
+  unresolved_occurrences?: RuleOccurrence[];
+  allocation_status?: string;
   lines: Line[];
   participants: Participant[];
   calculation: Calculation;
@@ -155,7 +169,7 @@ export interface Bulletin {
                 <td class="numeric">{{ decimal(b.calculation.equivalent_days) }}</td>
                 <td class="numeric">{{ money(b.calculation.production) }}</td>
                 <td class="numeric">
-                  <strong>{{ money(b.calculation.total_payable) }}</strong>
+                  <strong>{{b.calculation.provisional?"Pendente de conferência":money(b.calculation.total_payable)}}</strong>
                 </td>
                 <td class="numeric">{{ money(b.calculation.supplement) }}</td>
                 <td>
@@ -257,6 +271,7 @@ export class BulletinList implements OnInit {
     RouterLink,
     IonButton,
     IonSpinner,
+    ProductionRecords,
     FeedbackState,
     Status,
     Origin,
@@ -268,7 +283,7 @@ export class BulletinList implements OnInit {
       [title]="bulletin() ? 'Boletim diário' : 'Novo boletim'"
       subtitle="Registre a produção, confirme a equipe e confira a apuração."
     >
-      <ion-button actions fill="outline" routerLink="/boletins">Voltar aos boletins</ion-button>
+      <div actions class="actions"><ion-button fill="outline" [disabled]="!bulletin()" (click)="exportRecord()">Exportar registro</ion-button><ion-button fill="outline" (click)="print()">Imprimir</ion-button><ion-button fill="outline" routerLink="/boletins">Voltar aos boletins</ion-button></div>
     </app-page-header>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
@@ -276,7 +291,8 @@ export class BulletinList implements OnInit {
     @if (success()) {
       <div app-feedback tone="success" class="success">{{ success() }}</div>
     }
-    <app-origin [value]="form.controls.origin.value" />
+    <app-origin [value]="displayOrigin()" />
+    @if(legacy()){<div class="notice">Boletim legado · somente consulta. Valores e histórico foram preservados; este registro não admite edição, reabertura ou transferência pela versão atual.</div>}
     @if (bulletin(); as b) {
       <div class="actions record-context">
         <app-status [value]="b.status" /><span class="muted"
@@ -288,7 +304,7 @@ export class BulletinList implements OnInit {
     @if (busy() && !lines.length) {
       <app-loading-state label="Carregando referência, categorias e equipe…" />
     }
-    <form [formGroup]="form" (ngSubmit)="save()">
+    <form [formGroup]="form" (ngSubmit)="save()"><fieldset [disabled]="busy() || !loaded() || legacy()">
       <section class="panel">
         <h2>Referência</h2>
         <div class="form-grid">
@@ -307,14 +323,7 @@ export class BulletinList implements OnInit {
               >Normalmente o dia anterior; boletim de atividade interna pode
               referir sábado.</span
             ></label
-          ><label
-            >Origem<select formControlName="origin">
-              <option value="operacional_registrado">
-                Operação registrada
-              </option>
-              <option value="demo_sintetico">Demonstração sintética</option>
-            </select></label
-          >
+          ><p class="field-help">O armazém responde pelo custo do boletim. A origem acompanha os cadastros da equipe e é validada pelo servidor.</p>
         </div>
         @if (!bulletin() && !closed()) {
           <details>
@@ -368,7 +377,8 @@ export class BulletinList implements OnInit {
                   <td>
                     <input
                       class="table-input"
-                      type="number"
+                      type="text"
+                      inputmode="decimal"
                       min="0"
                       step="0.0001"
                       formControlName="unloading"
@@ -380,7 +390,8 @@ export class BulletinList implements OnInit {
                   <td>
                     <input
                       class="table-input"
-                      type="number"
+                      type="text"
+                      inputmode="decimal"
                       min="0"
                       step="0.0001"
                       formControlName="removal"
@@ -392,7 +403,8 @@ export class BulletinList implements OnInit {
                   <td>
                     <input
                       class="table-input"
-                      type="number"
+                      type="text"
+                      inputmode="decimal"
                       min="0"
                       step="0.0001"
                       formControlName="transfer"
@@ -408,16 +420,23 @@ export class BulletinList implements OnInit {
           </table>
         </div>
       </section>
+      @if(!legacy()){<section class="panel">
+        <h2>Serviços de diária</h2>
+        <p class="muted">Serviços tarifados adicionais às categorias de produção. Estas quantidades não alteram a equipe ou a fração de participação no piso.</p>
+        <div class="form-grid">
+          <label>Diária completa · R$ 90,1731<input type="text" inputmode="decimal" formControlName="daily_full" required /></label>
+          <label>Meia diária · R$ 45,0786<input type="text" inputmode="decimal" formControlName="daily_half" required /></label>
+        </div>
+      </section>}
       <section class="panel">
         <div class="page-head">
           <div>
             <h2>Equipe participante</h2>
             <p class="muted">
-              Até 20 pessoas. Matrícula única no boletim. Fração: uma ou meia
-              diária.
+              Até 20 pessoas. Cada pessoa pertence financeiramente a um único boletim por dia, mesmo quando atua em vários armazéns.
             </p>
           </div>
-          @if (!closed()) {
+          @if (!closed() && !legacy()) {
             <ion-button
               type="button"
               fill="outline"
@@ -474,7 +493,7 @@ export class BulletinList implements OnInit {
                       </select>
                     </td>
                     <td>
-                      @if (!closed()) {
+                      @if (!closed() && !legacy()) {
                         <button
                           class="remove"
                           type="button"
@@ -497,20 +516,18 @@ export class BulletinList implements OnInit {
           </p>
         }
         <p class="site-note">
-          Hipótese provisória: frações em boletins fechados não ultrapassam uma
-          diária por matrícula/data entre locais. Um conflito exige rateio
-          explícito.
+          Registre presença e serviços em Pessoas. Saída às 10h, horas extras e frações sem regra definida exigem uma pendência. Não deduza a fração do horário de saída.
         </p>
       </section>
       <section class="panel">
         <div class="page-head">
           <div>
-            <h2>Apuração oficial</h2>
+            <h2>{{pendingCalculation()?"Prévia pendente de conferência":legacy()?"Apuração preservada":closed()?"Apuração oficial":"Prévia de apuração"}}</h2>
             <p class="muted">
-              Total a pagar = maior valor entre produção e piso coletivo.
+              {{pendingCalculation()?"Existe uma regra pendente. Os valores são estimativas e não autorizam pagamento ou fechamento.":"Total a pagar = maior valor entre produção e piso coletivo."}}
             </p>
           </div>
-          @if (!closed()) {
+          @if (!closed() && !legacy()) {
             <ion-button
               type="button"
               fill="outline"
@@ -523,16 +540,16 @@ export class BulletinList implements OnInit {
         @if (calculation(); as c) {
           <div class="financial-summary" aria-live="polite">
             <div class="financial-total">
-              <span>Total a pagar</span>
+              <span>{{pendingCalculation()?"Total estimado":"Total a pagar"}}</span>
               <strong>{{ money(c.total_payable) }}</strong>
               <p class="field-help">
-                {{ closed() ? "Valor preservado no boletim fechado." : "Confira a prévia antes de fechar o boletim." }}
+                {{ pendingCalculation()?"Estimativa provisória; aguarda resolução documentada da regra.":legacy()?"Apuração do registro legado, sem atribuição individual retroativa.":closed() ? "Valor preservado no boletim fechado." : "Confira a prévia antes de fechar o boletim." }}
               </p>
             </div>
             <dl class="metadata">
               <div><dt>Produção</dt><dd>{{ money(c.production) }}</dd></div>
               <div><dt>Piso coletivo</dt><dd>{{ money(c.collective_floor) }}</dd></div>
-              <div><dt>Complemento</dt><dd>{{ money(c.supplement) }}</dd></div>
+              <div><dt>{{pendingCalculation()?"Complemento estimado":"Complemento"}}</dt><dd>{{ money(c.supplement) }}</dd></div>
               <div><dt>Pessoas distintas</dt><dd>{{ decimal(c.people_count) }}</dd></div>
               <div><dt>Diárias equivalentes</dt><dd>{{ decimal(c.equivalent_days) }}</dd></div>
               <div><dt>Piso por diária</dt><dd>{{ money(c.floor_per_day) }}</dd></div>
@@ -546,8 +563,7 @@ export class BulletinList implements OnInit {
               {{ decimal(c.supplement) }}.
             </p>
             <p class="muted">
-              Centavos só na apresentação. Meia diária segue E × 90,1731. A
-              referência textual 45,0786 diverge dessa fórmula.
+              {{legacy()?"O cálculo exibido pertence ao registro original. Não foram criadas parcelas individuais ou novas tarifas para este boletim.":"As parcelas seguem a fração de cada participante. O servidor preserva a precisão e reconcilia os centavos com o coletivo. O serviço de meia diária usa a tarifa 45,0786, separado da fração de participação no piso."}}
             </p>
           </details>
         } @else {
@@ -556,8 +572,9 @@ export class BulletinList implements OnInit {
           </p>
         }
       </section>
+      <section class="panel"><h2>Parcelas por pessoa</h2>@if(allocations().length){<div class="table-wrap" tabindex="0" role="region" aria-label="Parcelas individuais conciliadas"><table><thead><tr><th>Pessoa</th><th>Fração</th><th>Produção atribuída</th><th>Complemento</th><th>Total</th><th>Ajuste de centavos</th></tr></thead><tbody>@for(a of allocations();track a.worker){<tr><td><a [routerLink]="['/pessoas',a.worker]" [queryParams]="{date_from:form.controls.reference_date.value,date_to:form.controls.reference_date.value,origin:displayOrigin()}">{{workerLabel(a.worker)}}</a></td><td>{{decimal(a.fraction)}}</td><td>{{money(a.display.production)}}</td><td>{{money(a.display.supplement)}}</td><td><strong>{{money(a.display.total_payable)}}</strong></td><td>{{money(a.display.rounding_adjustment)}}</td></tr>}</tbody></table></div><div class="actions section"><ion-button type="button" fill="outline" (click)="export()">Exportar parcelas</ion-button><ion-button type="button" fill="outline" (click)="print()">Imprimir</ion-button></div>}@else{<p class="muted">{{bulletin()?.allocation_status==='pending_rule'?'Uma regra pendente impede atribuir parcelas a este boletim.':legacy()||closed()?'Este registro histórico não possui parcelas individuais preservadas.':'Calcule a prévia para consultar as parcelas individuais.'}}</p>}</section>
       <div class="actions">
-        @if (!closed() && api.can("warehouse")) {
+        @if (!closed() && !legacy() && api.can("warehouse")) {
           <ion-button type="submit" [disabled]="busy() || form.invalid">
             @if (busy()) {
               <ion-spinner name="dots" />
@@ -569,12 +586,12 @@ export class BulletinList implements OnInit {
               type="button"
               fill="outline"
               (click)="close()"
-              [disabled]="busy() || dirty()"
+              [disabled]="busy() || dirty() || !!bulletin()?.unresolved_occurrences?.length"
               >Fechar boletim</ion-button
             ><small>Salve alterações antes de fechar.</small>
           }
         }
-        @if (closed() && api.can("warehouse")) {
+        @if (closed() && !legacy() && api.can("warehouse")) {
           <ion-button
             type="button"
             fill="outline"
@@ -583,8 +600,11 @@ export class BulletinList implements OnInit {
           >
         }
       </div>
-    </form>
-    @if (showReopen()) {
+    </fieldset></form>
+    @if(bulletin();as b){@if(!legacy()){<app-production-records [bulletin]="b" [dirty]="dirty()" (changed)="refresh()" />}<section class="panel section"><h2>Regras pendentes</h2><p class="muted">Uma ocorrência aberta bloqueia o fechamento deste boletim. A resolução não inventa uma tarifa ou fração.</p>@for(o of b.unresolved_occurrences??[];track o.id){<div class="record-context"><strong>{{o.code}} · {{o.worker?workerLabel(o.worker):'Coletivo'}}</strong><p>{{o.description}}</p>@if(api.can('management')&&!legacy()){<label>Motivo de não aplicabilidade<input #reason type="text" /></label><ion-button type="button" fill="outline" [disabled]="busy()||dirty()" (click)="resolveOccurrence(o.id,reason.value)">Marcar como não aplicável</ion-button>@if(dirty()){<p class="field-help">Salve as alterações do boletim antes de resolver esta ocorrência.</p>}}</div>}@if(!b.unresolved_occurrences?.length){<p class="muted">Sem regra pendente registrada.</p>}@if(api.can('warehouse')&&!closed()&&!legacy()){<form [formGroup]="occurrenceForm" (ngSubmit)="addOccurrence()"><div class="form-grid"><label>Pessoa<select formControlName="worker"><option value="">Coletivo</option>@for(p of b.participants;track p.worker){<option [value]="p.worker">{{workerLabel(p.worker)}}</option>}</select></label><label>Motivo<select formControlName="code"><option value="EARLY_LEAVE">Saída antecipada sem fração definida</option><option value="OVERTIME">Horas extras</option><option value="SPECIAL_DAILY">Diária especial</option><option value="FRACTION">Fração sem regra definida</option><option value="OTHER">Outra regra pendente</option></select></label><label class="span-2">Descrição<textarea formControlName="description" required></textarea></label></div><ion-button type="submit" fill="outline" [disabled]="busy()||occurrenceForm.invalid||dirty()">Registrar pendência</ion-button></form>}</section>
+    @if(api.can('warehouse')&&!legacy()){<details class="panel section"><summary>Transferir responsabilidade financeira</summary><p class="muted">A transferência mantém uma participação no dia, registra o motivo e reabre boletins fechados envolvidos. As atividades nos locais permanecem registradas.</p><form [formGroup]="transferForm" (ngSubmit)="transfer()"><div class="form-grid"><label>Pessoa<select formControlName="worker"><option value="">Selecione</option>@for(p of b.participants;track p.worker){<option [value]="p.worker">{{workerLabel(p.worker)}}</option>}</select></label><label>Boletim de destino<select formControlName="target_bulletin"><option value="">Selecione boletim da mesma data</option>@for(target of transferTargets();track target.id){<option [value]="target.id">{{target.warehouse_name}} · {{target.status}}</option>}</select></label><label class="span-2">Motivo<textarea formControlName="reason" required></textarea></label></div><ion-button type="submit" fill="outline" [disabled]="busy()||transferForm.invalid||dirty()">Transferir participante</ion-button></form></details>}}
+    @if(bulletin()){<details class="panel section" (toggle)="historyToggled($event)"><summary>Histórico auditado do boletim</summary><p class="muted">Cada linha registra a revisão, o responsável e o motivo preservados no servidor.</p><ion-button type="button" fill="outline" [disabled]="historyBusy()" (click)="loadHistory()">Atualizar histórico</ion-button>@if(historyBusy()){<app-loading-state label="Consultando histórico…" />}@if(historyError()){<div app-feedback tone="error">{{historyError()}}</div>}@if(auditHistory().length){<div class="table-wrap" tabindex="0" role="region" aria-label="Revisões auditadas do boletim"><table><thead><tr><th>Revisão</th><th>Registrada em</th><th>Estado preservado</th><th>Responsável</th><th>Motivo</th></tr></thead><tbody>@for(entry of auditHistory();track entry.id){<tr><td>{{entry.revision}}</td><td>{{entry.recorded_at|date:'dd/MM/yyyy HH:mm'}}</td><td>@if(entry.snapshot.status){<app-status [value]="entry.snapshot.status" />}@else{Não informado}</td><td>{{entry.actor!==null?'Usuário #'+entry.actor:'Não informado'}}</td><td class="wrap">{{entry.reason||'Sem motivo informado'}}</td></tr>}</tbody></table></div>}@else if(historyLoaded()&&!historyBusy()){<p class="muted">Nenhuma revisão retornada para este registro.</p>}</details>}
+    @if (showReopen() && !legacy()) {
       <form
         class="panel section"
         [formGroup]="reopenForm"
@@ -625,6 +645,10 @@ export class BulletinEditor implements OnInit {
   success = signal("");
   showReopen = signal(false);
   dirty = signal(false);
+  loaded = signal(false);
+  allocations = signal<IndividualAllocation[]>([]);
+  transferTargets = signal<Bulletin[]>([]);
+  auditHistory=signal<BulletinAudit[]>([]);historyBusy=signal(false);historyError=signal('');historyLoaded=signal(false);
   money = money;
   decimal = decimal;
   private line = (category: string, l?: Line) =>
@@ -646,9 +670,13 @@ export class BulletinEditor implements OnInit {
     warehouse: ["", Validators.required],
     reference_date: [previousDay(), Validators.required],
     origin: ["operacional_registrado"],
+    daily_full: ["0", Validators.required],
+    daily_half: ["0", Validators.required],
     lines: new FormArray<ReturnType<BulletinEditor["line"]>>([]),
     participants: new FormArray<ReturnType<BulletinEditor["participant"]>>([]),
   });
+  occurrenceForm = this.fb.nonNullable.group({worker:[""],code:["EARLY_LEAVE"],description:["",Validators.required]});
+  transferForm = this.fb.nonNullable.group({worker:["",Validators.required],target_bulletin:["",Validators.required],reason:["",Validators.required]});
   reopenForm = this.fb.nonNullable.group({ reason: ["", Validators.required] });
   get lines() {
     return this.form.controls.lines;
@@ -656,6 +684,8 @@ export class BulletinEditor implements OnInit {
   get participants() {
     return this.form.controls.participants;
   }
+  legacy(){return !!this.bulletin() && this.bulletin()?.financial_version!=='boletim-v2';}
+  pendingCalculation(){const c=this.calculation();return !!(c?.provisional || c?.status==='pending_rule' || c?.allocation_status==='pending_rule' || this.bulletin()?.unresolved_occurrences?.length);}
   closed() {
     return this.bulletin()?.status === "CLOSED";
   }
@@ -667,9 +697,11 @@ export class BulletinEditor implements OnInit {
       if (id) this.apply(await this.api.get<Bulletin>(`bulletins/${id}/`));
       else
         this.catalog.rates().forEach((r) => this.lines.push(this.line(r.code)));
+      this.loaded.set(true);
       this.form.valueChanges.subscribe(() => {
         this.dirty.set(true);
         this.calculation.set(null);
+        this.allocations.set([]);
         this.success.set("");
       });
     } catch (e) {
@@ -680,12 +712,15 @@ export class BulletinEditor implements OnInit {
   }
   apply(b: Bulletin) {
     this.bulletin.set(b);
+    this.auditHistory.set([]);this.historyLoaded.set(false);
     this.form.enable({ emitEvent: false });
     this.form.patchValue(
       {
         warehouse: b.warehouse,
         reference_date: b.reference_date,
         origin: b.origin,
+        daily_full:b.daily_services?.find(x=>x.kind==="FULL")?.quantity??"0",
+        daily_half:b.daily_services?.find(x=>x.kind==="HALF")?.quantity??"0",
       },
       { emitEvent: false },
     );
@@ -706,15 +741,17 @@ export class BulletinEditor implements OnInit {
     this.form.controls.warehouse.disable({ emitEvent: false });
     this.form.controls.reference_date.disable({ emitEvent: false });
     this.form.controls.origin.disable({ emitEvent: false });
-    if (b.status === "CLOSED") this.form.disable({ emitEvent: false });
+    if (b.status === "CLOSED" || this.legacy()) this.form.disable({ emitEvent: false });
     this.calculation.set(b.calculation);
+    this.allocations.set(b.individual_allocations??[]);
+    void this.loadTargets();
     this.dirty.set(false);
   }
   rateLabel(code: string) {
     return this.catalog.rates().find((r) => r.code === code)?.label ?? code;
   }
   ratePrice(code: string) {
-    if (this.closed())
+    if (this.closed() || this.legacy())
       return (
         this.bulletin()?.lines.find((l) => l.category === code)?.price ??
         "Não disponível"
@@ -722,31 +759,37 @@ export class BulletinEditor implements OnInit {
     return this.catalog.rates().find((r) => r.code === code)?.price ?? "—";
   }
   addParticipant() {
+    if(this.legacy())return;
     if (this.participants.length < 20)
       this.participants.push(this.participant());
   }
   removeParticipant(index: number) {
+    if(this.legacy())return;
     this.participants.removeAt(index);
   }
   payload() {
     const v = this.form.getRawValue();
+    const {daily_full,daily_half,origin,...fields}=v;
+    void origin;
     return {
-      ...v,
+      ...fields,
+      daily_services:[{kind:"FULL",quantity:quantity(daily_full)},{kind:"HALF",quantity:quantity(daily_half)}],
       lines: v.lines.map((l) => ({
         ...l,
-        unloading: String(l.unloading ?? 0),
-        removal: String(l.removal ?? 0),
-        transfer: String(l.transfer ?? 0),
+        unloading: quantity(l.unloading),
+        removal: quantity(l.removal),
+        transfer: quantity(l.transfer),
       })),
     };
   }
   async preview() {
+    if(this.legacy()||!this.loaded()||this.busy())return;
     this.busy.set(true);
     this.error.set("");
     try {
-      this.calculation.set(
-        await this.api.post<Calculation>("bulletins/preview/", this.payload()),
-      );
+      const result=await this.api.post<Calculation>("bulletins/preview/", {...this.payload(),bulletin:this.bulletin()?.id});
+      this.calculation.set(result);
+      this.allocations.set(this.bulletin()?.unresolved_occurrences?.length?[]:result.individual_allocations??[]);
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
@@ -754,7 +797,7 @@ export class BulletinEditor implements OnInit {
     }
   }
   async save() {
-    if (this.form.invalid) return;
+    if (this.legacy() || this.form.invalid || !this.loaded() || this.busy()) return;
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
@@ -763,6 +806,7 @@ export class BulletinEditor implements OnInit {
       const payload = this.payload();
       const result = b
         ? await this.api.patch<Bulletin>(`bulletins/${b.id}/`, {
+            daily_services: payload.daily_services,
             lines: payload.lines,
             participants: payload.participants,
             revision: b.revision,
@@ -779,7 +823,7 @@ export class BulletinEditor implements OnInit {
   }
   async close() {
     const b = this.bulletin();
-    if (!b || this.dirty()) return;
+    if (!b || this.legacy() || this.dirty() || this.busy()) return;
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
@@ -800,7 +844,7 @@ export class BulletinEditor implements OnInit {
   }
   async reopen() {
     const b = this.bulletin();
-    if (!b) return;
+    if (!b || this.legacy()) return;
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
@@ -819,6 +863,18 @@ export class BulletinEditor implements OnInit {
       this.busy.set(false);
     }
   }
+  displayOrigin(){if(this.bulletin())return this.bulletin()!.origin;const ids=this.participants.getRawValue().map(p=>p.worker).filter(Boolean);return ids.length&&ids.every(id=>this.catalog.workers().find(w=>w.id===id)?.origin==='demo_sintetico')?'demo_sintetico':'operacional_registrado';}
+  workerLabel(id:string){const worker=this.catalog.workers().find(w=>w.id===id);return worker?`${worker.registration} · ${worker.name}`:id;}
+  async refresh(){const b=this.bulletin();if(!b)return;try{this.apply(await this.api.get<Bulletin>(`bulletins/${b.id}/`));}catch(e){this.error.set(apiError(e));throw e;}}
+  async loadTargets(){const b=this.bulletin();this.transferTargets.set([]);if(!b||this.legacy())return;try{const result=await this.api.get<Page<Bulletin>>(`bulletins/?date_from=${b.reference_date}&date_to=${b.reference_date}&origin=${b.origin}&page_size=100`);this.transferTargets.set(result.results.filter(x=>x.id!==b.id&&x.financial_version==='boletim-v2'));}catch(e){this.error.set(apiError(e));}}
+  async addOccurrence(){const b=this.bulletin();if(!b||this.legacy()||this.busy()||this.dirty()||this.occurrenceForm.invalid)return;this.busy.set(true);this.error.set('');try{const v=this.occurrenceForm.getRawValue();await this.api.post('labor-rule-occurrences/',{...v,bulletin:b.id,worker:v.worker||null});await this.refresh();this.occurrenceForm.controls.description.setValue('');this.success.set('Pendência registrada. O fechamento aguarda a regra aplicável.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
+  async resolveOccurrence(id:string,reason:string){if(this.legacy()||this.busy()||this.dirty())return;if(!reason.trim()){this.error.set('Informe por que a ocorrência não se aplica.');return;}this.busy.set(true);this.error.set('');try{await this.api.post(`labor-rule-occurrences/${id}/resolve/`,{resolution_type:'NOT_APPLICABLE',reason});await this.refresh();this.success.set('Não aplicabilidade registrada com motivo.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
+  async transfer(){const b=this.bulletin();const v=this.transferForm.getRawValue();const target=this.transferTargets().find(t=>t.id===v.target_bulletin);if(!b||this.legacy()||!target||target.financial_version!=='boletim-v2'||this.busy()||this.dirty()||this.transferForm.invalid)return;this.busy.set(true);this.error.set('');try{await this.api.post(`bulletins/${b.id}/transfer-worker/`,{...v,revision:b.revision,target_revision:target.revision});await this.refresh();this.transferForm.reset();this.success.set('Responsabilidade financeira transferida com histórico.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
+  export(){exportCsv(`parcelas-${this.form.controls.reference_date.value}.csv`,[['Pessoa','Fração','Produção atribuída','Complemento','Total','Ajuste de centavos'],...this.allocations().map(a=>[this.workerLabel(a.worker),a.fraction,a.display.production,a.display.supplement,a.display.total_payable,a.display.rounding_adjustment])]);}
+  historyToggled(event:Event){if((event.target as HTMLDetailsElement).open&&!this.historyLoaded())void this.loadHistory();}
+  async loadHistory(){const b=this.bulletin();if(!b||this.historyBusy())return;this.historyBusy.set(true);this.historyError.set('');try{const history=await this.api.get<BulletinAudit[]>(`bulletins/${b.id}/history/`);if(this.bulletin()?.id===b.id){this.auditHistory.set(history);this.historyLoaded.set(true);}}catch(e){this.historyError.set(apiError(e));}finally{this.historyBusy.set(false);}}
+  exportRecord(){const b=this.bulletin();if(!b)return;exportCsv(`boletim-${b.reference_date}-${b.revision}.csv`,[['Tipo','Referência','Detalhe','Valor / quantidade','Descarga','Remoção','Transferência'],['Registro',b.id,b.warehouse_name,b.reference_date],['Estado',b.financial_version,b.status,b.revision],['Origem',b.origin],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Produção',b.calculation.production],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Total',b.calculation.total_payable],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Complemento',b.calculation.supplement],...b.lines.map(l=>['Categoria',l.category,l.label??this.rateLabel(l.category),l.price,l.unloading,l.removal,l.transfer]),...b.participants.map(p=>['Participante',p.registration??p.worker,p.name??this.workerLabel(p.worker),p.fraction]),...(b.daily_services??[]).map(d=>['Serviço de diária',d.kind,'Quantidade',d.quantity]),...(b.unresolved_occurrences??[]).map(o=>['Pendência',o.code,o.description,o.worker??'Coletivo'])]);}
+  print(){window.print();}
   async example(half: boolean) {
     this.error.set("");
     const workers = this.catalog

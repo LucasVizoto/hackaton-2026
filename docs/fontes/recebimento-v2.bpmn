@@ -1,0 +1,204 @@
+<?xml version='1.0' encoding='utf-8'?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="DefinitionsV2" targetNamespace="urn:recebimento:v2">
+  <process id="SupplierProcess" isExecutable="false">
+    <task id="request" name="Solicitar carga com notas" />
+  </process>
+  <process id="ReceivingProcess" isExecutable="false">
+    <laneSet id="Roles">
+      <lane id="Lane0" name="Portaria">
+        <flowNodeRef>gatein</flowNodeRef>
+        <flowNodeRef>gateout</flowNodeRef>
+        <flowNodeRef>end</flowNodeRef>
+      </lane>
+      <lane id="Lane1" name="Compras">
+        <flowNodeRef>review</flowNodeRef>
+        <flowNodeRef>decision</flowNodeRef>
+      </lane>
+      <lane id="Lane2" name="Armazém">
+        <flowNodeRef>start</flowNodeRef>
+        <flowNodeRef>fork</flowNodeRef>
+        <flowNodeRef>destinations</flowNodeRef>
+        <flowNodeRef>join</flowNodeRef>
+        <flowNodeRef>visits</flowNodeRef>
+        <flowNodeRef>receipt</flowNodeRef>
+        <flowNodeRef>resolved</flowNodeRef>
+        <flowNodeRef>lastout</flowNodeRef>
+      </lane>
+    </laneSet>
+    <startEvent id="start" name="start">
+      <messageEventDefinition />
+    </startEvent>
+    <parallelGateway id="fork" name="fork" />
+    <task id="gatein" name="Chegada à Portaria" />
+    <task id="review" name="Conferir notas / pedido" />
+    <task id="destinations" name="Confirmar destinos" />
+    <parallelGateway id="join" name="join" />
+    <task id="visits" name="Executar visitas" />
+    <task id="receipt" name="Conferir todos os itens" />
+    <exclusiveGateway id="resolved" name="resolved" />
+    <task id="decision" name="Decidir divergência" />
+    <task id="lastout" name="Última saída do local" />
+    <task id="gateout" name="Saída da Portaria" />
+    <endEvent id="end" name="end" />
+    <sequenceFlow id="e1" sourceRef="start" targetRef="fork" name="" />
+    <sequenceFlow id="e2" sourceRef="fork" targetRef="gatein" name="" />
+    <sequenceFlow id="e3" sourceRef="fork" targetRef="review" name="" />
+    <sequenceFlow id="e4" sourceRef="review" targetRef="destinations" name="aprovado" />
+    <sequenceFlow id="e5" sourceRef="gatein" targetRef="join" name="chegada registrada" />
+    <sequenceFlow id="e6" sourceRef="destinations" targetRef="join" name="" />
+    <sequenceFlow id="e7" sourceRef="join" targetRef="visits" name="" />
+    <sequenceFlow id="e8" sourceRef="visits" targetRef="receipt" name="" />
+    <sequenceFlow id="e9" sourceRef="receipt" targetRef="resolved" name="resolvido?" />
+    <sequenceFlow id="e10" sourceRef="resolved" targetRef="decision" name="não" />
+    <sequenceFlow id="e11" sourceRef="decision" targetRef="resolved" name="decisão" />
+    <sequenceFlow id="e12" sourceRef="resolved" targetRef="lastout" name="sim" />
+    <sequenceFlow id="e13" sourceRef="lastout" targetRef="gateout" name="" />
+    <sequenceFlow id="e14" sourceRef="gateout" targetRef="end" name="" />
+  </process>
+  <collaboration id="ReceivingCollaboration">
+    <participant id="SupplierParticipant" name="Fornecedor" processRef="SupplierProcess" />
+    <participant id="ReceivingParticipant" name="Recebimento na unidade" processRef="ReceivingProcess" />
+    <messageFlow id="RequestMessage" sourceRef="request" targetRef="start" name="Solicitação" />
+  </collaboration>
+  <bpmndi:BPMNDiagram id="DiagramV2">
+    <bpmndi:BPMNPlane id="PlaneV2" bpmnElement="ReceivingCollaboration">
+      <bpmndi:BPMNShape id="Shape_SupplierParticipant" bpmnElement="SupplierParticipant" isHorizontal="true">
+        <dc:Bounds x="40" y="125" width="2300" height="145" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ReceivingParticipant" bpmnElement="ReceivingParticipant" isHorizontal="true">
+        <dc:Bounds x="35" y="285" width="2310" height="635" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane0" bpmnElement="Lane0" isHorizontal="true">
+        <dc:Bounds x="40" y="290" width="2300" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane1" bpmnElement="Lane1" isHorizontal="true">
+        <dc:Bounds x="40" y="460" width="2300" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane2" bpmnElement="Lane2" isHorizontal="true">
+        <dc:Bounds x="40" y="630" width="2300" height="280" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_request" bpmnElement="request" isHorizontal="true">
+        <dc:Bounds x="100" y="160" width="250" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start" isHorizontal="true">
+        <dc:Bounds x="170" y="760" width="45" height="45" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_fork" bpmnElement="fork" isHorizontal="true">
+        <dc:Bounds x="290" y="750" width="65" height="65" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_gatein" bpmnElement="gatein" isHorizontal="true">
+        <dc:Bounds x="440" y="325" width="260" height="85" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_review" bpmnElement="review" isHorizontal="true">
+        <dc:Bounds x="440" y="505" width="260" height="85" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_destinations" bpmnElement="destinations" isHorizontal="true">
+        <dc:Bounds x="710" y="690" width="250" height="95" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_join" bpmnElement="join" isHorizontal="true">
+        <dc:Bounds x="1020" y="710" width="65" height="65" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_visits" bpmnElement="visits" isHorizontal="true">
+        <dc:Bounds x="1150" y="690" width="230" height="95" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_receipt" bpmnElement="receipt" isHorizontal="true">
+        <dc:Bounds x="1440" y="690" width="250" height="95" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_resolved" bpmnElement="resolved" isHorizontal="true">
+        <dc:Bounds x="1770" y="705" width="75" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_decision" bpmnElement="decision" isHorizontal="true">
+        <dc:Bounds x="1680" y="505" width="260" height="85" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lastout" bpmnElement="lastout" isHorizontal="true">
+        <dc:Bounds x="1930" y="690" width="250" height="95" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_gateout" bpmnElement="gateout" isHorizontal="true">
+        <dc:Bounds x="1930" y="325" width="250" height="85" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_end" bpmnElement="end" isHorizontal="true">
+        <dc:Bounds x="2270" y="345" width="45" height="45" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_RequestMessage" bpmnElement="RequestMessage">
+        <di:waypoint x="225.0" y="250" />
+        <di:waypoint x="225" y="285" />
+        <di:waypoint x="190" y="285" />
+        <di:waypoint x="192.5" y="760" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e1" bpmnElement="e1">
+        <di:waypoint x="215" y="782.5" />
+        <di:waypoint x="290" y="782.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e2" bpmnElement="e2">
+        <di:waypoint x="322.5" y="750" />
+        <di:waypoint x="322" y="367" />
+        <di:waypoint x="440" y="367.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e3" bpmnElement="e3">
+        <di:waypoint x="322.5" y="750" />
+        <di:waypoint x="370" y="782" />
+        <di:waypoint x="370" y="547" />
+        <di:waypoint x="440" y="547.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e4" bpmnElement="e4">
+        <di:waypoint x="570.0" y="590" />
+        <di:waypoint x="570" y="650" />
+        <di:waypoint x="835" y="650" />
+        <di:waypoint x="835.0" y="690" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e5" bpmnElement="e5">
+        <di:waypoint x="700" y="367.5" />
+        <di:waypoint x="1052" y="367" />
+        <di:waypoint x="1052.5" y="710" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e6" bpmnElement="e6">
+        <di:waypoint x="960" y="737.5" />
+        <di:waypoint x="990.0" y="737.5" />
+        <di:waypoint x="990.0" y="742.5" />
+        <di:waypoint x="1020" y="742.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e7" bpmnElement="e7">
+        <di:waypoint x="1085" y="742.5" />
+        <di:waypoint x="1117.5" y="742.5" />
+        <di:waypoint x="1117.5" y="737.5" />
+        <di:waypoint x="1150" y="737.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e8" bpmnElement="e8">
+        <di:waypoint x="1380" y="737.5" />
+        <di:waypoint x="1440" y="737.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e9" bpmnElement="e9">
+        <di:waypoint x="1690" y="737.5" />
+        <di:waypoint x="1730.0" y="737.5" />
+        <di:waypoint x="1730.0" y="742.5" />
+        <di:waypoint x="1770" y="742.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e10" bpmnElement="e10">
+        <di:waypoint x="1807.5" y="705" />
+        <di:waypoint x="1808.75" y="705" />
+        <di:waypoint x="1808.75" y="590" />
+        <di:waypoint x="1810.0" y="590" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e11" bpmnElement="e11">
+        <di:waypoint x="1940" y="547.5" />
+        <di:waypoint x="1880" y="547" />
+        <di:waypoint x="1880" y="742" />
+        <di:waypoint x="1845" y="742.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e12" bpmnElement="e12">
+        <di:waypoint x="1845" y="742.5" />
+        <di:waypoint x="1887.5" y="742.5" />
+        <di:waypoint x="1887.5" y="737.5" />
+        <di:waypoint x="1930" y="737.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e13" bpmnElement="e13">
+        <di:waypoint x="2055.0" y="690" />
+        <di:waypoint x="2055.0" y="410" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_e14" bpmnElement="e14">
+        <di:waypoint x="2180" y="367.5" />
+        <di:waypoint x="2270" y="367.5" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
