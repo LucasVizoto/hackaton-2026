@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Wait for the configured database, then exec the supervised Gunicorn master."""
 import os
 import subprocess
