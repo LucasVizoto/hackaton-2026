@@ -34,5 +34,6 @@ os.execv(str(root / "backend/.venv/bin/gunicorn"), [
     "gunicorn", "config.wsgi:application", "--bind", "127.0.0.1:8000",
     "--workers", "3", "--worker-class", "sync", "--timeout", "60",
     "--graceful-timeout", "30", "--access-logfile", "-", "--error-logfile", "-",
+    "--no-control-socket",
     "--access-logformat", '%(h)s %(m)s %(U)s %(s)s %(L)s',
 ])
