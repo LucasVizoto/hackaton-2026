@@ -15,6 +15,8 @@ const auth: CanActivateFn = (_route, state) => {
   const path = pathOf(state.url);
   if (user.role === "portaria" && path !== "/portaria") return router.parseUrl("/portaria");
   if (path === "/chegadas" && !api.can("warehouse")) return router.parseUrl(homeOf(api));
+  // The warehouse follows existing appointments; only suppliers and Purchasing schedule.
+  if (path === "/agenda/novo" && !api.can("supplier", "purchasing")) return router.parseUrl("/agenda");
   return true;
 };
 const guest: CanActivateFn = (_route, state) => {
@@ -69,13 +71,8 @@ export const routes: Routes = [
       import("./features/receiving").then((m) => m.AppointmentList),
     data: { mode: "compras" },
   },
-  {
-    path: "operacao",
-    canActivate: [auth],
-    loadComponent: () =>
-      import("./features/receiving").then((m) => m.AppointmentList),
-    data: { mode: "operacao" },
-  },
+  // "Operação" showed the same calendar as the agenda; old links land on the agenda.
+  { path: "operacao", redirectTo: "agenda" },
   {
     path: "nao-recebimentos",
     canActivate: [auth],

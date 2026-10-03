@@ -146,6 +146,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "purchase_reviewed_at",
             "warehouse_status",
             "warehouse_reviewed_at",
+            "divergence_notes",
+            "divergence_reported_at",
             "operation_status",
             "arrived_at",
             "started_at",

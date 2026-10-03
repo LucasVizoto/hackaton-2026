@@ -181,7 +181,8 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        require_role(request.user, "supplier", "purchasing", "warehouse")
+        # The warehouse only follows existing appointments; suppliers and Purchasing schedule.
+        require_role(request.user, "supplier", "purchasing")
         data = _payload(AppointmentCreateSerializer, request)
         if user_role(request.user) == "supplier":
             supplier = request.user.profile.supplier
@@ -235,6 +236,10 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="warehouse-review")
     def warehouse_review(self, request, pk=None):
         return self._apply(request, WarehouseReviewSerializer, services.warehouse_review)
+
+    @action(detail=True, methods=["post"], url_path="forward-to-purchasing")
+    def forward_to_purchasing(self, request, pk=None):
+        return self._apply(request, CancelSerializer, services.forward_to_purchasing)
 
     @action(detail=True, methods=["post"])
     def arrive(self, request, pk=None):

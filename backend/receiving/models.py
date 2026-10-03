@@ -123,6 +123,9 @@ class Appointment(UUIDModel):
         related_name="warehouse_reviews",
     )
     warehouse_reviewed_at = models.DateTimeField(null=True)
+    # Invoice divergence spotted by the warehouse and sent back to Purchasing; cleared on review.
+    divergence_notes = models.TextField(blank=True)
+    divergence_reported_at = models.DateTimeField(null=True)
     operation_status = models.CharField(max_length=20, choices=OPERATION, default="waiting")
     arrived_at = models.DateTimeField(null=True)
     started_at = models.DateTimeField(null=True)

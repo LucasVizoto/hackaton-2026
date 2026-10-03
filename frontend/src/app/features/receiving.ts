@@ -62,6 +62,9 @@ export interface Appointment {
   warehouse_status: string;
   operation_status: string;
   capacity_reserved?: boolean;
+  comparison_notes?: string;
+  divergence_notes?: string;
+  divergence_reported_at?: string | null;
   arrived_at: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -106,6 +109,12 @@ interface InvoiceData {
     quantity: string | null;
     unit_value: string | null;
   }[];
+}
+interface SlotAvailability {
+  time: string;
+  occupied_units: number;
+  available_units: number;
+  can_batida: boolean;
 }
 function appointmentDate(value?: string) {
   if (!value) return "Data não informada";
@@ -160,32 +169,30 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, PageHeader, FeedbackState, LoadingState, ScheduleCalendar],
+  imports: [RouterLink, IonButton, PageHeader, FeedbackState, ScheduleCalendar],
   template: `<div class="page">
     <app-page-header [title]="title" [subtitle]="subtitle">
-      @if (api.can("supplier", "warehouse")) {
-        <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
+      @if (canSchedule) {
+        <ion-button routerLink="/agenda/novo">{{ supplierOnly ? "Agendar entrega" : "Agendar recebimento" }}</ion-button>
       }
     </app-page-header>
-    <div class="notice">
-      Capacidade global por horário: uma carga batida exclusiva ou até duas
-      cargas paletizadas / big bag. A chegada pode ser registrada com aprovações
-      pendentes.
-    </div>
-    @if (supplierOnly) {
-      <div class="notice">Você visualiza somente os agendamentos vinculados ao seu cadastro de fornecedor.</div>
-    }
+    <details class="help-box">
+      <summary>Como funciona a agenda?</summary>
+      <ul>
+        @for (tip of tips; track tip) {
+          <li>{{ tip }}</li>
+        }
+      </ul>
+    </details>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
-    }
-    @if (busy() && !rows().length) {
-      <app-loading-state label="Carregando agenda…" />
     }
     <app-schedule-calendar
       [appointments]="rows()"
       [warehouses]="catalog.warehouses()"
       [mode]="mode"
       [busy]="busy()"
+      [canSchedule]="canSchedule && mode === 'agenda'"
       (rangeChange)="onRange($event)"
     />
   </div>`,
@@ -198,23 +205,43 @@ export class AppointmentList implements OnInit {
   busy = signal(false);
   error = signal("");
   title = "Agenda de recebimento";
-  subtitle = "Consulte a reserva de cada caminhão no calendário diário, semanal ou mensal.";
-  mode: "agenda" | "compras" | "operacao" = "agenda";
+  subtitle = "Clique em um caminhão para ver os detalhes e registrar o próximo passo.";
+  mode: "agenda" | "compras" = "agenda";
+  tips: string[] = [];
   private request = 0;
   get supplierOnly() {
     return this.api.user()?.role === "supplier";
   }
+  get canSchedule() {
+    return this.api.can("supplier", "purchasing");
+  }
   ngOnInit() {
-    const mode = this.route.snapshot.data["mode"];
-    if (mode === "compras") {
+    const capacityTip =
+      "Cada horário recebe até 2 caminhões. Carga batida ocupa o horário inteiro.";
+    if (this.route.snapshot.data["mode"] === "compras") {
       this.mode = "compras";
       this.title = "Conferência de Compras";
-      this.subtitle = "Compare a nota e o pedido no calendário antes de registrar a decisão.";
-    }
-    if (mode === "operacao") {
-      this.mode = "operacao";
-      this.title = "Operação do armazém";
-      this.subtitle = "Acompanhe chegada, descarga e conclusão no calendário da operação.";
+      this.subtitle = "O filtro “A conferir” já vem marcado. Clique em um caminhão para comparar a nota com o pedido.";
+      this.tips = [
+        "Abra o caminhão e use “Conferir nota / pedido” para aprovar ou rejeitar.",
+        "O aviso “Divergência” indica uma nota que o armazém devolveu para nova conferência.",
+        capacityTip,
+      ];
+    } else if (this.supplierOnly) {
+      this.title = "Minhas entregas";
+      this.subtitle = "Veja suas entregas agendadas. Para agendar, clique em um horário livre ou em “Agendar entrega”.";
+      this.tips = [
+        "Horários marcados como “Livre” podem ser agendados. Os demais já estão ocupados.",
+        "Você vê somente as entregas do seu cadastro de fornecedor.",
+        capacityTip,
+      ];
+    } else {
+      this.tips = [
+        "Quando o caminhão chegar, abra-o e use “Registrar chegada”.",
+        "A descarga só começa depois que Compras aprovar a nota e o armazém escolher o destino.",
+        "Encontrou diferença na nota? Abra o caminhão e use “Encaminhar para Compras”.",
+        capacityTip,
+      ];
     }
     void this.catalog.load().catch(() => undefined);
   }
@@ -260,7 +287,7 @@ export class AppointmentList implements OnInit {
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner, PageHeader, LoadingState, FeedbackState],
   template: `<div class="page form-page">
-    <app-page-header title="Agendar recebimento" subtitle="Anexe a nota e reserve um horário global.">
+    <app-page-header [title]="supplierOnly ? 'Agendar entrega' : 'Agendar recebimento'" subtitle="Preencha as 3 etapas. O horário só fica reservado quando você confirmar.">
       <a routerLink="/agenda">Voltar à agenda</a>
     </app-page-header>
     @if (error()) {
@@ -268,11 +295,11 @@ export class AppointmentList implements OnInit {
     }
     <form [formGroup]="form" (ngSubmit)="save()">
       <section class="panel">
-        <h2>Nota e carga</h2>
+        <h2><span class="step-number" aria-hidden="true">1</span> Carga e horário</h2>
         <div class="form-grid">
-          @if (api.can("warehouse", "purchasing")) {
+          @if (!supplierOnly) {
             <label
-              >Fornecedor<select formControlName="supplier">
+              >Fornecedor<select formControlName="supplier" required>
                 <option value="">Selecione</option>
                 @for (s of catalog.suppliers(); track s.id) {
                   <option [value]="s.id">{{ s.name }} · {{ s.code }}</option>
@@ -280,6 +307,44 @@ export class AppointmentList implements OnInit {
               </select></label
             >
           }
+          <label
+            >Tipo de carga<select formControlName="packaging" (change)="keepValidTime()">
+              <option value="paletizada">Paletizada</option>
+              <option value="big_bag">Big bag</option>
+              <option value="maquina_implemento">Máquina ou implemento</option>
+              <option value="batida">Batida (ocupa o horário inteiro)</option>
+            </select></label
+          ><label
+            >Data da entrega<input
+              type="date"
+              formControlName="date"
+              [min]="minDate"
+              (change)="availability()"
+            /><span class="field-help">{{ dateHelp }}</span></label
+          >
+        </div>
+        <fieldset class="slot-picker section">
+          <legend>Horário</legend>
+          @if (availabilityBusy()) {
+            <app-loading-state label="Consultando horários livres…" />
+          } @else if (calendarClosed()) {
+            <p class="field-help">Escolha um dia útil para ver os horários.</p>
+          } @else {
+            <div class="slot-options">
+              @for (s of slots(); track s.time) {
+                <label class="slot-option" [class.is-disabled]="!slotFits(s)" [class.is-selected]="form.controls.time.value === s.time">
+                  <input type="radio" formControlName="time" [value]="s.time" [attr.disabled]="slotFits(s) ? null : true" />
+                  <strong>{{ s.time.replace(":00", "h") }}</strong>
+                  <span>{{ slotText(s) }}</span>
+                </label>
+              }
+            </div>
+          }
+        </fieldset>
+      </section>
+      <section class="panel">
+        <h2><span class="step-number" aria-hidden="true">2</span> Nota fiscal</h2>
+        <div class="form-grid">
           <label class="wide"
             >Arquivo da nota<input
               type="file"
@@ -309,95 +374,32 @@ export class AppointmentList implements OnInit {
                   ? "Obrigatória para PDF. O número da nota precisa constar na chave."
                   : "No XML, lida do arquivo e conferida com o número da nota.")
             }}</span></label
-          ><label
-            >Placa do veículo<input
-              formControlName="vehicle_plate"
-              placeholder="Informe a identificação" /></label
-          ><label
-            >Acondicionamento<select formControlName="packaging">
-              <option value="paletizada">Paletizada</option>
-              <option value="big_bag">Big bag</option>
-              <option value="maquina_implemento">Máquina ou implemento</option>
-              <option value="batida">Batida (horário exclusivo)</option>
-            </select></label
-          ><label class="wide"
-            >Observações<textarea formControlName="notes"></textarea>
-          </label>
+          >
         </div>
       </section>
       <section class="panel">
-        <h2>Data e horário</h2>
+        <h2><span class="step-number" aria-hidden="true">3</span> Caminhão</h2>
         <div class="form-grid">
           <label
-            >Data<input
-              type="date"
-              formControlName="date"
-              (change)="availability()"
-            /><span class="field-help">{{ dateHelp }}</span></label
-          ><label
-            >Horário<select formControlName="time">
-              <option value="08:00">08h00</option>
-              <option value="10:00">10h00</option>
-              <option value="13:00">13h00</option>
-              <option value="15:00">15h00</option>
-            </select></label
-          >
+            >Placa do veículo<input
+              formControlName="vehicle_plate"
+              placeholder="Ex.: ABC1D23"
+              autocapitalize="characters" /></label
+          ><label class="wide"
+            >Observações (opcional)<textarea formControlName="notes"></textarea>
+          </label>
         </div>
-        @if (availabilityBusy()) {
-          <app-loading-state label="Consultando horários disponíveis…" />
-        } @else if (slots().length) {
-          <h3 class="section">Disponibilidade global no dia</h3>
-          <div class="table-wrap availability-table" tabindex="0" role="region" aria-label="Disponibilidade por horário">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Horário</th>
-                  <th scope="col">Capacidade ocupada</th>
-                  <th scope="col">Disponibilidade</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (s of slots(); track s.time) {
-                  <tr [class.selected-slot]="s.time === form.controls.time.value">
-                    <td><strong>{{ s.time }}</strong></td>
-                    <td class="numeric">
-                      {{ s.used_units ?? s.occupied_units ?? "Consultar" }}
-                    </td>
-                    <td>
-                      <span class="slot-availability"
-                        [class.available]="(s.available_units ?? s.remaining_units ?? -1) > 0"
-                        [class.unavailable]="(s.available_units ?? s.remaining_units) === 0">{{
-                        s.available_units ??
-                          s.remaining_units ??
-                          "A API confirmará a reserva"
-                      }}@if (s.available_units != null || s.remaining_units != null) { unidade(s) }</span>
-                      @if (s.can_batida === true) {
-                        <span class="table-cell-secondary">Batida exclusiva disponível</span>
-                      } @else if (s.can_batida === false) {
-                        <span class="table-cell-secondary">Batida exclusiva indisponível</span>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-          <p class="field-help section">A disponibilidade é uma consulta. A reserva será confirmada ao salvar.</p>
-        }
-        <p class="site-note">
-          Sem agendamento não há descarga. Um agendamento no ato também precisa
-          de validações antes da entrada.
-        </p>
       </section>
+      @if (missing().length) {
+        <p class="field-help">Para confirmar, falta: {{ missing().join(", ") }}.</p>
+      }
       <div class="actions">
-        <ion-button type="submit" [disabled]="busy() || form.invalid || !file || !!keyError() || calendarClosed()">
+        <ion-button type="submit" [disabled]="busy() || missing().length > 0">
           @if (busy()) {
             <ion-spinner name="dots" />
           }
-          Salvar e reservar horário</ion-button
-        ><ion-button fill="outline" routerLink="/agenda"
-          >Cancelar edição</ion-button
-        >
+          Confirmar agendamento</ion-button
+        ><ion-button fill="outline" routerLink="/agenda">Cancelar</ion-button>
       </div>
     </form>
   </div>`,
@@ -406,23 +408,16 @@ export class AppointmentCreate implements OnInit {
   api = inject(Api);
   catalog = inject(Catalog);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
   busy = signal(false);
   availabilityBusy = signal(false);
   error = signal("");
-  slots = signal<
-    {
-      time: string;
-      used_units?: number;
-      occupied_units?: number;
-      available_units?: number;
-      remaining_units?: number;
-      can_batida?: boolean;
-    }[]
-  >([]);
+  slots = signal<SlotAvailability[]>([]);
   file: File | null = null;
   invoiceId = "";
   calendarClosed = signal(false);
+  readonly minDate = today();
   form = this.fb.nonNullable.group({
     supplier: [""],
     number: [""],
@@ -431,8 +426,38 @@ export class AppointmentCreate implements OnInit {
     packaging: ["paletizada", Validators.required],
     notes: [""],
     date: [nextBusinessDay(), Validators.required],
-    time: ["08:00", Validators.required],
+    time: ["", Validators.required],
   });
+  get supplierOnly() {
+    return this.api.user()?.role === "supplier";
+  }
+  slotFits(slot: SlotAvailability) {
+    return this.form.controls.packaging.value === "batida"
+      ? slot.can_batida
+      : slot.available_units > 0;
+  }
+  slotText(slot: SlotAvailability) {
+    if (this.slotFits(slot))
+      return slot.available_units === 1 ? "1 vaga livre" : `${slot.available_units} vagas livres`;
+    return this.form.controls.packaging.value === "batida" && slot.available_units > 0
+      ? "Não cabe carga batida"
+      : "Lotado";
+  }
+  keepValidTime() {
+    const selected = this.slots().find((s) => s.time === this.form.controls.time.value);
+    if (selected && !this.slotFits(selected)) this.form.controls.time.setValue("");
+  }
+  missing() {
+    const v = this.form.getRawValue();
+    const items: string[] = [];
+    if (!this.supplierOnly && !v.supplier) items.push("fornecedor");
+    if (!v.time) items.push("horário");
+    if (!this.file) items.push("arquivo da nota");
+    if (this.isPdf() && (!v.number || !v.access_key)) items.push("número e chave da nota");
+    if (this.keyError()) items.push("corrigir a chave de acesso");
+    if (!v.vehicle_plate.trim()) items.push("placa");
+    return items;
+  }
   get dateHelp() {
     const selected = this.form.controls.date.value;
     if (this.calendarClosed() || isWeekend(selected)) return closedDayMessage(selected);
@@ -443,9 +468,14 @@ export class AppointmentCreate implements OnInit {
     return "Segunda a sexta, conforme o calendário configurado.";
   }
   ngOnInit() {
-    if (this.api.can("warehouse", "purchasing"))
+    if (!this.supplierOnly)
       void this.catalog.load().catch((e) => this.error.set(apiError(e)));
-    void this.availability();
+    // Coming from a free slot on the calendar pre-fills its date and time.
+    const query = this.route.snapshot.queryParamMap;
+    const date = query.get("date");
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= this.minDate)
+      this.form.controls.date.setValue(date);
+    void this.availability(query.get("time") ?? "");
   }
   fileChange(event: Event) {
     this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
@@ -458,26 +488,24 @@ export class AppointmentCreate implements OnInit {
     const { number, access_key } = this.form.getRawValue();
     return invoiceKeyError(number, access_key);
   }
-  async availability() {
+  async availability(preferredTime = this.form.controls.time.value) {
     this.availabilityBusy.set(true);
     this.slots.set([]);
+    this.form.controls.time.setValue("");
     try {
-      const r = await this.api.get<
-        { slots?: unknown[]; calendar_open?: boolean } | unknown[]
-      >(`slots/availability/?date=${this.form.controls.date.value}`);
-      if (!Array.isArray(r) && r.calendar_open === false) {
-        this.slots.set([]);
+      const r = await this.api.get<{ slots: SlotAvailability[]; calendar_open: boolean }>(
+        `slots/availability/?date=${this.form.controls.date.value}`,
+      );
+      if (!r.calendar_open) {
         this.calendarClosed.set(true);
         this.error.set(closedDayMessage(this.form.controls.date.value));
         return;
       }
       this.calendarClosed.set(false);
       this.error.set("");
-      this.slots.set(
-        (Array.isArray(r) ? r : (r.slots ?? [])) as ReturnType<
-          typeof this.slots
-        >,
-      );
+      this.slots.set(r.slots);
+      const preferred = r.slots.find((s) => s.time === preferredTime);
+      if (preferred && this.slotFits(preferred)) this.form.controls.time.setValue(preferred.time);
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
@@ -491,7 +519,7 @@ export class AppointmentCreate implements OnInit {
       this.error.set(closedDayMessage(selected));
       return;
     }
-    if (!this.file || this.form.invalid) return;
+    if (!this.file || this.missing().length) return;
     this.busy.set(true);
     this.error.set("");
     try {
@@ -538,7 +566,7 @@ export class AppointmentCreate implements OnInit {
     LoadingState, FeedbackState,
   ],
   template: `<div class="page">
-    <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
+    <app-page-header title="Detalhes do recebimento">
       <a routerLink="/agenda">Voltar à agenda</a>
     </app-page-header>
     @if (error()) {
@@ -558,53 +586,49 @@ export class AppointmentCreate implements OnInit {
             <h2 class="plate" id="receiving-summary-title">{{ item.vehicle_plate || "Veículo sem placa" }}</h2>
             <p>{{ item.supplier_name }}</p>
           </div>
-          <p class="muted">{{ date(item.date || item.slot?.date) }} às {{ item.time || item.slot?.time }}</p>
+          <p class="summary-when"><strong>{{ date(item.date || item.slot?.date) }} às {{ (item.time || item.slot?.time || "").replace(":00", "h") }}</strong></p>
         </div>
-        <dl class="metadata approval-states" aria-label="Situação independente de cada área">
+        <dl class="metadata approval-states" aria-label="Situação de cada área">
           <div>
-            <dt>Compras</dt>
+            <dt>Conferência de Compras</dt>
             <dd><app-status [value]="item.purchase_status" /></dd>
           </div>
           <div>
-            <dt>Armazém</dt>
-            <dd><app-status [value]="item.warehouse_status" /></dd>
+            <dt>Destino no armazém</dt>
+            <dd><app-status [value]="item.warehouse_status === 'approved' ? 'approved' : 'pending'" /></dd>
           </div>
           <div>
-            <dt>Operação</dt>
+            <dt>Caminhão</dt>
             <dd><app-status [value]="item.operation_status" /></dd>
           </div>
         </dl>
         <dl class="metadata section">
           <div>
-            <dt>Chegada</dt>
-            <dd>{{ dt(item.arrived_at) }}</dd>
-          </div>
-          <div>
-            <dt>Entrada</dt>
-            <dd>{{ dt(item.started_at) }}</dd>
-          </div>
-          <div>
-            <dt>Saída</dt>
-            <dd>{{ dt(item.finished_at) }}</dd>
-          </div>
-          <div>
-            <dt>Nota</dt>
-            <dd>
-              {{
-                item.invoice_number ||
-                  item.invoice_detail?.number ||
-                  "Número não informado"
-              }}
-            </dd>
-          </div>
-          <div>
-            <dt>Acondicionamento</dt>
+            <dt>Tipo de carga</dt>
             <dd>{{ packaging(item.packaging) }}</dd>
           </div>
           <div>
-            <dt>Origem</dt>
-            <dd>{{ origin(item.origin) }}</dd>
+            <dt>Nota fiscal</dt>
+            <dd>{{ item.invoice_number || item.invoice_detail?.number || "Número não informado" }}</dd>
           </div>
+          @if (item.arrived_at) {
+            <div>
+              <dt>Chegada</dt>
+              <dd>{{ dt(item.arrived_at) }}</dd>
+            </div>
+          }
+          @if (item.started_at) {
+            <div>
+              <dt>Entrada</dt>
+              <dd>{{ dt(item.started_at) }}</dd>
+            </div>
+          }
+          @if (item.finished_at) {
+            <div>
+              <dt>Saída</dt>
+              <dd>{{ dt(item.finished_at) }}</dd>
+            </div>
+          }
         </dl>
         @if (item.notes) {
           <div class="section">
@@ -612,12 +636,23 @@ export class AppointmentCreate implements OnInit {
             <p>{{ item.notes }}</p>
           </div>
         }
-        <h3 class="section">Ações do recebimento</h3>
-        @if (api.can("warehouse") && warehousePending(item).length) {
-          <div class="notice section" role="status">
-            <strong>Antes da entrada:</strong> {{ warehousePending(item).join(" · ") }}
-          </div>
-        }
+      </section>
+      @if (item.divergence_notes) {
+        <div class="notice divergence" role="status">
+          <strong>Divergência enviada para Compras</strong>
+          @if (item.divergence_reported_at) {
+            em {{ dt(item.divergence_reported_at) }}
+          }: {{ item.divergence_notes }}
+        </div>
+      }
+      @if (item.purchase_status === "rejected" && item.comparison_notes) {
+        <div class="notice divergence" role="status">
+          <strong>Compras rejeitou a nota:</strong> {{ item.comparison_notes }}
+        </div>
+      }
+      <section class="panel next-step" aria-labelledby="next-step-title">
+        <h2 id="next-step-title">Próximo passo</h2>
+        <p class="next-step-text">{{ nextStep(item) }}</p>
         <div class="actions section">
           @if (api.can("warehouse")) {
             @if (item.operation_status === "waiting") {
@@ -648,127 +683,34 @@ export class AppointmentCreate implements OnInit {
               >Conferir nota / pedido</ion-button
             >
           }
+          @if (api.can("warehouse") && editable(item)) {
+            <ion-button fill="outline" (click)="open('forward')" [disabled]="busy()"
+              >Encaminhar para Compras</ion-button
+            >
+          }
           <ion-button fill="outline" (click)="download()" [disabled]="busy()">Baixar nota</ion-button>
         </div>
-        @if (item.operation_status === "in_progress" && !visitsDone(item) && api.can("warehouse")) {
-          <p class="field-help">Conclua as etapas em “Destinos e etapas” para liberar a conclusão do recebimento.</p>
-        }
-        @if (api.can("warehouse") && editable(item)) {
-          <h3 class="section">Exceções</h3>
-          <div class="actions section">
-            <ion-button fill="outline" (click)="open('reschedule')" [disabled]="busy()"
-              >Reagendar por natureza</ion-button
-            ><ion-button
-              fill="outline"
-              [routerLink]="['/nao-recebimentos/novo']"
-              [queryParams]="{ appointment: item.id }"
-              >Registrar não recebimento</ion-button
-            ><ion-button fill="outline" color="danger" (click)="open('cancel')" [disabled]="busy()"
-              >Cancelar agendamento</ion-button
-            >
-          </div>
-        }
-        @if (api.user()?.role === "supplier" && editable(item)) {
-          <div class="actions section">
-            <ion-button
-              fill="outline"
-              color="danger"
-              (click)="open('cancel')"
-              [disabled]="busy()"
-              >Cancelar agendamento</ion-button
-            >
-          </div>
+        @if ((api.can("warehouse") || api.user()?.role === "supplier") && editable(item)) {
+          <details class="help-box section other-actions">
+            <summary>Outras ações</summary>
+            <div class="actions">
+              @if (api.can("warehouse")) {
+                <ion-button fill="outline" (click)="open('reschedule')" [disabled]="busy()"
+                  >Reagendar (chuva ou imprevisto)</ion-button
+                ><ion-button
+                  fill="outline"
+                  [routerLink]="['/nao-recebimentos/novo']"
+                  [queryParams]="{ appointment: item.id }"
+                  >Registrar não recebimento</ion-button
+                >
+              }
+              <ion-button fill="outline" color="danger" (click)="open('cancel')" [disabled]="busy()"
+                >Cancelar agendamento</ion-button
+              >
+            </div>
+          </details>
         }
       </section>
-      @if (invoiceData(); as invoice) {
-        <section class="panel">
-          <h2>Dados declarados na nota</h2>
-          <dl class="metadata">
-            <div>
-              <dt>Número</dt>
-              <dd>{{ invoice.number || "Não informado" }}</dd>
-            </div>
-            <div>
-              <dt>Emitente declarado</dt>
-              <dd>{{ invoice.extracted?.issuer?.name || "Não extraído" }}</dd>
-            </div>
-            <div>
-              <dt>Emissão declarada</dt>
-              <dd>{{ invoiceDate(invoice.extracted?.issued_at) }}</dd>
-            </div>
-            <div>
-              <dt>Chave declarada</dt>
-              <dd class="break-word">
-                {{ invoice.access_key || "Não extraída" }}
-              </dd>
-            </div>
-          </dl>
-          <p class="notice section">
-            A extração organiza o que o emitente declarou; não valida
-            autenticidade fiscal. Códigos de itens são do fornecedor e não estão
-            vinculados automaticamente aos códigos internos. Acondicionamento e
-            destinos exigem confirmação.
-          </p>
-          @if (invoice.items.length) {
-            <div class="table-wrap" tabindex="0" role="region" aria-label="Itens declarados na nota">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Código do fornecedor</th>
-                    <th>Descrição</th>
-                    <th>Unidade</th>
-                    <th class="numeric">Quantidade declarada</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (line of invoice.items; track line.id) {
-                    <tr>
-                      <td>{{ line.position }}</td>
-                      <td>{{ line.supplier_code }}</td>
-                      <td class="wrap">{{ line.description }}</td>
-                      <td>{{ line.unit }}</td>
-                      <td class="numeric">
-                        {{ line.quantity == null ? "Não declarada" : decimal(line.quantity) }}
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          } @else {
-            <p class="muted">
-              Itens não extraídos. Confira o anexo privado antes da decisão de
-              Compras.
-            </p>
-          }
-          @if (invoice.extracted?.volumes?.length) {
-            <h3 class="section">Volumes declarados</h3>
-            <div class="table-wrap" tabindex="0" role="region" aria-label="Volumes declarados na nota">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Quantidade</th>
-                    <th>Espécie</th>
-                    <th>Peso líquido declarado (kg)</th>
-                    <th>Peso bruto declarado (kg)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (v of invoice.extracted?.volumes; track $index) {
-                    <tr>
-                      <td>{{ v.quantity == null ? "Não declarado" : decimal(v.quantity) }}</td>
-                      <td>{{ v.species || "Não declarada" }}</td>
-                      <td>{{ v.net_weight == null ? "Não declarado" : decimal(v.net_weight) }}</td>
-                      <td>{{ v.gross_weight == null ? "Não declarado" : decimal(v.gross_weight) }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-        </section>
-      }
       @if (action()) {
         <form class="panel form-page" [formGroup]="form" (ngSubmit)="execute()">
           <h2>{{ actionTitle() }}</h2>
@@ -863,6 +805,19 @@ export class AppointmentCreate implements OnInit {
               >
             </div>
           }
+          @if (action() === "forward") {
+            <div class="notice">
+              A nota volta para Compras conferir de novo. A reserva do horário é
+              mantida; a descarga fica bloqueada até a nova aprovação.
+            </div>
+            <label
+              >O que está diferente na nota?<textarea
+                formControlName="reason"
+                required
+                placeholder="Ex.: quantidade de sacos diferente da nota; produto trocado"
+              ></textarea>
+            </label>
+          }
           @if (action() === "cancel") {
             <div class="notice">
               A capacidade ficará retida para decisão do armazém sobre quem
@@ -934,11 +889,98 @@ export class AppointmentCreate implements OnInit {
               fill="outline"
               (click)="action.set('')"
               [disabled]="busy()"
-              >Fechar edição</ion-button
+              >Voltar</ion-button
             >
           </div>
         </form>
       }
+      @if (invoiceData(); as invoice) {
+        <section class="panel">
+          <h2>Dados declarados na nota</h2>
+          <dl class="metadata">
+            <div>
+              <dt>Número</dt>
+              <dd>{{ invoice.number || "Não informado" }}</dd>
+            </div>
+            <div>
+              <dt>Emitente declarado</dt>
+              <dd>{{ invoice.extracted?.issuer?.name || "Não extraído" }}</dd>
+            </div>
+            <div>
+              <dt>Emissão declarada</dt>
+              <dd>{{ invoiceDate(invoice.extracted?.issued_at) }}</dd>
+            </div>
+            <div>
+              <dt>Chave declarada</dt>
+              <dd class="break-word">
+                {{ invoice.access_key || "Não extraída" }}
+              </dd>
+            </div>
+          </dl>
+          <p class="field-help section">
+            Dados copiados da nota enviada pelo fornecedor. Confira com o pedido e com a carga física.
+          </p>
+          @if (invoice.items.length) {
+            <div class="table-wrap" tabindex="0" role="region" aria-label="Itens declarados na nota">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Código do fornecedor</th>
+                    <th>Descrição</th>
+                    <th>Unidade</th>
+                    <th class="numeric">Quantidade declarada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (line of invoice.items; track line.id) {
+                    <tr>
+                      <td>{{ line.position }}</td>
+                      <td>{{ line.supplier_code }}</td>
+                      <td class="wrap">{{ line.description }}</td>
+                      <td>{{ line.unit }}</td>
+                      <td class="numeric">
+                        {{ line.quantity == null ? "Não declarada" : decimal(line.quantity) }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="muted">
+              Itens não extraídos. Confira o anexo privado antes da decisão de
+              Compras.
+            </p>
+          }
+          @if (invoice.extracted?.volumes?.length) {
+            <h3 class="section">Volumes declarados</h3>
+            <div class="table-wrap" tabindex="0" role="region" aria-label="Volumes declarados na nota">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Quantidade</th>
+                    <th>Espécie</th>
+                    <th>Peso líquido declarado (kg)</th>
+                    <th>Peso bruto declarado (kg)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (v of invoice.extracted?.volumes; track $index) {
+                    <tr>
+                      <td>{{ v.quantity == null ? "Não declarado" : decimal(v.quantity) }}</td>
+                      <td>{{ v.species || "Não declarada" }}</td>
+                      <td>{{ v.net_weight == null ? "Não declarado" : decimal(v.net_weight) }}</td>
+                      <td>{{ v.gross_weight == null ? "Não declarado" : decimal(v.gross_weight) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+      @if (item.visits.length) {
       <section class="panel">
         <h2>Destinos e etapas</h2>
         @if (item.visits.length) {
@@ -996,8 +1038,9 @@ export class AppointmentCreate implements OnInit {
           global. Tempo sem registro de etapa fica indisponível por local.
         </p>
       </section>
-      <section class="panel">
-        <h2>Histórico de decisões</h2>
+      }
+      <details class="panel history-panel">
+        <summary><h2>Histórico ({{ item.events.length }} {{ item.events.length === 1 ? "registro" : "registros" }})</h2></summary>
         @if (item.events.length) {
           <ol class="audit" aria-label="Eventos registrados no recebimento">
             @for (e of item.events; track e.id) {
@@ -1018,7 +1061,7 @@ export class AppointmentCreate implements OnInit {
         } @else {
           <p class="muted">Sem eventos retornados pela API.</p>
         }
-      </section>
+      </details>
     }
   </div>`,
 })
@@ -1088,6 +1131,7 @@ export class AppointmentDetail implements OnInit {
     );
     this.selectedEquipment.set([]);
     this.form.controls.resources_confirmed.setValue(false);
+    this.form.controls.reason.setValue("");
     if (action === "assign-cancelled") {
       this.form.controls.hold_id.setValue(this.activeHolds()[0]?.id ?? "");
       void this.loadCandidates();
@@ -1104,6 +1148,7 @@ export class AppointmentDetail implements OnInit {
           finish: "Conclusão",
           cancel: "Cancelamento",
           reschedule: "Reagendamento",
+          forward: "Encaminhamento para Compras",
           "assign-cancelled": "Atribuição da vaga",
           "visit-start": "Início da etapa",
           "visit-finish": "Conclusão da etapa",
@@ -1143,6 +1188,45 @@ export class AppointmentDetail implements OnInit {
   }
   visitsDone(item: Appointment) {
     return item.visits.length <= 1 || item.visits.every((v) => !!v.finished_at);
+  }
+  // One plain sentence telling the current user what happens next.
+  nextStep(item: Appointment): string {
+    const role = this.api.user()?.role;
+    const when = `${this.date(item.date || item.slot?.date)} às ${(item.time || item.slot?.time || "").replace(":00", "h")}`;
+    switch (item.operation_status) {
+      case "completed":
+        return `Recebimento concluído em ${this.dt(item.finished_at)}. Nada mais a fazer.`;
+      case "cancelled":
+        return this.api.can("warehouse") && this.activeHolds().length
+          ? "Agendamento cancelado. A vaga ficou reservada: você pode atribuí-la a outro caminhão."
+          : "Agendamento cancelado.";
+      case "not_received":
+        return "A carga não foi recebida. O motivo está no histórico.";
+      case "in_progress":
+        if (!this.api.can("warehouse")) return "Descarga em andamento.";
+        return this.visitsDone(item)
+          ? "Descarga em andamento. Quando terminar, clique em “Concluir recebimento”."
+          : "Descarga em andamento. Registre o início e o fim em cada armazém, na seção “Destinos e etapas”.";
+    }
+    if (role === "supplier") {
+      if (item.purchase_status === "rejected")
+        return "Compras encontrou um problema na nota. Entre em contato com a Cocapec.";
+      return item.operation_status === "arrived"
+        ? "Seu caminhão já foi recebido no pátio. Aguarde a liberação para descarga."
+        : `Entrega agendada para ${when}. Leve a nota fiscal.`;
+    }
+    if (this.api.can("purchasing") && !this.api.can("warehouse"))
+      return item.purchase_status === "pending"
+        ? "Compare a nota com o pedido e registre sua decisão em “Conferir nota / pedido”."
+        : "Conferência registrada. Você pode revisá-la enquanto o caminhão não entrar.";
+    if (item.operation_status === "waiting")
+      return item.purchase_status === "approved" && item.warehouse_status !== "approved"
+        ? `Caminhão previsto para ${when}. Já dá para escolher o armazém de destino. Quando ele chegar, registre a chegada.`
+        : `Caminhão previsto para ${when}. Quando ele chegar, clique em “Registrar chegada”.`;
+    const pending = this.warehousePending(item);
+    return pending.length
+      ? `Caminhão no pátio. Antes de descarregar: ${pending.join("; ")}.`
+      : "Tudo certo. Clique em “Registrar entrada” para iniciar a descarga.";
   }
   appointmentLabel(a: Appointment) {
     return `${a.vehicle_plate || "Veículo sem placa"} · ${a.supplier_name} · ${a.date} ${a.time}`;
@@ -1190,6 +1274,7 @@ export class AppointmentDetail implements OnInit {
           cancelled: "Agendamento cancelado",
           rescheduled: "Agendamento reagendado",
           capacity_assigned: "Vaga atribuída pelo armazém",
+          forwarded_to_purchasing: "Nota encaminhada para Compras",
           not_received: "Não recebimento registrado",
         } as Record<string, string>
       )[kind ?? ""] ?? "Registro operacional"
@@ -1326,6 +1411,11 @@ export class AppointmentDetail implements OnInit {
           };
         }
       }
+      if (act === "forward") {
+        if (!v.reason.trim()) throw new Error("Descreva a divergência encontrada na nota.");
+        body = { reason: v.reason };
+        endpoint = `appointments/${this.a()?.id}/forward-to-purchasing/`;
+      }
       if (
         act === "cancel" ||
         act === "reschedule" ||
@@ -1382,6 +1472,7 @@ export class AppointmentDetail implements OnInit {
           finish: "Conclusão",
           cancel: "Cancelamento",
           reschedule: "Reagendamento",
+          forward: "Nota encaminhada para Compras",
           "assign-cancelled": "Atribuição",
           "visit-start": "Início da etapa",
           "visit-finish": "Conclusão da etapa",

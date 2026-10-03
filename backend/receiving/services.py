@@ -263,6 +263,8 @@ def purchase_review(user, appointment_id, data):
     appointment.comparison_notes = notes
     appointment.purchase_reviewed_by = user
     appointment.purchase_reviewed_at = timezone.now()
+    appointment.divergence_notes = ""
+    appointment.divergence_reported_at = None
     _reset_warehouse(appointment)
     if decision == "rejected":
         _hold_capacity(appointment, user, "Rejeição de Compras: " + notes)
@@ -309,6 +311,28 @@ def warehouse_review(user, appointment_id, data):
         "warehouse_review",
         {"warehouse_ids": [str(x) for x in warehouse_ids], "notes": data.get("notes", "")},
     )
+    return appointment
+
+
+@transaction.atomic
+def forward_to_purchasing(user, appointment_id, data):
+    """Warehouse reports an invoice divergence; Purchasing must review the appointment again."""
+    require_role(user, "warehouse")
+    appointment = _lock_appointment(appointment_id)
+    _expected_revision(appointment, data)
+    _editable(appointment)
+    reason = data["reason"].strip()
+    if not reason:
+        raise ValidationError({"reason": "Descreva a divergência encontrada na nota."})
+    if appointment.divergence_reported_at and appointment.divergence_notes == reason:
+        return appointment
+    appointment.divergence_notes = reason
+    appointment.divergence_reported_at = timezone.now()
+    appointment.purchase_status = "pending"
+    appointment.purchase_reviewed_by = None
+    appointment.purchase_reviewed_at = None
+    _reset_warehouse(appointment)
+    _event(appointment, user, "forwarded_to_purchasing", {"reason": reason})
     return appointment
 
 

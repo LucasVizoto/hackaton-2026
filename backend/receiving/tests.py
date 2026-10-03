@@ -546,6 +546,39 @@ class ReceivingTests(TestCase):
         with self.assertRaises(services.DomainConflict):
             self.appointment(time="10:00", day=DAY + timedelta(days=1))
 
+    def test_warehouse_cannot_schedule_but_forwards_divergence_to_purchasing(self):
+        response = self.client.post(
+            "/api/v1/appointments/",
+            {
+                "supplier": str(self.supplier.id),
+                "invoice": str(self.invoice.id),
+                "date": str(DAY),
+                "time": "08:00",
+                "packaging": "paletizada",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        appointment = self.appointment()
+        self.approve(appointment)
+        response = self.client.post(
+            f"/api/v1/appointments/{appointment.id}/forward-to-purchasing/",
+            {"reason": "Quantidade física difere da nota"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["purchase_status"], "pending")
+        self.assertEqual(response.data["warehouse_status"], "pending")
+        self.assertEqual(response.data["divergence_notes"], "Quantidade física difere da nota")
+        self.assertTrue(response.data["capacity_reserved"])
+        self.assertEqual(response.data["events"][-1]["kind"], "forwarded_to_purchasing")
+        with self.assertRaises(Exception):
+            services.forward_to_purchasing(self.purchaser, appointment.id, {"reason": "x"})
+        self.approve(appointment)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.divergence_notes, "")
+        self.assertIsNone(appointment.divergence_reported_at)
+
     def test_machine_or_implement_occupies_one_unit(self):
         self.appointment("maquina_implemento")
         self.assertEqual(services.occupancy(GlobalSlot.objects.get())["occupied_units"], 1)
