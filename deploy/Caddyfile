@@ -19,7 +19,9 @@ cocapec.lucasvizoto.com {
         max_size 12MiB
     }
     @private path /.env* /.git/* /.private/* /media/* /sources/* /backups/*
-    respond @private 404
+    handle @private {
+        respond 404
+    }
     handle /api/* {
         header Cache-Control "private, no-store"
         reverse_proxy 127.0.0.1:8000 {
