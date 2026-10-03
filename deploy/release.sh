@@ -2,6 +2,8 @@
 set -euo pipefail
 release=$(realpath "${1:?release directory required}")
 [[ "$release" == /srv/cocapec/releases/* ]]
+exec 9>/srv/cocapec/shared/deployment.lock
+flock -n 9 || { printf 'Another deployment is running.\n' >&2; exit 75; }
 test -f "$release/backend/requirements.production.lock"
 test -f /srv/cocapec/shared/.env
 ln -sfn /srv/cocapec/shared/.env "$release/.env"

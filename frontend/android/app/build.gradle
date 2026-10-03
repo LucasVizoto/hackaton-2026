@@ -9,8 +9,8 @@ android {
         applicationId "br.cocapec.recebimento.demo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1.0"
+        versionCode Integer.parseInt(System.getenv('COCAPEC_VERSION_CODE') ?: '2')
+        versionName (System.getenv('COCAPEC_VERSION_NAME') ?: "1.1.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

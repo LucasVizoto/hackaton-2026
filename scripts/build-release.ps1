@@ -1,7 +1,13 @@
-param([string]$JavaHome, [string]$AndroidSdk = "$env:LOCALAPPDATA/Android/Sdk")
+param(
+    [string]$JavaHome,
+    [string]$AndroidSdk = "$env:LOCALAPPDATA/Android/Sdk",
+    [string]$PrivateDirectory,
+    [ValidateRange(2, 2100000000)][int]$VersionCode = 2,
+    [string]$VersionName = '1.1.0'
+)
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
-$taskPrivate = Join-Path $taskRoot '.private/android-release'
+$taskPrivate = if ($PrivateDirectory) { [IO.Path]::GetFullPath($PrivateDirectory) } else { Join-Path $taskRoot '.private/android-release' }
 New-Item -ItemType Directory -Path $taskPrivate -Force | Out-Null
 function Invoke-Checked {
     $taskExecutable = $args[0]
@@ -37,6 +43,8 @@ $env:JAVA_HOME = $JavaHome
 $env:ANDROID_HOME = $AndroidSdk
 $env:PATH = "$JavaHome/bin;$AndroidSdk/platform-tools;$env:PATH"
 $env:COCAPEC_DEPLOY_TARGET = 'production'
+$env:COCAPEC_VERSION_CODE = [string]$VersionCode
+$env:COCAPEC_VERSION_NAME = $VersionName
 $keystore = Join-Path $taskPrivate 'cocapec-release.jks'
 $signingFile = Join-Path $taskPrivate 'signing.json'
 if (!(Test-Path -LiteralPath $signingFile)) {
@@ -76,5 +84,5 @@ try {
         Write-Output "SHA256: $apkHash"
     } finally { Pop-Location }
 } finally {
-    Remove-Item Env:COCAPEC_STORE_PASSWORD,Env:COCAPEC_KEY_PASSWORD,Env:COCAPEC_KEYSTORE,Env:COCAPEC_DEPLOY_TARGET -ErrorAction SilentlyContinue
+    Remove-Item Env:COCAPEC_STORE_PASSWORD,Env:COCAPEC_KEY_PASSWORD,Env:COCAPEC_KEYSTORE,Env:COCAPEC_DEPLOY_TARGET,Env:COCAPEC_VERSION_CODE,Env:COCAPEC_VERSION_NAME -ErrorAction SilentlyContinue
 }

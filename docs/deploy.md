@@ -90,3 +90,20 @@ O boletim histórico retornou produção `918.1952`, total `991.9041` e compleme
 Após saída provocada de cada processo, o Supervisor iniciou novos PIDs. Após reboot real da VPS, os três programas voltaram a `RUNNING`; checkpoint HTTP, chegada, 938 hashes de fontes e 460 anexos permaneceram válidos. Firewall, capability do Caddy e SSH por chave também foram conferidos após o boot.
 
 A auditoria npm registrou 15 alertas nas dependências de build (2 críticos, 9 altos, 3 moderados e 1 baixo). `npm audit --omit=dev` retornou zero alertas. Os relatórios estão em `/srv/cocapec/shared/reports/npm-audit-all.json` e `npm-audit-runtime.json`; a correção dos pacotes de build deve ser feita com atualização do lockfile e novos testes.
+
+## Atualização automática de main
+
+A branch principal remota é `main`; `master` não existe neste repositório. A automação Codex deste chat verifica a cada 15 minutos. Ela executa neste computador, que precisa estar ligado, conectado e com o Codex ativo. A VPS continua servindo a última release mesmo quando o computador está indisponível.
+
+O controlador `scripts/auto-deploy.ps1` usa um clone separado em `.private/auto-deploy/checkout`. Ele integra a configuração de produção com novos commits de `origin/main`, sem trocar a branch do checkout de desenvolvimento. O SHA de origem e o commit da release integrada são registrados separadamente. O agente deve ler o diff e analisar dependências, migrations, dados, configurações e Android antes de aprovar o SHA exato para execução.
+
+```powershell
+.\scripts\auto-deploy.ps1
+.\scripts\auto-deploy.ps1 -Deploy -ReviewedCommit SHA_COMPLETO_ANALISADO
+```
+
+Uma trava local e `flock` na VPS impedem deploys simultâneos. A publicação exige build, lint, testes, checks Django, migrations consistentes e aceite HTTPS. O banco recebe migrations do código novo; fontes, anexos e credenciais permanecem persistentes. Um checkpoint anterior confere a persistência depois da troca. O SHA só avança no estado de sucesso quando o aceite passa.
+
+Mudanças em `frontend` também geram APK com a chave de assinatura existente, API HTTPS e `versionCode` crescente. APKs anteriores permanecem disponíveis. Cada publicação usa URL por commit, com SHA-256. O build reutiliza `.private/android-release` do checkout principal, evitando trocar a assinatura em clones separados.
+
+O estado local fica em `.private/auto-deploy/state.json`, e o estado aceito é publicado privadamente em `/srv/cocapec/shared/deployment-state.json`. Em falha de publicação, o controlador tenta reversão compatível do código; incompatibilidade de schema exige correção para frente, sem recriar ou restaurar o banco. Mantenha relatórios e segredos privados. A automação comunica deploy concluído, falha ou necessidade de intervenção e fica silenciosa sem novos commits.
