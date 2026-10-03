@@ -1,5 +1,7 @@
 apply plugin: 'com.android.application'
 
+def releaseKeyPath = System.getenv('COCAPEC_KEYSTORE')
+
 android {
     namespace = "br.cocapec.recebimento.demo"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +9,8 @@ android {
         applicationId "br.cocapec.recebimento.demo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +18,29 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseKeyPath) {
+            cocapecRelease {
+                storeFile file(releaseKeyPath)
+                storePassword System.getenv('COCAPEC_STORE_PASSWORD')
+                keyAlias 'cocapec'
+                keyPassword System.getenv('COCAPEC_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeyPath) { signingConfig signingConfigs.cocapecRelease }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    if (graph.allTasks.any { it.name == 'assembleRelease' || it.name == 'bundleRelease' }) {
+        if (!releaseKeyPath || System.getenv('COCAPEC_DEPLOY_TARGET') != 'production') {
+            throw new GradleException('Release requires private signing credentials and COCAPEC_DEPLOY_TARGET=production.')
         }
     }
 }

@@ -82,11 +82,11 @@ def main():
     assert historical["summary"]["total_payable"] is None
     assert historical["coverage"]["closed_bulletins"] == 0
 
-    def all_records(path):
+    def all_records(path, origin="demo_sintetico"):
         rows, page = [], 1
         while True:
             response = request(
-                path + "?" + urlencode({"origin": "demo_sintetico", "page": page})
+                path + "?" + urlencode({"origin": origin, "page": page})
             )
             rows.extend(response["results"])
             if not response.get("next"):
@@ -96,9 +96,14 @@ def main():
     bulletins = all_records("bulletins/")
     appointments = all_records("appointments/")
     non_receipts = all_records("non-receipts/")
-    official = next(b for b in bulletins if b["reference_date"] == "2025-11-17")
+    official = next(
+        (b for b in all_records("bulletins/", "historico_importado")
+         if b["reference_date"] == "2025-11-17"),
+        None,
+    ) or next(b for b in bulletins if b["reference_date"] == "2025-11-17")
     assert Decimal(official["calculation"]["production"]) == Decimal("918.1952")
     assert Decimal(official["calculation"]["total_payable"]) == Decimal("991.9041")
+    assert Decimal(official["calculation"]["supplement"]) == Decimal("73.7089")
     scenario = request(
         "analytics/staffing-scenario/",
         {"bulletin": official["id"], "equivalent_days": "10.5"},
