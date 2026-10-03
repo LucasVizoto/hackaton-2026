@@ -52,6 +52,11 @@ O script prepara JDK 21 com checksum e um checkout isolado do commit, usa SDK 36
 
 ## Aceite
 
+```powershell
+.\scripts\verify-deploy.ps1 -Checkpoint
+.\scripts\verify-deploy.ps1 -VerifyPersistence
+```
+
 Confira health externo, login e isolamento dos cinco perfis, downloads privados, seed idempotente e o boletim histórico de 17/11/2025. Execute `scripts/verify_api.py --base-url https://cocapec.lucasvizoto.com/api/v1 --checkpoint` no servidor e repita com `--verify-persistence` após reiniciar serviços e após reboot. Não publique o checkpoint nem os relatórios privados.
 
 Valide o APK assinado no emulador: login remoto, chegada refletida na web, download pelo seletor Android, erro quando a API estiver indisponível e persistência após reinício. Play Store e aparelhos físicos não fazem parte deste aceite.
@@ -75,3 +80,13 @@ Após reboot, confira `supervisorctl status`, health público, checkpoint e anex
 - Relatórios privados e inventário das ferramentas: `/srv/cocapec/shared/reports`.
 
 O APK registra o commit `3c0af419027d`. As mudanças posteriores nesta entrega corrigem bootstrap, publicação e verificadores do backend, sem alterar o código Angular ou Android incluído nesse APK. O pacote histórico contém 938 arquivos e 460 anexos de notas, conferidos por SHA-256. A reexecução do baseline preserva os registros existentes.
+
+## Resultado do aceite em 03/10/2026
+
+A VPS executa a release `c8da9d2632f9`. Lint, build e 17 testes Angular passaram; o backend passou em 108 testes PostgreSQL isolados, checks de produção e consistência de migrations. O health HTTPS consulta PostgreSQL e retorna 200; HTTP redireciona com 308. As cinco contas, isolamento dos fornecedores, CORS, cache privado e anexos autenticados foram conferidos pelo proxy Cloudflare.
+
+O boletim histórico retornou produção `918.1952`, total `991.9041` e complemento `73.7089`. No emulador separado `Cocapec_Deploy_36`, o APK fez login sem `adb reverse`, registrou a chegada sintética `DEMO-PEND-01` e salvou `SYN-001.xml` pelo seletor Android. O SHA-256 do arquivo salvo corresponde ao anexo da API. A chegada aparece na web. Com a API parada, a tentativa exibiu erro e manteve a revisão e a chegada do registro sem alteração.
+
+Após saída provocada de cada processo, o Supervisor iniciou novos PIDs. Após reboot real da VPS, os três programas voltaram a `RUNNING`; checkpoint HTTP, chegada, 938 hashes de fontes e 460 anexos permaneceram válidos. Firewall, capability do Caddy e SSH por chave também foram conferidos após o boot.
+
+A auditoria npm registrou 15 alertas nas dependências de build (2 críticos, 9 altos, 3 moderados e 1 baixo). `npm audit --omit=dev` retornou zero alertas. Os relatórios estão em `/srv/cocapec/shared/reports/npm-audit-all.json` e `npm-audit-runtime.json`; a correção dos pacotes de build deve ser feita com atualização do lockfile e novos testes.
