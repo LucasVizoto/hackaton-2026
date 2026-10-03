@@ -13,7 +13,8 @@ import {
   today,
 } from "../core/api";
 import { Catalog } from "../core/catalog";
-import { Origin, Status } from "../shared/ui";
+import { decimal } from "../core/presentation";
+import { EmptyState, FeedbackState, FilterBlock, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
 interface Visit {
   id: string;
   warehouse: string;
@@ -101,6 +102,21 @@ interface InvoiceData {
     unit_value: string | null;
   }[];
 }
+function appointmentDate(value?: string) {
+  if (!value) return "Data não informada";
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? value.split("-").reverse().join("/")
+    : value;
+}
+function packagingLabel(value: string) {
+  return (
+    ({
+      batida: "Batida",
+      paletizada: "Paletizada",
+      big_bag: "Big bag",
+    } as Record<string, string>)[value] ?? value
+  );
+}
 async function appointmentOptions(api: Api): Promise<Appointment[]> {
   const options: Appointment[] = [];
   let page = 1;
@@ -116,18 +132,14 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner, Status],
+  imports: [ReactiveFormsModule, RouterLink, IonButton, Status, PageHeader, LoadingState, EmptyState, FeedbackState, FilterBlock],
   template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>{{ title }}</h1>
-        <p class="muted">{{ subtitle }}</p>
-      </div>
+    <app-page-header [title]="title" [subtitle]="subtitle">
       @if (api.can("supplier", "warehouse")) {
         <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
       }
-    </div>
-    <form class="filters" [formGroup]="filters" (ngSubmit)="load(true)">
+    </app-page-header>
+    <form app-filter-block class="filters panel" aria-label="Filtrar recebimentos" [formGroup]="filters" (ngSubmit)="load(true)">
       <label>Data<input type="date" formControlName="date" /></label
       ><label
         >Origem<select formControlName="origin">
@@ -152,48 +164,49 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
       pendentes.
     </div>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (busy()) {
-      <div class="loading"><ion-spinner /> Carregando agenda…</div>
+      <app-loading-state label="Carregando agenda…" />
     } @else if (rows().length) {
-      <div class="table-wrap">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Recebimentos encontrados">
         <table>
           <thead>
             <tr>
-              <th>Data / hora</th>
-              <th>Fornecedor / nota</th>
-              <th>Acondicionamento</th>
-              <th>Compras</th>
-              <th>Armazém</th>
-              <th>Operação</th>
-              <th></th>
+              <th scope="col">Data / hora</th>
+              <th scope="col">Fornecedor / nota</th>
+              <th scope="col">Veículo / carga</th>
+              <th scope="col">Compras</th>
+              <th scope="col">Armazém</th>
+              <th scope="col">Operação</th>
+              <th scope="col"><span class="sr-only">Ações</span></th>
             </tr>
           </thead>
           <tbody>
             @for (a of rows(); track a.id) {
               <tr>
                 <td>
-                  {{ a.date || a.slot?.date }}<br />{{ a.time || a.slot?.time }}
+                  <strong class="table-cell-primary">{{ date(a.date || a.slot?.date) }}</strong>
+                  <span class="table-cell-secondary">{{ a.time || a.slot?.time }}</span>
                 </td>
                 <td class="wrap">
-                  <strong>{{ a.supplier_name }}</strong
-                  ><br />NF {{ a.invoice_number || "não informada"
-                  }}<br /><small
+                  <strong class="table-cell-primary">{{ a.supplier_name }}</strong>
+                  <span class="table-cell-secondary">NF {{ a.invoice_number || "não informada" }}</span>
+                  <small
                     [class.origin]="a.origin === 'demo_sintetico'"
                     >{{ origin(a.origin) }}</small
                   >
                 </td>
                 <td>
-                  {{ packaging(a.packaging) }}<br /><small>{{
-                    a.vehicle_plate
-                  }}</small>
+                  <strong class="table-cell-primary plate">{{ a.vehicle_plate || "Placa não informada" }}</strong>
+                  <span class="table-cell-secondary">{{ packaging(a.packaging) }}</span>
                 </td>
                 <td><app-status [value]="a.purchase_status" /></td>
                 <td><app-status [value]="a.warehouse_status" /></td>
                 <td><app-status [value]="a.operation_status" /></td>
                 <td>
-                  <a [routerLink]="['/agenda', a.id]">Abrir recebimento</a>
+                  <a class="table-action" [routerLink]="['/agenda', a.id]"
+                    [attr.aria-label]="'Abrir recebimento de ' + a.supplier_name + ', placa ' + a.vehicle_plate">Abrir recebimento</a>
                 </td>
               </tr>
             }
@@ -211,11 +224,13 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
           >Próxima</ion-button
         >
       </div>
-    } @else {
-      <div class="empty">
+    } @else if (!error()) {
+      <div app-empty-state class="empty">
         <h2>Nenhum recebimento encontrado</h2>
         <p>Altere os filtros ou crie um agendamento.</p>
-        <a routerLink="/agenda/novo">Agendar recebimento</a>
+        @if (api.can("supplier", "warehouse")) {
+          <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
+        }
       </div>
     }
   </div>`,
@@ -237,14 +252,8 @@ export class AppointmentList implements OnInit {
     purchase_status: [""],
   });
   origin = originLabel;
-  packaging = (v: string) =>
-    (
-      ({
-        batida: "Batida",
-        paletizada: "Paletizada",
-        big_bag: "Big bag",
-      }) as Record<string, string>
-    )[v] ?? v;
+  date = appointmentDate;
+  packaging = packagingLabel;
   ngOnInit() {
     const mode = this.route.snapshot.data["mode"];
     if (mode === "compras") {
@@ -287,17 +296,13 @@ export class AppointmentList implements OnInit {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner],
+  imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner, PageHeader, LoadingState, FeedbackState],
   template: `<div class="page form-page">
-    <div class="page-head">
-      <div>
-        <h1>Agendar recebimento</h1>
-        <p class="muted">Anexe a nota e reserve um horário global.</p>
-      </div>
+    <app-page-header title="Agendar recebimento" subtitle="Anexe a nota e reserve um horário global.">
       <a routerLink="/agenda">Voltar à agenda</a>
-    </div>
+    </app-page-header>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     <form [formGroup]="form" (ngSubmit)="save()">
       <section class="panel">
@@ -340,7 +345,7 @@ export class AppointmentList implements OnInit {
               <option value="big_bag">Big bag</option>
               <option value="batida">Batida (horário exclusivo)</option>
             </select></label
-          ><label
+          ><label class="wide"
             >Observações<textarea formControlName="notes"></textarea>
           </label>
         </div>
@@ -365,35 +370,46 @@ export class AppointmentList implements OnInit {
             </select></label
           >
         </div>
-        @if (slots().length) {
-          <div class="section table-wrap">
+        @if (availabilityBusy()) {
+          <app-loading-state label="Consultando horários disponíveis…" />
+        } @else if (slots().length) {
+          <h3 class="section">Disponibilidade global no dia</h3>
+          <div class="table-wrap availability-table" tabindex="0" role="region" aria-label="Disponibilidade por horário">
             <table>
               <thead>
                 <tr>
-                  <th>Horário</th>
-                  <th>Capacidade ocupada</th>
-                  <th>Disponibilidade</th>
+                  <th scope="col">Horário</th>
+                  <th scope="col">Capacidade ocupada</th>
+                  <th scope="col">Disponibilidade</th>
                 </tr>
               </thead>
               <tbody>
                 @for (s of slots(); track s.time) {
-                  <tr>
-                    <td>{{ s.time }}</td>
-                    <td>
+                  <tr [class.selected-slot]="s.time === form.controls.time.value">
+                    <td><strong>{{ s.time }}</strong></td>
+                    <td class="numeric">
                       {{ s.used_units ?? s.occupied_units ?? "Consultar" }}
                     </td>
                     <td>
-                      {{
+                      <span class="slot-availability"
+                        [class.available]="(s.available_units ?? s.remaining_units ?? -1) > 0"
+                        [class.unavailable]="(s.available_units ?? s.remaining_units) === 0">{{
                         s.available_units ??
                           s.remaining_units ??
                           "A API confirmará a reserva"
-                      }}
+                      }}@if (s.available_units != null || s.remaining_units != null) { unidade(s) }</span>
+                      @if (s.can_batida === true) {
+                        <span class="table-cell-secondary">Batida exclusiva disponível</span>
+                      } @else if (s.can_batida === false) {
+                        <span class="table-cell-secondary">Batida exclusiva indisponível</span>
+                      }
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
+          <p class="field-help section">A disponibilidade é uma consulta. A reserva será confirmada ao salvar.</p>
         }
         <p class="site-note">
           Sem agendamento não há descarga. Um agendamento no ato também precisa
@@ -419,6 +435,7 @@ export class AppointmentCreate implements OnInit {
   private router = inject(Router);
   private fb = inject(FormBuilder);
   busy = signal(false);
+  availabilityBusy = signal(false);
   error = signal("");
   slots = signal<
     {
@@ -427,6 +444,7 @@ export class AppointmentCreate implements OnInit {
       occupied_units?: number;
       available_units?: number;
       remaining_units?: number;
+      can_batida?: boolean;
     }[]
   >([]);
   file: File | null = null;
@@ -451,6 +469,8 @@ export class AppointmentCreate implements OnInit {
     this.invoiceId = "";
   }
   async availability() {
+    this.availabilityBusy.set(true);
+    this.slots.set([]);
     try {
       const r = await this.api.get<
         { slots?: unknown[]; calendar_open?: boolean } | unknown[]
@@ -470,6 +490,8 @@ export class AppointmentCreate implements OnInit {
       );
     } catch (e) {
       this.error.set(apiError(e));
+    } finally {
+      this.availabilityBusy.set(false);
     }
   }
   async save() {
@@ -518,31 +540,33 @@ export class AppointmentCreate implements OnInit {
     IonSpinner,
     Status,
     Origin,
+    PageHeader,
+    LoadingState, FeedbackState,
   ],
   template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>Recebimento {{ a()?.vehicle_plate }}</h1>
-        <p class="muted">
-          {{ a()?.supplier_name }} · {{ a()?.date || a()?.slot?.date }} às
-          {{ a()?.time || a()?.slot?.time }}
-        </p>
-      </div>
+    <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
       <a routerLink="/agenda">Voltar à agenda</a>
-    </div>
+    </app-page-header>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (success()) {
-      <div class="success" role="status">{{ success() }}</div>
+      <div app-feedback tone="success" class="success">{{ success() }}</div>
     }
     @if (busy() && !a()) {
-      <div class="loading"><ion-spinner /> Carregando recebimento…</div>
+      <app-loading-state label="Carregando recebimento…" />
     }
     @if (a(); as item) {
       <app-origin [value]="item.origin" />
-      <section class="panel">
-        <dl class="metadata">
+      <section class="panel receiving-summary" aria-labelledby="receiving-summary-title">
+        <div class="summary-identity">
+          <div>
+            <h2 class="plate" id="receiving-summary-title">{{ item.vehicle_plate || "Veículo sem placa" }}</h2>
+            <p>{{ item.supplier_name }}</p>
+          </div>
+          <p class="muted">{{ date(item.date || item.slot?.date) }} às {{ item.time || item.slot?.time }}</p>
+        </div>
+        <dl class="metadata approval-states" aria-label="Situação independente de cada área">
           <div>
             <dt>Compras</dt>
             <dd><app-status [value]="item.purchase_status" /></dd>
@@ -555,6 +579,8 @@ export class AppointmentCreate implements OnInit {
             <dt>Operação</dt>
             <dd><app-status [value]="item.operation_status" /></dd>
           </div>
+        </dl>
+        <dl class="metadata section">
           <div>
             <dt>Chegada</dt>
             <dd>{{ dt(item.arrived_at) }}</dd>
@@ -579,7 +605,7 @@ export class AppointmentCreate implements OnInit {
           </div>
           <div>
             <dt>Acondicionamento</dt>
-            <dd>{{ item.packaging }}</dd>
+            <dd>{{ packaging(item.packaging) }}</dd>
           </div>
           <div>
             <dt>Origem</dt>
@@ -587,8 +613,12 @@ export class AppointmentCreate implements OnInit {
           </div>
         </dl>
         @if (item.notes) {
-          <p class="section">{{ item.notes }}</p>
+          <div class="section">
+            <h3>Observações da carga</h3>
+            <p>{{ item.notes }}</p>
+          </div>
         }
+        <h3 class="section">Ações do recebimento</h3>
         <div class="actions section">
           <ion-button fill="outline" (click)="download()" [disabled]="busy()"
             >Salvar anexo privado</ion-button
@@ -621,6 +651,7 @@ export class AppointmentCreate implements OnInit {
               >Reagendar por natureza</ion-button
             ><ion-button
               fill="outline"
+              color="danger"
               (click)="open('cancel')"
               [disabled]="busy() || !!item.started_at"
               >Cancelar agendamento</ion-button
@@ -640,6 +671,7 @@ export class AppointmentCreate implements OnInit {
           ) {
             <ion-button
               fill="outline"
+              color="danger"
               (click)="open('cancel')"
               [disabled]="busy()"
               >Cancelar agendamento</ion-button
@@ -670,7 +702,7 @@ export class AppointmentCreate implements OnInit {
             </div>
             <div>
               <dt>Chave declarada</dt>
-              <dd style="overflow-wrap:anywhere">
+              <dd class="break-word">
                 {{ invoice.access_key || "Não extraída" }}
               </dd>
             </div>
@@ -682,7 +714,7 @@ export class AppointmentCreate implements OnInit {
             destinos exigem confirmação.
           </p>
           @if (invoice.items.length) {
-            <div class="table-wrap">
+            <div class="table-wrap" tabindex="0" role="region" aria-label="Itens declarados na nota">
               <table>
                 <thead>
                   <tr>
@@ -701,7 +733,7 @@ export class AppointmentCreate implements OnInit {
                       <td class="wrap">{{ line.description }}</td>
                       <td>{{ line.unit }}</td>
                       <td class="numeric">
-                        {{ line.quantity ?? "Não declarada" }}
+                        {{ line.quantity == null ? "Não declarada" : decimal(line.quantity) }}
                       </td>
                     </tr>
                   }
@@ -716,7 +748,7 @@ export class AppointmentCreate implements OnInit {
           }
           @if (invoice.extracted?.volumes?.length) {
             <h3 class="section">Volumes declarados</h3>
-            <div class="table-wrap">
+            <div class="table-wrap" tabindex="0" role="region" aria-label="Volumes declarados na nota">
               <table>
                 <thead>
                   <tr>
@@ -729,10 +761,10 @@ export class AppointmentCreate implements OnInit {
                 <tbody>
                   @for (v of invoice.extracted?.volumes; track $index) {
                     <tr>
-                      <td>{{ v.quantity ?? "Não declarado" }}</td>
+                      <td>{{ v.quantity == null ? "Não declarado" : decimal(v.quantity) }}</td>
                       <td>{{ v.species || "Não declarada" }}</td>
-                      <td>{{ v.net_weight ?? "Não declarado" }}</td>
-                      <td>{{ v.gross_weight ?? "Não declarado" }}</td>
+                      <td>{{ v.net_weight == null ? "Não declarado" : decimal(v.net_weight) }}</td>
+                      <td>{{ v.gross_weight == null ? "Não declarado" : decimal(v.gross_weight) }}</td>
                     </tr>
                   }
                 </tbody>
@@ -897,7 +929,7 @@ export class AppointmentCreate implements OnInit {
             >
           }
           <div class="actions section">
-            <ion-button type="submit" [disabled]="busy()">
+            <ion-button type="submit" [color]="action() === 'cancel' ? 'danger' : 'primary'" [disabled]="busy()">
               @if (busy()) {
                 <ion-spinner name="dots" />
               }
@@ -914,7 +946,7 @@ export class AppointmentCreate implements OnInit {
       <section class="panel">
         <h2>Destinos e etapas</h2>
         @if (item.visits.length) {
-          <div class="table-wrap">
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Destinos e etapas da carga">
             <table>
               <thead>
                 <tr>
@@ -922,13 +954,13 @@ export class AppointmentCreate implements OnInit {
                   <th>Início</th>
                   <th>Fim</th>
                   <th>Chapas</th>
-                  <th></th>
+                  <th><span class="sr-only">Ações da etapa</span></th>
                 </tr>
               </thead>
               <tbody>
                 @for (v of item.visits; track v.id) {
                   <tr>
-                    <td>{{ v.warehouse_name }}</td>
+                    <td><strong class="table-cell-primary">{{ v.warehouse_name }}</strong></td>
                     <td>{{ dt(v.started_at) }}</td>
                     <td>{{ dt(v.finished_at) }}</td>
                     <td>{{ v.worker_count ?? "Não registrado" }}</td>
@@ -971,22 +1003,22 @@ export class AppointmentCreate implements OnInit {
       <section class="panel">
         <h2>Histórico de decisões</h2>
         @if (item.events.length) {
-          <ul class="audit">
+          <ol class="audit" aria-label="Eventos registrados no recebimento">
             @for (e of item.events; track e.id) {
               <li>
                 <strong>{{
                   eventName(e.kind || e.action || e.event_type)
-                }}</strong
-                ><br /><small
-                  >{{ dt(e.occurred_at || e.recorded_at || e.created_at) }} ·
-                  {{ e.actor_name || "Responsável registrado" }}</small
-                >
+                }}</strong>
+                <div class="audit-meta">
+                  <time [attr.datetime]="e.occurred_at || e.recorded_at || e.created_at">{{ dt(e.occurred_at || e.recorded_at || e.created_at) }}</time>
+                  <span>{{ e.actor_name || "Responsável registrado" }}</span>
+                </div>
                 @if (e.data || e.details) {
                   <p class="muted">{{ eventDetail(e.data || e.details) }}</p>
                 }
               </li>
             }
-          </ul>
+          </ol>
         } @else {
           <p class="muted">Sem eventos retornados pela API.</p>
         }
@@ -995,6 +1027,7 @@ export class AppointmentCreate implements OnInit {
   </div>`,
 })
 export class AppointmentDetail implements OnInit {
+  decimal = decimal;
   api = inject(Api);
   catalog = inject(Catalog);
   private route = inject(ActivatedRoute);
@@ -1011,6 +1044,8 @@ export class AppointmentDetail implements OnInit {
   private visitId = "";
   dt = dateTime;
   origin = originLabel;
+  date = appointmentDate;
+  packaging = packagingLabel;
   form = this.fb.nonNullable.group({
     decision: ["pending"],
     order_reference: [""],
@@ -1355,26 +1390,36 @@ const reasons: Record<string, string> = {
 };
 @Component({
   standalone: true,
-  imports: [RouterLink, IonButton, IonSpinner],
+  imports: [RouterLink, IonButton, Origin, PageHeader, LoadingState, EmptyState, FeedbackState],
   template: `<div class="page">
-    <div class="page-head">
-      <div>
-        <h1>{{ selectedId ? "Não recebimento registrado" : "Não recebimentos" }}</h1>
-        <p class="muted">Ocorrências com ou sem agendamento.</p>
-      </div>
+    <app-page-header [title]="selectedId ? 'Não recebimento registrado' : 'Não recebimentos'" subtitle="Ocorrências com ou sem agendamento.">
       @if (selectedId) {
         <a routerLink="/nao-recebimentos">Ver todas as ocorrências</a>
       } @else if (api.can("warehouse")) {
         <ion-button routerLink="/nao-recebimentos/novo">Registrar ocorrência</ion-button>
       }
-    </div>
+    </app-page-header>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (busy()) {
-      <div class="loading"><ion-spinner /> Carregando ocorrências…</div>
+      <app-loading-state label="Carregando ocorrências…" />
+    } @else if (selectedId && rows().length) {
+      @for (r of rows(); track r.id) {
+        <app-origin [value]="r.origin" />
+        <section class="panel">
+          <h2>{{ reason(r.reason) }}</h2>
+          <dl class="metadata">
+            <div><dt>Fornecedor</dt><dd>{{ r.supplier_name || "Não identificado" }}</dd></div>
+            <div><dt>Data e hora</dt><dd><time [attr.datetime]="r.occurred_at">{{ dt(r.occurred_at) }}</time></dd></div>
+            <div><dt>Origem</dt><dd>{{ origin(r.origin) }}</dd></div>
+          </dl>
+          <h3 class="section">Descrição da ocorrência</h3>
+          <p>{{ r.description || "Descrição não informada" }}</p>
+        </section>
+      }
     } @else if (rows().length) {
-      <div class="table-wrap">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Ocorrências de não recebimento">
         <table>
           <thead>
             <tr>
@@ -1388,18 +1433,24 @@ const reasons: Record<string, string> = {
           <tbody>
             @for (r of rows(); track r.id) {
               <tr>
-                <td>{{ dt(r.occurred_at) }}</td>
-                <td>{{ r.supplier_name || "Não identificado" }}</td>
-                <td>{{ reason(r.reason) }}</td>
+                <td><time [attr.datetime]="r.occurred_at">{{ dt(r.occurred_at) }}</time></td>
+                <td class="wrap"><strong class="table-cell-primary">{{ r.supplier_name || "Não identificado" }}</strong></td>
+                <td class="wrap"><a class="table-action" [routerLink]="['/nao-recebimentos', r.id]">{{ reason(r.reason) }}</a></td>
                 <td class="wrap">{{ r.description }}</td>
-                <td>{{ origin(r.origin) }}</td>
+                <td class="wrap"><small [class.origin]="r.origin === 'demo_sintetico'">{{ origin(r.origin) }}</small></td>
               </tr>
             }
           </tbody>
         </table>
       </div>
-    } @else {
-      <div class="empty">Nenhuma ocorrência registrada.</div>
+    } @else if (!error()) {
+      <div app-empty-state class="empty">
+        <h2>Nenhuma ocorrência registrada</h2>
+        <p>Os registros de cargas não recebidas aparecerão aqui.</p>
+        @if (api.can("warehouse")) {
+          <ion-button routerLink="/nao-recebimentos/novo">Registrar ocorrência</ion-button>
+        }
+      </div>
     }
   </div>`,
 })
@@ -1439,21 +1490,16 @@ export class NonReceipts implements OnInit {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton],
+  imports: [ReactiveFormsModule, RouterLink, IonButton, IonSpinner, PageHeader, FeedbackState],
   template: `<div class="page form-page">
-    <div class="page-head">
-      <div>
-        <h1>Registrar não recebimento</h1>
-        <p class="muted">
-          Um caminhão sem agendamento e sem vaga também precisa de registro.
-        </p>
-      </div>
-      <a routerLink="/nao-recebimentos">Voltar</a>
-    </div>
+    <app-page-header title="Registrar não recebimento" subtitle="Um caminhão sem agendamento e sem vaga também precisa de registro.">
+      <a routerLink="/nao-recebimentos">Voltar às ocorrências</a>
+    </app-page-header>
     @if (error()) {
-      <div class="error" role="alert">{{ error() }}</div>
+      <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     <form class="panel" [formGroup]="form" (ngSubmit)="save()">
+      <h2>Dados da ocorrência</h2>
       <div class="form-grid">
         <label
           >Agendamento (opcional)<select
@@ -1499,8 +1545,9 @@ export class NonReceipts implements OnInit {
         </label>
       </div>
       <div class="actions section">
-        <ion-button type="submit" [disabled]="busy() || form.invalid"
-          >Gravar ocorrência</ion-button
+        <ion-button type="submit" [disabled]="busy() || form.invalid">
+          @if (busy()) { <ion-spinner name="dots" /> }
+          Gravar ocorrência</ion-button
         ><ion-button fill="outline" routerLink="/nao-recebimentos"
           >Cancelar edição</ion-button
         >
