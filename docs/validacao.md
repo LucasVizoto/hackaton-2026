@@ -1,4 +1,22 @@
-# Validação da implementação v2
+# Validação da revisão conciliada com main
+
+Conciliação de 03/10/2026 entre o snapshot v2 `d4017da` e `origin/main` em `6ff06af`. O escopo preserva boletim/pessoa/dia e acrescenta as contribuições de Portaria avulsa com foto, calendário e impressão diária. Os resultados da implementação v2 registrados abaixo pertencem à rodada anterior e não certificam automaticamente esta revisão.
+
+Nesta rodada, **195 testes backend em PostgreSQL passaram**, em 68,198 segundos, assim como Ruff, Django check e a detecção de migrations pendentes. O frontend passou em **33 testes**, ESLint, compilação TypeScript/Angular e build. Os **187 testes backend e 23 frontend abaixo pertencem à revisão anterior**. Esta seção registra a conciliação Git e a homologação local; não comprova implantação no servidor.
+
+A revisão do parser de OCR tem nove testes textuais passando: número impresso prioritário, sugestão sem zeros de preenchimento, número curto, chave completa/agrupada, rejeição de sequências maiores, campos desconexos, estrutura incompatível, múltiplas chaves e números impressos ambíguos. O teste no navegador também executou Tesseract sobre um PNG sintético: `NF-e No 000830001` gerou a sugestão `830001`, preservou a imagem e manteve o envio bloqueado até a confirmação humana. Esse teste encontrou e corrigiu a resolução do export CommonJS no bundle Angular. Qualidade de câmera física e documentos reais não foram homologados.
+
+Na base de QA, as migrations de união `core/0003` e `receiving/0007` foram aplicadas com sucesso. As sete migrations preexistentes das duas árvores conservaram seu conteúdo, desconsiderando apenas a representação das quebras de linha. A releitura HTTP de `verify_v2_journey --verify-checkpoint` após a conciliação confirmou o recebimento, o boletim e as parcelas anteriores; evidência privada em `persistence-after-merge.json`. Ruff dos scripts de implantação passou. `npm audit --omit=dev` não apontou avisos em dependências de runtime; os 15 avisos anteriores das ferramentas de build/desenvolvimento permanecem, sem atualização de versões nesta rodada.
+
+Dois replays adicionais compararam hashes de todas as colunas anteriores: a cópia que já executava a v2 preservou **56 tabelas e 130.774 registros**; a cópia no estado da equipe preservou **38 tabelas e 130.764 registros**, inclusive papel `portaria` e aviso fotográfico. O papel persistido não foi reescrito; a autorização reconhece o alias. Evidências privadas: `.private/validation-v2/merge-backend-checks.json` e `merge-migration-results.json`.
+
+Na web, Portaria acessou os quatro marcos e as duas NFs anteriores, preservou a sessão após recarga e enviou um aviso fotográfico sintético. Armazém recebeu o aviso, abriu a imagem e registrou ciência pela API. O calendário diário/semanal exibiu as duas notas, ocupação global e horários fechados; a máquina do dia 09/10 consumiu duas unidades de oito, independentemente dos dois destinos. A impressão diária abriu o PDF com o título e a data corretos. A política do navegador impediu inspecionar a aba `blob:`; a inspeção visual do PDF foi feita separadamente com o arquivo sintético do teste de geração, em uma página e sem colunas cortadas. As capturas e o PDF de teste estão em `.private/validation-main-20261003/`.
+
+O reteste final confirmou que o indicador “Nova” desaparece na mesma tela depois da ciência confirmada pelo servidor, sem recarregar. APK conciliado: **2.0.0-rc1**, código **3**, bundle `main-R2GDWV7G.js`, SHA-256 `46c6a4e6a963ce18b6f797dbfc5da3ef936ac0872316c9a5fcc15bd3d7cb96d6`. Build, instalação preservando os dados e verificação no `emulator-5554` passaram: login Portaria, aviso com foto separado, calendário de 08/10 com máquina e duas NFs, detalhe com horários e nomes dos armazéns. A cópia local é `.private/validation-main-20261003/app-under-test.apk`; não é uma publicação de APK no servidor. Aparelho físico e iOS não foram executados nesta rodada.
+
+O push para `main` não comprova ativação do sistema. Não há workflow GitHub Actions versionado nesta conciliação. A [automação de implantação existente](deploy.md) acompanha `main` em clone separado e exige inspeção do SHA de origem e da integração, validação e aceite HTTPS antes de registrar sucesso. Publicação Git, implantação web e distribuição de APK são estados separados.
+
+## Rodada anterior — implementação v2
 
 Rodada de 03/10/2026, sobre a base `1ef6e68`, com alterações locais ainda não publicadas. Todos os cenários novos usam dados sintéticos em banco isolado. Os resultados antigos do seed e de outras versões estão preservados mais abaixo e não devem ser atribuídos automaticamente à v2.
 

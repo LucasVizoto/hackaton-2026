@@ -24,6 +24,7 @@ class UserProfile(models.Model):
         ("warehouse", "Armazém"),
         ("gatehouse", "Portaria"),
         ("management", "Gestão"),
+        ("portaria", "Portaria"),
         ("admin", "Administrador"),
     ]
     user = models.OneToOneField(

@@ -4,6 +4,8 @@
 
 Os links abaixo descrevem o código atual: Portaria e quatro marcos, várias notas por carga, conferência por item, pessoa/dia com boletim financeiro único, atividades em vários locais e parcelas auditáveis. A documentação não publica fontes privadas nem dados nominais reais.
 
+A conciliação com `origin/main` preserva também o aviso avulso da Portaria com foto, a caixa de chegadas do Armazém e o calendário com vistas de dia, semana e mês. O aviso fotográfico e a chegada de um recebimento são registros independentes: a foto não reserva horário, não aprova documento e não inicia os quatro marcos. O [estado de validação](validacao.md) distingue a rodada anterior dos testes da revisão conciliada.
+
 | Artefato | Texto atual | Imagem / fonte editável |
 |---|---|---|
 | Relatório gerencial | [Relatório v2](v2/relatorio_gerencial.md) | [Exemplos coletivos preservados](imagens/financeiro.svg) |

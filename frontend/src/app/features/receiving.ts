@@ -19,10 +19,10 @@ import { AvailableAction, allowed, exportCsv } from "../core/workflow";
 import { SlotPicker } from "../shared/slot-picker";
 import { PurchaseOrders } from "./purchase-orders";
 import { AppointmentEdit } from "./appointment-edit";
-import { AgendaCalendar } from "./agenda-calendar";
+import { ScheduleCalendar, ScheduleRange } from "./schedule-calendar";
 import { Notifications } from "../shared/notifications";
 import { ReceiptCheck, ReceiptLine } from "./receipt-check";
-import { EmptyState, FeedbackState, FilterBlock, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
+import { EmptyState, FeedbackState, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
 interface Visit {
   checked_in_at?: string | null;
   checked_out_at?: string | null;
@@ -157,172 +157,41 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 }
 @Component({
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, IonButton, Status, PageHeader, LoadingState, EmptyState, FeedbackState, FilterBlock, AgendaCalendar, Notifications, PurchaseOrders],
+  imports: [RouterLink, IonButton, PageHeader, LoadingState, FeedbackState, ScheduleCalendar, Notifications, PurchaseOrders],
   template: `<div class="page">
     <app-page-header [title]="title" [subtitle]="subtitle">
-      @if (api.can("supplier", "warehouse", "purchasing")) {
-        <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
-      }
+      @if(api.can('supplier','warehouse','purchasing')){<ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>}
+      @if(api.can('gatehouse')){<ion-button routerLink="/portaria/avisos" fill="outline">Avisar chegada com foto</ion-button>}
     </app-page-header>
     @if(api.can('purchasing')){<app-purchase-orders />}
     @if(api.can('warehouse','purchasing','gatehouse')){<app-notifications />}
-    <details class="section"><summary>Calendário diário ou semanal</summary>@defer(on idle){<app-agenda-calendar />}</details>
-    <form app-filter-block class="filters panel" aria-label="Filtrar recebimentos" [formGroup]="filters" (ngSubmit)="load(true)">
-      <label>Data<input type="date" formControlName="date" /></label
-      ><label
-        >Origem<select formControlName="origin">
-          <option value="">Todas as origens</option>
-          <option value="operacional_registrado">Operação registrada</option>
-          <option value="demo_sintetico">Demonstração sintética</option>
-        </select></label
-      ><label
-        >Aprovação de Compras<select formControlName="purchase_status">
-          <option value="">Todas</option>
-          <option value="pending">Pendente</option>
-          <option value="approved">Aprovada</option>
-          <option value="rejected">Rejeitada</option>
-        </select></label
-      ><ion-button type="submit" fill="outline" [disabled]="busy()"
-        >Atualizar</ion-button
-      >
-    </form>
-    <div class="notice">
-      Capacidade global por horário: uma carga batida exclusiva ou até duas
-      cargas paletizadas / big bag. A chegada pode ser registrada com aprovações
-      pendentes.
-    </div>
-    @if (error()) {
-      <div app-feedback tone="error" class="error">{{ error() }}</div>
-    }
-    @if (busy()) {
-      <app-loading-state label="Carregando agenda…" />
-    } @else if (rows().length) {
-      <div class="table-wrap" tabindex="0" role="region" aria-label="Recebimentos encontrados">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Data / hora</th>
-              <th scope="col">Fornecedor / nota</th>
-              <th scope="col">Veículo / carga</th>
-              <th scope="col">Compras</th>
-              <th scope="col">Armazém</th>
-              <th scope="col">Operação</th>
-              <th scope="col"><span class="sr-only">Ações</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (a of rows(); track a.id) {
-              <tr>
-                <td>
-                  <strong class="table-cell-primary">{{ date(a.date || a.slot?.date) }}</strong>
-                  <span class="table-cell-secondary">{{ a.time || a.slot?.time }}</span>
-                </td>
-                <td class="wrap">
-                  <strong class="table-cell-primary">{{ a.supplier_name }}</strong>
-                  <span class="table-cell-secondary">NF {{ a.invoice_number || "não informada" }}</span>
-                  <small
-                    [class.origin]="a.origin === 'demo_sintetico'"
-                    >{{ origin(a.origin) }}</small
-                  >
-                </td>
-                <td>
-                  <strong class="table-cell-primary plate">{{ a.vehicle_plate || "Placa não informada" }}</strong>
-                  <span class="table-cell-secondary">{{ packaging(a.packaging) }}</span>
-                </td>
-                <td><app-status [value]="a.purchase_status" /></td>
-                <td><app-status [value]="a.warehouse_status" /></td>
-                <td><app-status [value]="a.operation_status" /></td>
-                <td>
-                  <a class="table-action" [routerLink]="['/agenda', a.id]"
-                    [attr.aria-label]="'Abrir recebimento de ' + a.supplier_name + ', placa ' + a.vehicle_plate">Abrir recebimento</a>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-      <div class="pagination">
-        <ion-button fill="outline" (click)="change(-1)" [disabled]="page === 1"
-          >Anterior</ion-button
-        ><span>Página {{ page }} · {{ count() }} registros</span
-        ><ion-button
-          fill="outline"
-          (click)="change(1)"
-          [disabled]="page * 100 >= count()"
-          >Próxima</ion-button
-        >
-      </div>
-    } @else if (!error()) {
-      <div app-empty-state class="empty">
-        <h2>Nenhum recebimento encontrado</h2>
-        <p>Altere os filtros ou crie um agendamento.</p>
-        @if (api.can("supplier", "warehouse", "purchasing")) {
-          <ion-button routerLink="/agenda/novo">Agendar recebimento</ion-button>
-        }
-      </div>
-    }
+    <p class="notice">Capacidade global por horário: uma carga batida ou máquina / implemento exclusivos, ou até duas cargas paletizadas / big bag. A entrada na portaria pode ocorrer com aprovações pendentes.</p>
+    @if(api.user()?.role==='supplier'){<p class="notice">Você visualiza os recebimentos do seu cadastro. A disponibilidade considera a ocupação global da unidade.</p>}
+    @if(error()){<div app-feedback tone="error">{{error()}}</div>}
+    @if(busy()&&!rows().length){<app-loading-state label="Carregando agenda…" />}
+    <app-schedule-calendar [appointments]="rows()" [warehouses]="warehouses()" [mode]="mode" [busy]="busy()" (rangeChange)="onRange($event)" />
   </div>`,
 })
 export class AppointmentList implements OnInit {
-  api = inject(Api);
-  private fb = inject(FormBuilder);
-  private route = inject(ActivatedRoute);
-  rows = signal<Appointment[]>([]);
-  count = signal(0);
-  busy = signal(false);
-  error = signal("");
-  page = 1;
-  title = "Agenda de recebimento";
-  subtitle = "Consulte a reserva e as validações de cada caminhão.";
-  filters = this.fb.nonNullable.group({
-    date: [""],
-    origin: [""],
-    purchase_status: [""],
-  });
-  origin = originLabel;
-  date = appointmentDate;
-  packaging = packagingLabel;
-  ngOnInit() {
-    const mode = this.route.snapshot.data["mode"];
-    if (mode === "compras") {
-      this.title = "Conferência de Compras";
-      this.subtitle = "Compare a nota e o pedido antes de registrar a decisão.";
-      this.filters.controls.purchase_status.setValue("pending");
-    }
-    if(mode === "portaria") {this.title="Portaria";this.subtitle="Confira documentos, veículo e destinos; registre entrada e saída da unidade.";this.filters.controls.date.setValue(today());}
-    if (mode === "operacao") {
-      this.title = "Operação do armazém";
-      this.subtitle =
-        "Registre chegada, destinos, início, recursos e conclusão.";
-    }
-    void this.load();
+  api=inject(Api); private route=inject(ActivatedRoute); private request=0; private controller?:AbortController;
+  rows=signal<Appointment[]>([]); warehouses=signal<{id:string;name:string;code?:string}[]>([]); busy=signal(false); error=signal('');
+  title='Agenda de recebimento'; subtitle='Consulte reservas e validações no calendário diário, semanal ou mensal.';
+  mode:'agenda'|'compras'|'operacao'|'portaria'='agenda';
+  ngOnInit(){
+    const mode=this.route.snapshot.data['mode'];
+    if(mode==='compras'){this.mode=mode;this.title='Conferência de Compras';this.subtitle='Compare a nota e o pedido antes de registrar a decisão.';}
+    if(mode==='operacao'){this.mode=mode;this.title='Operação do armazém';this.subtitle='Acompanhe os destinos, as entradas e saídas e a conferência da carga.';}
+    if(mode==='portaria'){this.mode=mode;this.title='Portaria';this.subtitle='Confira documentos, veículo e destinos; registre entrada e saída da unidade.';}
+    void this.loadWarehouses();
   }
-  async load(resetPage = false) {
-    if (resetPage) this.page = 1;
-    this.busy.set(true);
-    this.error.set("");
-    try {
-      const q = new URLSearchParams({
-        page: String(this.page),
-        page_size: "100",
-      });
-      Object.entries(this.filters.getRawValue()).forEach(([k, v]) => {
-        if (v) q.set(k, v);
-      });
-      const r = await this.api.get<Page<Appointment>>(`appointments/?${q}`);
-      this.rows.set(r.results);
-      this.count.set(r.count);
-    } catch (e) {
-      this.error.set(apiError(e));
-    } finally {
-      this.busy.set(false);
-    }
+  private async loadWarehouses(){try{const rows:{id:string;name:string;code?:string}[]=[];let page=1;while(true){const result=await this.api.get<Page<{id:string;name:string;code?:string}>>(`catalog/warehouses/?page=${page}`);rows.push(...result.results);if(!result.next)break;page++;}this.warehouses.set(rows);}catch(e){this.error.set(apiError(e));}}
+  async onRange(query:ScheduleRange){
+    this.controller?.abort();const controller=this.controller=new AbortController(),request=++this.request;this.rows.set([]);this.busy.set(true);this.error.set('');
+    try{const rows:Appointment[]=[];let page=1;while(request===this.request){const params=new URLSearchParams({page:String(page),page_size:'100',date_from:query.from,date_to:query.to});if(query.origin)params.set('origin',query.origin);const result=await this.api.get<Page<Appointment>>(`appointments/?${params}`,controller.signal);rows.push(...result.results);if(!result.next)break;page++;}if(request===this.request)this.rows.set(rows);}
+    catch(e){if(request===this.request&&!controller.signal.aborted)this.error.set(apiError(e));}
+    finally{if(request===this.request)this.busy.set(false);}
   }
-  invoiceNumbers(a:Appointment){return a.invoices?.map(n=>n.number).join(', ')||a.invoice_number||'não informada';}
-  change(n: number) {
-    this.page += n;
-    void this.load();
-  }
+  ngOnDestroy(){this.request++;this.controller?.abort();}
 }
 @Component({
   standalone: true,

@@ -6,6 +6,7 @@ from core.permissions import user_role
 from .models import (
     Appointment,
     CapacityHold,
+    GateArrival,
     Invoice,
     InvoiceItem,
     NonReceipt,
@@ -249,6 +250,23 @@ class AssignCapacitySerializer(serializers.Serializer):
     hold_id = serializers.UUIDField()
     appointment_id = serializers.UUIDField()
     expected_revision = serializers.IntegerField(min_value=1, required=False)
+
+
+class GateArrivalSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.username", read_only=True)
+
+    class Meta:
+        model = GateArrival
+        fields = [
+            "id",
+            "vehicle_plate",
+            "tractor_plate",
+            "driver_name",
+            "invoice_number",
+            "created_at",
+            "seen_at",
+            "created_by_name",
+        ]
 
 
 class NonReceiptSerializer(serializers.ModelSerializer):

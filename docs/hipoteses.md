@@ -21,6 +21,6 @@ As hipóteses abaixo orientam as regras implementadas e podem ser revistas sem a
 | Estimativas de tempo | Separadas de tempos registrados; ciclo de 5min para palete/big bag | Sem medições históricas; sem extrapolação automática para batido |
 | Android | Mesma aplicação Angular/Ionic/Capacitor e mesmo backend | PASS exige APK instalado e fluxo executado; navegador móvel não substitui APK |
 | iOS | Caminho documentado, execução em Mac/Xcode requerida | NOT RUN sem execução real |
-| Autenticação | Token DRF apenas em memória, contas de demonstração separadas | Token padrão não expira automaticamente e é um por usuário; não pronto para produção |
+| Autenticação | Token DRF em cookie de sessão do navegador, contas de demonstração separadas | Cookie sem prazo some ao fechar o navegador; o token padrão não expira sozinho e é um por usuário; não pronto para produção |
 
 Fora do escopo: ERP/SAP real, folha oficial de RH, carregamento ao cooperado, IAM completo, chatbot, machine learning, OCR, offline-first e infraestrutura distribuída. Extração de XML é automação com conferência humana, sem criar vínculos falsos entre códigos.

@@ -120,3 +120,12 @@ class SyntheticSeedTests(TestCase):
         self.assertEqual(bulletin.origin, "operacional_registrado")
         self.assertEqual(bulletin.status, "DRAFT")
         self.assertEqual(DailyBulletin.objects.count(), 1)
+
+    def test_existing_portaria_alias_is_preserved_by_repeat_seed(self):
+        user = User.objects.create_user("portaria_demo")
+        profile = UserProfile.objects.create(user=user, role="portaria")
+        self.seed()
+        self.seed()
+        profile.refresh_from_db()
+        self.assertEqual(profile.role, "portaria")
+        self.assertEqual(User.objects.filter(username="portaria_demo").count(), 1)

@@ -10,6 +10,12 @@ Fontes: [draw.io](../fontes/recebimento-bpmn-v2.drawio) e [BPMN 2.0](../fontes/r
 4. Armazém registra o observado, aceito e recusado por nota/item. Divergência suspende a conclusão até decisão documentada de Compras. Todos os itens precisam ser conferidos; notas manuais têm ao menos uma linha.
 5. A saída da última visita conclui a descarga. Portaria registra a saída da unidade separadamente. O tempo dentro do local, espera inicial e permanência total resultam de pares diferentes de eventos.
 
+## Portaria e calendário da equipe
+
+Há duas entradas distintas. Em `/portaria`, o operador consulta recebimentos e registra os marcos de chegada/saída. Em `/portaria/avisos`, registra um aviso avulso com foto, placas, motorista e número de NF; o Armazém consulta e dá ciência em `/chegadas`. A foto e a sugestão OCR auxiliam a comunicação, mas não criam agendamento, aprovação ou chegada de um recebimento. Uma carga recebida depois exige o fluxo próprio acima, sem vínculo inferido pelo número fotografado.
+
+O calendário da equipe oferece dia, semana e mês, com impressão diária e CSV. A disponibilidade vem da API global, incluindo exclusividade de máquina/implemento e indisponibilidade por calendário; contar apenas cartões visíveis não determina vagas. A impressão identifica o recorte e a origem e relaciona as notas da carga. Quantidades e valores de NF representam informação documental; não são remuneração de chapas nem total de pagamento. O diagrama representa o fluxo principal de recebimento; o aviso fotográfico é um fluxo de comunicação separado descrito nesta seção.
+
 ## Exceções e trilha
 
 Cancelamento anterior à descarga registra motivo e retém capacidade; a vaga não é liberada silenciosamente ao público. Atribuição a outro recebimento é uma ação nominal. Reagendamento por natureza usa justificativa, capacidade/transação e preserva chegada já observada. Não recebimento pode estar ligado a uma carga ou ser avulso.

@@ -1,0 +1,133 @@
+import re
+from pathlib import Path
+
+from django.db import transaction
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from core.permissions import require_role, user_role
+
+from .models import GateArrival
+from .serializers import GateArrivalSerializer
+from .xml_parser import validate_invoice_number
+
+class GateArrivalPagination(PageNumberPagination):
+    page_size = 50
+
+
+def _plate(value, field):
+    plate = " ".join(str(value or "").upper().split())
+    if not plate or len(plate) > 15:
+        raise ValidationError({field: "Informe a placa."})
+    return plate
+
+
+def _arrival_queryset(user):
+    queryset = GateArrival.objects.select_related("created_by")
+    if user_role(user) == "gatehouse":
+        return queryset.filter(created_by=user)
+    return queryset
+
+
+def _image_type(content):
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    if content[4:8] == b"ftyp":
+        brands = {content[index:index + 4] for index in range(8, min(len(content), 64), 4)}
+        if brands & {b"heic", b"heix", b"hevc", b"hevx"}:
+            return "image/heic"
+        if brands & {b"mif1", b"msf1"}:
+            return "image/heif"
+    raise ValidationError({"file": "Envie conteúdo de imagem JPEG, PNG, WebP, HEIC ou HEIF; extensão e tipo informados não bastam."})
+
+
+def _invoice_number(value, legacy=False):
+    text = str(value or "").strip()
+    # The old form allowed printed thousands separators. It never needs a
+    # 44-digit access key: its OCR extracts the nine-digit nNF portion first.
+    if legacy and re.fullmatch(r"[1-9][0-9]{0,2}(?:\.[0-9]{3}){1,2}", text):
+        text = text.replace(".", "")
+    try:
+        return validate_invoice_number(text)
+    except ValidationError as error:
+        raise ValidationError({"invoice_number": error.detail["number"]}) from None
+
+
+class GateArrivalListView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        require_role(request.user, "portaria", "warehouse")
+        queryset = _arrival_queryset(request.user)
+        if request.query_params.get("summary") == "1":
+            require_role(request.user, "warehouse")
+            return Response({"unread": queryset.filter(seen_at__isnull=True).count()})
+        paginator = GateArrivalPagination()
+        arrivals = paginator.paginate_queryset(queryset.order_by("-created_at", "-id"), request, view=self)
+        response = paginator.get_paginated_response(GateArrivalSerializer(arrivals, many=True).data)
+        response.data["unread"] = queryset.filter(seen_at__isnull=True).count()
+        return response
+
+    def post(self, request):
+        require_role(request.user, "portaria")
+        uploaded = request.FILES.get("file")
+        if not uploaded or uploaded.size == 0 or uploaded.size > 10 * 1024 * 1024:
+            raise ValidationError({"file": "Anexe a foto da nota, de até 10 MB."})
+        content = uploaded.read()
+        media = _image_type(content)
+        uploaded.seek(0)
+        driver = " ".join(str(request.data.get("driver_name") or "").split())
+        if len(driver) < 3 or len(driver) > 120:
+            raise ValidationError({"driver_name": "Informe o nome do motorista."})
+        number = _invoice_number(request.data.get("invoice_number"), legacy=request.path.startswith("/api/v1/"))
+        arrival = GateArrival.objects.create(
+            vehicle_plate=_plate(request.data.get("vehicle_plate"), "vehicle_plate"),
+            tractor_plate=_plate(request.data.get("tractor_plate"), "tractor_plate"),
+            driver_name=driver,
+            invoice_number=number,
+            file=uploaded,
+            original_name=Path(uploaded.name.replace("\\", "/")).name[:200],
+            media_type=media or "image/jpeg",
+            created_by=request.user,
+        )
+        return Response(GateArrivalSerializer(arrival).data, status=status.HTTP_201_CREATED)
+
+
+class GateArrivalSeenView(APIView):
+    @transaction.atomic
+    def post(self, request, pk):
+        require_role(request.user, "warehouse")
+        arrival = get_object_or_404(GateArrival.objects.select_for_update(), id=pk)
+        if arrival.seen_at is None:
+            arrival.seen_at = timezone.now()
+            arrival.seen_by = request.user
+            arrival.save(update_fields=["seen_at", "seen_by"])
+        return Response(GateArrivalSerializer(arrival).data)
+
+
+class GateArrivalFileView(APIView):
+    def get(self, request, pk):
+        require_role(request.user, "portaria", "warehouse")
+        arrival = get_object_or_404(_arrival_queryset(request.user), id=pk)
+        response = FileResponse(
+            arrival.file.open("rb"),
+            as_attachment=False,
+            filename=arrival.original_name,
+            content_type=arrival.media_type or "image/jpeg",
+        )
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "sandbox; default-src 'none'"
+        response["Content-Disposition"] = "inline"
+        return response

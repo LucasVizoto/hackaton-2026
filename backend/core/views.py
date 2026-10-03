@@ -11,12 +11,15 @@ from rest_framework.views import APIView
 from .permissions import user_role
 
 
-def user_payload(user):
+def user_payload(user, request=None):
     profile = getattr(user, "profile", None)
+    role = user_role(user)
+    if role == "gatehouse" and request and request.path.startswith("/api/v1/"):
+        role = "portaria"
     return {
         "id": user.id,
         "username": user.username,
-        "role": user_role(user),
+        "role": role,
         "supplier_id": str(profile.supplier_id) if profile and profile.supplier_id else None,
     }
 
@@ -37,7 +40,7 @@ class LoginView(APIView):
         if user is None or not user_role(user):
             raise AuthenticationFailed("Credenciais inválidas ou usuário sem perfil.")
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "user": user_payload(user)})
+        return Response({"token": token.key, "user": user_payload(user, request)})
 
 
 class LogoutView(APIView):
@@ -48,7 +51,7 @@ class LogoutView(APIView):
 
 class MeView(APIView):
     def get(self, request):
-        return Response(user_payload(request.user))
+        return Response(user_payload(request.user, request))
 
 
 class HealthView(APIView):

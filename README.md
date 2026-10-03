@@ -21,7 +21,7 @@ npm start
 
 O setup cria `.env` privado com segredos aleatórios se o arquivo ainda não existir, valida o pacote privado completo e executa migrations e seed do banco. Use `-PrivateDataPath` ou configure `PRIVATE_DATA_DIR`. O baseline conserva os dados históricos e todos os arquivos privados, sem gerar horários ou operações ausentes nas fontes.
 
-`-SeedDemo` acrescenta as contas `fornecedor_demo`, `fornecedor_b_demo`, `compras_demo`, `armazem_demo` e `gestao_demo`; a senha é `DEMO_PASSWORD` do `.env` local. Essas fixtures são sintéticas e identificadas. O seed histórico cria somente uma conta técnica inativa, sem senha utilizável. Nenhuma senha existente é alterada.
+`-SeedDemo` acrescenta as contas `fornecedor_demo`, `fornecedor_b_demo`, `compras_demo`, `armazem_demo`, `gestao_demo` e `portaria_demo`; a senha é `DEMO_PASSWORD` do `.env` local. Essas fixtures são sintéticas e identificadas. O seed histórico cria somente uma conta técnica inativa, sem senha utilizável. Nenhuma senha existente é alterada.
 
 O token fica apenas em memória: ao recarregar, entre novamente. Recebimentos e boletins são recuperados do PostgreSQL. Logout revoga o token; este MVP tem um token por usuário e não implementa expiração/refresh. Credenciais não devem ser usadas em serviço público.
 

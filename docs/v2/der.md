@@ -17,6 +17,7 @@ Fonte editável: [der-v2.drawio](../fontes/der-v2.drawio), com duas páginas. Os
 | ReceivingCommand | Comando idempotente por recebimento/chave; ação, conteúdo e ator conferidos |
 | ReceivingEvent / ReceivingException | Trilhas de eventos e ocorrências com horário ocorrido e registrado; não substituem uma recusa formal |
 | InternalNotification | Destinatário por perfil, chave de deduplicação e ciência; não significa mensagem externa enviada |
+| GateArrival | Aviso avulso com foto privada, placas, motorista, número de NF, autor e ciência; sem FK para Appointment e sem reserva/marcos inferidos. Este agregado complementar não consta do recorte visual acima. |
 | CapacityHold / GlobalSlot | Retenção explícita após cancelamento; capacidade global protegida por transação |
 | Worker / Equipment | Cadastros com `is_active`; inativação não rompe referências anteriores |
 | WorkerDay | Chave única pessoa/data/origem; eixo compartilhado pela atividade física e apuração |
@@ -32,6 +33,8 @@ Fonte editável: [der-v2.drawio](../fontes/der-v2.drawio), com duas páginas. Os
 | HistoricalWorkerDay / ImportBatch | Observação de RH e procedência; somente lotes ativos entram na consulta; qualidade conserva observações não utilizáveis |
 
 A migração adiciona estruturas e marca os boletins existentes como `boletim-v1`. Não recalcula fechados, cria parcelas retroativas nem inventa os quatro horários. A API de novos boletins grava `boletim-v2`. Separar `active` de exclusão conserva parcelas de revisões reabertas para auditoria.
+
+A conciliação com `main` conserva as migrations das duas árvores: `core/0003` e `receiving/0007` unem as dependências. Os papéis persistidos `portaria` e `gatehouse` permanecem preservados; a autorização os trata como Portaria. O registro de foto não é migrado para um recebimento e não participa dos custos do boletim.
 
 Os modelos opcionais de `integrations` também existem: WarehouseReadiness/ReadinessRevision, ReceiptSignature, DocumentSuggestion e OutboundDelivery. Eles armazenam prontidão, manifestação de aceite, original/sugestão OCR e entrega externa. A existência dessas tabelas não comprova que um provedor foi configurado ou que um envio ocorreu.
 

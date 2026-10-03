@@ -95,7 +95,8 @@ def main():
     assert len(ap["invoices"]) == 2
     availability = call("supplier", "slots/availability/?"+urlencode({"date": args.date, "packaging": "paletizada"}))
     assert not next(item for item in availability["slots"] if item["time"] == "10:00")["eligible"]
-    timestamp = lambda hhmm: args.date+"T"+hhmm+":00-03:00"
+    def timestamp(hhmm):
+        return args.date+"T"+hhmm+":00-03:00"
     action("gatehouse", "gate-check-in", {"occurred_at": timestamp("09:50")})
     gate_view = refresh("gatehouse")
     assert len(gate_view["invoices"]) == 2 and gate_view["tractor_plate"] == "TEST456"

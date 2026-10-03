@@ -20,6 +20,22 @@ export interface Page<T> {
   previous?: string | null;
 }
 export type RecordData = Record<string, unknown>;
+const sessionCookie = "cocapec_session";
+export function sessionCookieAssignment(token: string, secure = false): string {
+  return `${sessionCookie}=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
+}
+function readSessionCookie(): string {
+  if (typeof document === "undefined" || !document.cookie) return "";
+  const row = document.cookie.split("; ").find((item) => item.startsWith(`${sessionCookie}=`));
+  try { return row ? decodeURIComponent(row.slice(sessionCookie.length + 1)) : ""; } catch { return ""; }
+}
+function writeSessionCookie(token: string) {
+  const secure = globalThis.location?.protocol === "https:";
+  document.cookie = sessionCookieAssignment(token, secure);
+}
+function clearSessionCookie() {
+  document.cookie = `${sessionCookie}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
 const privateAttachment = registerPlugin<{
   save(options: {
     base64: string;
@@ -66,7 +82,21 @@ export class Api {
     });
     this.token.set(r.token);
     this.user.set(r.user);
+    writeSessionCookie(r.token);
     return r;
+  }
+  async restoreSession() {
+    const token = readSessionCookie();
+    if (!token) return;
+    this.token.set(token);
+    try {
+      const user = await this.get<User>("auth/me/");
+      this.user.set(user);
+    } catch {
+      this.token.set("");
+      this.user.set(null);
+      clearSessionCookie();
+    }
   }
   async logout() {
     try {
@@ -78,13 +108,19 @@ export class Api {
   clear() {
     this.token.set("");
     this.user.set(null);
+    clearSessionCookie();
     void this.router.navigateByUrl("/login");
   }
-  async download(path: string, filename: string) {
+  async blob(path: string) {
     await this.configure();
-    const blob = await firstValueFrom(
+    return firstValueFrom(
       this.http.get(`${this.base}/${path}`, { responseType: "blob" }),
     );
+  }
+  async download(path: string, filename: string) {
+    return this.saveBlob(await this.blob(path),filename);
+  }
+  async saveBlob(blob:Blob, filename:string) {
     if (Capacitor.getPlatform() === "android") {
       if (blob.size > 10 * 1024 * 1024)
         throw new Error("O anexo excede o limite de 10 MB.");
@@ -112,7 +148,7 @@ export class Api {
   }
   can(...roles: string[]) {
     return (
-      roles.includes(this.user()?.role ?? "") || this.user()?.role === "admin"
+      roles.map(role => role === "portaria" ? "gatehouse" : role).includes(this.user()?.role === "portaria" ? "gatehouse" : this.user()?.role ?? "") || this.user()?.role === "admin"
     );
   }
 }
@@ -194,6 +230,28 @@ export function today(): string {
     month: "2-digit",
     day: "2-digit",
   }).format(d);
+}
+export function isWeekend(value: string): boolean {
+  const day = new Date(`${value}T12:00:00Z`).getUTCDay();
+  return day === 0 || day === 6;
+}
+export function nextBusinessDay(value = today()): string {
+  const reference = new Date(`${value}T12:00:00Z`);
+  while (reference.getUTCDay() === 0 || reference.getUTCDay() === 6) {
+    reference.setUTCDate(reference.getUTCDate() + 1);
+  }
+  return reference.toISOString().slice(0, 10);
+}
+export function closedDayMessage(value: string): string {
+  const [year, month, day] = value.split("-");
+  const label = `${day}/${month}/${year}`;
+  const weekday = new Date(`${value}T12:00:00Z`).getUTCDay();
+  if (weekday === 6 || weekday === 0) {
+    const name = weekday === 6 ? "sábado" : "domingo";
+    const [nextYear, nextMonth, nextDay] = nextBusinessDay(value).split("-");
+    return `${label} é ${name}. O recebimento ocorre somente de segunda a sexta. Use ${nextDay}/${nextMonth}/${nextYear}.`;
+  }
+  return `${label} é um feriado configurado. Escolha um dia útil sem feriado.`;
 }
 export function previousDay(value = today()): string {
   const reference = new Date(`${value}T12:00:00Z`);

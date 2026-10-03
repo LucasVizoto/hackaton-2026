@@ -2,7 +2,7 @@
 
 Base local: `/api/v2/`. Rotas terminam em `/`; IDs de domínio são UUID; datas usam `YYYY-MM-DD` e horários ISO 8601 com fuso. Valores monetários são strings decimais. O código de referência está em `backend/receiving/urls_v2.py`, `labor/urls_v2.py`, `analytics/urls_v2.py` e `integrations/urls.py`.
 
-Autenticação mantém `POST auth/login/`, `GET auth/me/`, `POST auth/logout/` e `Authorization: Token <token>`. Perfis: fornecedor (`supplier`), Compras (`purchasing`), Armazém (`warehouse`), Portaria (`gatehouse`), Gestão (`management`) e administrador (`admin`). Portaria não acessa boletins, pessoas, folha ou indicadores financeiros. Fornecedor consulta somente seus documentos e recebimentos. Administrador pode executar as ações autorizadas dos demais perfis.
+Autenticação mantém `POST auth/login/`, `GET auth/me/`, `POST auth/logout/` e `Authorization: Token <token>`. O cliente pode recuperar o token do cookie local e confirmar sua validade em `auth/me/`; logout revoga o token no servidor e limpa a sessão local. Perfis v2: fornecedor (`supplier`), Compras (`purchasing`), Armazém (`warehouse`), Portaria (`gatehouse`), Gestão (`management`) e administrador (`admin`). A autenticação v1 conserva o nome `portaria`; as duas identidades persistidas têm o mesmo escopo de Portaria, sem renomear registros históricos. Portaria não acessa boletins, pessoas, folha ou indicadores financeiros. Fornecedor consulta somente seus documentos e recebimentos. Administrador pode executar as ações autorizadas dos demais perfis.
 
 Listas paginadas usam `count`, `next`, `previous`, `results`. Erros usam `error.code` e `error.details`. Mutações de recebimento v2 exigem `expected_revision`; as de boletim exigem `revision`. Conflito de estado da agenda retorna 409; conflito de revisão do boletim retorna 400. O cliente deve recuperar a versão atual e preservar os dados não salvos. `available_actions` contém `{code,allowed,reason}` por ação e é calculado pelo servidor.
 
@@ -18,6 +18,18 @@ Listas paginadas usam `count`, `next`, `previous`, `results`. Erros usam `error.
 | `GET attachments/:id/download/` | Original privado, sem URL pública |
 
 Cadastros inativos continuam disponíveis para consultar o histórico; novas atividades, participantes e recursos recusam inativos. O filtro `is_active=true/false` restringe catálogos. A origem histórica exige importação rastreável. Número de NF precisa ser numérico e válido, sem truncamento; extração não equivale a aprovação fiscal.
+
+## Aviso avulso da Portaria
+
+As rotas `gate-arrivals/` existem em `/api/v1/` e `/api/v2/`. O aviso `GateArrival` reúne foto, placa, placa do cavalo, motorista e número da NF; os dois campos de placa são obrigatórios neste formulário preservado de `main`. Ele não é um `Appointment` e não cria fornecedor, NF, reserva, chegada de recebimento nem visita automaticamente.
+
+| Método e rota | Contrato |
+|---|---|
+| `GET/POST gate-arrivals/` | Portaria consulta/cria seus próprios avisos; Armazém/admin consultam todos. POST multipart inclui os dados e a foto. |
+| `GET gate-arrivals/:id/file/` | Foto original protegida pela mesma autorização do aviso; JPEG, PNG, WebP, HEIC ou HEIF verificados pelo conteúdo. |
+| `POST gate-arrivals/:id/seen/` | Armazém/admin registram ciência; repetição mantém a ciência anterior. |
+
+A lista é paginada em 50 itens e retorna `count`, `next`, `previous`, `results` e `unread`. `?summary=1` é restrito a Armazém/admin. O número digitado na v2 deve conter de 1 a 9 dígitos ASCII, sem zero inicial ou chave de acesso; a v1 mantém compatibilidade com separadores de milhar válidos. A leitura OCR local apenas sugere o número canônico para conferência humana: remove zeros de preenchimento da sugestão, prioriza o número impresso com rótulo e só extrai o campo da chave quando identifica uma chave completa e plausível. Nenhuma digitação de 44 dígitos é truncada pelo formulário ou servidor.
 
 ## Recebimento de várias notas e quatro marcos
 

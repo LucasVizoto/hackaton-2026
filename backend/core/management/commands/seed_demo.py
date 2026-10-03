@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 
 from catalog.models import Equipment, Supplier, Warehouse, Worker
 from core.models import UserProfile
+from core.permissions import canonical_role
 from labor.constants import RATE_TABLE
 from labor.models import DailyBulletin, ServiceRate
 from labor.services import close_bulletin, replace_contents
@@ -67,7 +68,7 @@ class Command(BaseCommand):
             profile, _ = UserProfile.objects.get_or_create(
                 user=user, defaults={"role": role, "supplier": supplier}
             )
-            if profile.role != role or profile.supplier_id != (supplier.pk if supplier else None):
+            if canonical_role(profile.role) != canonical_role(role) or profile.supplier_id != (supplier.pk if supplier else None):
                 raise CommandError("Conta de demonstração já existente com perfil diferente.")
             users[role if supplier != suppliers[1] else "supplier_b"] = user
         workers = []

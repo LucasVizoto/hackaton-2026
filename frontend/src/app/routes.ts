@@ -1,15 +1,10 @@
 import { inject } from "@angular/core";
 import { CanActivateFn, Router, Routes } from "@angular/router";
 import { Api } from "./core/api";
-const auth: CanActivateFn = () =>
-  inject(Api).user()
-    ? true
-    : inject(Router).createUrlTree(["/login"], {
-        queryParams: { perfil: "operador" },
-      });
-const guest: CanActivateFn = () =>
-  inject(Api).user() ? inject(Router).createUrlTree(["/agenda"]) : true;
-const roles = (...allowed: string[]): CanActivateFn => () => inject(Api).can(...allowed) ? true : inject(Router).createUrlTree(["/agenda"]);
+function homeOf(api: Api) { return api.user()?.role === "gatehouse" || api.user()?.role === "portaria" ? "/portaria" : "/agenda"; }
+const auth: CanActivateFn = () => inject(Api).user() ? true : inject(Router).createUrlTree(["/login"], {queryParams:{perfil:"operador"}});
+const guest: CanActivateFn = () => { const api=inject(Api); return api.user() ? inject(Router).createUrlTree([homeOf(api)]) : true; };
+const roles = (...allowed:string[]):CanActivateFn => () => { const api=inject(Api); return api.can(...allowed) ? true : inject(Router).createUrlTree([homeOf(api)]); };
 export const routes: Routes = [
   {
     path: "",
@@ -29,7 +24,7 @@ export const routes: Routes = [
   },
   {
     path: "agenda/novo",
-    canActivate: [auth],
+    canActivate: [auth, roles("supplier", "warehouse", "purchasing")],
     loadComponent: () =>
       import("./features/appointment-create").then((m) => m.AppointmentCreate),
   },
@@ -101,6 +96,8 @@ export const routes: Routes = [
     loadComponent: () =>
       import("./features/management").then((m) => m.DataQuality),
   },
+  { path: "portaria/avisos", canActivate: [auth, roles("gatehouse")], loadComponent: () => import("./features/gate").then(m => m.GateDesk) },
+  { path: "chegadas", canActivate: [auth, roles("warehouse")], loadComponent: () => import("./features/gate").then(m => m.ArrivalInbox) },
   { path: "portaria", canActivate: [auth, roles("gatehouse")], loadComponent: () => import("./features/receiving").then(m => m.AppointmentList), data: {mode: "portaria"} },
   { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },

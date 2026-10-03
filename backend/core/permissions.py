@@ -2,15 +2,20 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
 
 
+def canonical_role(value):
+    # Keep persisted team roles intact while sharing one authorization policy.
+    return "gatehouse" if value == "portaria" else value
+
+
 def user_role(user):
     if user.is_superuser:
         return "admin"
     profile = getattr(user, "profile", None)
-    return profile.role if profile else ""
+    return canonical_role(profile.role) if profile else ""
 
 
 def require_role(user, *roles):
-    if user_role(user) not in (*roles, "admin"):
+    if user_role(user) not in (*map(canonical_role, roles), "admin"):
         raise PermissionDenied("Seu perfil não permite esta ação.")
 
 

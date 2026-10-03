@@ -126,7 +126,7 @@ O frontend encaminha `/api` para a API na porta 8000 pelo proxy configurado no r
 
 ## 5. Entrar e conferir o funcionamento
 
-Abra o `.env` local em um editor e copie o valor depois de `DEMO_PASSWORD=`. Essa é a senha das cinco contas criadas na primeira execução:
+Abra o `.env` local em um editor e copie o valor depois de `DEMO_PASSWORD=`. Essa é a senha das contas criadas na primeira execução:
 
 | Usuário | Perfil |
 |---|---|
@@ -135,6 +135,7 @@ Abra o `.env` local em um editor e copie o valor depois de `DEMO_PASSWORD=`. Ess
 | `compras_demo` | Compras |
 | `armazem_demo` | Armazém |
 | `gestao_demo` | Gestão |
+| `portaria_demo` | Portaria |
 
 Para conferir os indicadores sintéticos, entre com `gestao_demo`, selecione a origem **Demonstração sintética** e um período que inclua **01/10/2026 a 02/10/2026**. Há também boletins de referência em 17 e 18/11/2025. O painel começa com a origem de operação registrada, que pode estar sem dados em um banco novo.
 
@@ -145,7 +146,7 @@ Invoke-RestMethod 'http://127.0.0.1:8000/api/v1/health/'
 Invoke-RestMethod 'http://localhost:4200/api/v1/health/'
 ```
 
-Ambas devem retornar `status: ok` e `database: postgresql`; a segunda também verifica o proxy do frontend. Recarregar a página pede um novo login, pois o token fica em memória. Os registros continuam no PostgreSQL.
+Ambas devem retornar `status: ok` e `database: postgresql`; a segunda também verifica o proxy do frontend. Recarregar a página mantém o login: o token fica em um cookie de sessão do navegador e some ao fechar o navegador. Os registros continuam no PostgreSQL.
 
 ## 6. Parar e voltar a rodar
 

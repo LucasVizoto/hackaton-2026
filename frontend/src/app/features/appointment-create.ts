@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, OnInit, signal, viewChild }
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { IonButton } from "@ionic/angular/standalone";
-import { Api, apiError, originLabel, today } from "../core/api";
+import { Api, apiError, originLabel, nextBusinessDay } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { invoiceNumber, uploadIdentity } from "../core/workflow";
 import { FeedbackState, LoadingState, PageHeader } from "../shared/ui";
@@ -30,7 +30,7 @@ export class AppointmentCreate implements OnInit {
   busy=signal(false);loaded=signal(false);error=signal("");slotReady=signal(false);origin=originLabel;
   slots=viewChild(SlotPicker);
   notes=signal<InvoiceDraft[]>([]);private attemptSignature="";private attemptKey="";
-  form=this.fb.nonNullable.group({supplier:[""],resubmission_reason:[""],articulated:[false],booking_kind:["scheduled"],vehicle_plate:["",Validators.required],tractor_plate:[""],carrier_name:[""],driver_name:[""],packaging:["paletizada",Validators.required],notes:[""],date:[today(),Validators.required],time:["",Validators.required]});
+  form=this.fb.nonNullable.group({supplier:[""],resubmission_reason:[""],articulated:[false],booking_kind:["scheduled"],vehicle_plate:["",Validators.required],tractor_plate:[""],carrier_name:[""],driver_name:[""],packaging:["paletizada",Validators.required],notes:[""],date:[nextBusinessDay(),Validators.required],time:["",Validators.required]});
   async ngOnInit(){this.addNote();try{if(this.api.can('warehouse','purchasing')){this.form.controls.supplier.addValidators(Validators.required);await this.catalog.load();}const previousId=this.route.snapshot.queryParamMap.get('previous_appointment');if(previousId){const prior=await this.api.get<PreviousAppointment>(`appointments/${previousId}/`);this.previous.set(prior);if(this.api.can('warehouse','purchasing'))this.form.controls.supplier.setValue(prior.supplier);this.form.controls.resubmission_reason.addValidators(Validators.required);this.form.controls.resubmission_reason.updateValueAndValidity();}this.loaded.set(true);}catch(e){this.error.set(apiError(e));}}
   addNote(){this.notes.update(notes=>[...notes,{key:crypto.randomUUID(),file:null,number:"",uploadedId:"",uploadedIdentity:"",origin:""}]);}
   removeNote(key:string){this.notes.update(notes=>notes.filter(note=>note.key!==key));}

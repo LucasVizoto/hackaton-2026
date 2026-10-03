@@ -31,6 +31,10 @@ def private_upload(instance, filename):
     return f"invoices/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 
 
+def gate_upload(instance, filename):
+    return f"gate/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
 class Holiday(UUIDModel):
     date = models.DateField(unique=True)
     description = models.CharField(max_length=200)
@@ -206,6 +210,30 @@ class ReceivingEvent(UUIDModel):
 
     class Meta:
         ordering = ["recorded_at"]
+
+
+class GateArrival(UUIDModel):
+    vehicle_plate = models.CharField(max_length=15)
+    tractor_plate = models.CharField(max_length=15)
+    driver_name = models.CharField(max_length=120)
+    invoice_number = models.CharField(max_length=44)
+    file = models.FileField(upload_to=gate_upload)
+    original_name = models.CharField(max_length=200)
+    media_type = models.CharField(max_length=80)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="gate_arrivals"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    seen_at = models.DateTimeField(null=True)
+    seen_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="gate_arrivals_seen",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class NonReceipt(UUIDModel):

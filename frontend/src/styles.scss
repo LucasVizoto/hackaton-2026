@@ -65,6 +65,13 @@
   --login-card: #ffffff;
   --login-navy: #0b3d73;
   --login-navy-hover: #08325f;
+  --login-fill: #0b3d73;
+  --login-fill-hover: #08325f;
+  --login-fill-contrast: #ffffff;
+  --login-track: #f3f6fb;
+  --login-pill: #ffffff;
+  --login-mark: #eef3f8;
+  --login-crease: #e7edf5;
   --login-ink: #1c2a3a;
   --login-muted: #6b7789;
   --login-line: #e6ebf3;
@@ -114,8 +121,15 @@
   --ion-color-danger-tint: #ffccc7;
   --login-canvas: #0b1220;
   --login-card: #141b2a;
-  --login-navy: #7eb4ea;
-  --login-navy-hover: #9cc7f2;
+  --login-navy: #d7e6fb;
+  --login-navy-hover: #2064aa;
+  --login-fill: #1a5694;
+  --login-fill-hover: #2064aa;
+  --login-fill-contrast: #f7fbff;
+  --login-track: #1b2433;
+  --login-pill: #1b2433;
+  --login-mark: #243044;
+  --login-crease: #0b1220;
   --login-ink: #f3f4f6;
   --login-muted: #9ca3af;
   --login-line: #262b38;
@@ -226,6 +240,7 @@ tbody tr:hover { background: var(--surface-hover); }
 .table-input { min-width: 88px; max-width: 135px; text-align: right; }
 .notice,.error,.success { padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-control); margin-bottom: 20px; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
 .notice { background: var(--surface-subtle); color: var(--muted); }
+.arrival-alert { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: var(--radius-full); background: var(--warning-soft); color: var(--warning); font-size: 13px; font-weight: 700; text-decoration: none; }
 .notice.synthetic { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
 .notice.info { background: var(--info-soft); color: var(--blue); border-color: transparent; }
 .error { background: var(--danger-soft); color: var(--danger); border-color: transparent; white-space: pre-wrap; }

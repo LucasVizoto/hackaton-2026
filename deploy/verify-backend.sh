@@ -19,7 +19,7 @@ for args in [
     ['backend/.venv/bin/ruff', 'check', '--config', 'backend/ruff.toml', 'backend', 'scripts', 'deploy'],
     [sys.executable, 'backend/manage.py', 'check'],
     [sys.executable, 'backend/manage.py', 'makemigrations', '--check', '--dry-run', '--noinput'],
-    [sys.executable, 'backend/manage.py', 'test', 'core', 'receiving', 'labor', 'analytics', 'imports', '--noinput'],
+    [sys.executable, 'backend/manage.py', 'test', 'core', 'receiving', 'labor', 'analytics', 'imports', 'integrations', '--noinput'],
 ]:
     subprocess.run(args, check=True)
 PY
