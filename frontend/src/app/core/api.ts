@@ -4,7 +4,7 @@ import {
   HttpErrorResponse,
   HttpInterceptorFn,
 } from "@angular/common/http";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Router } from "@angular/router";
 import { firstValueFrom } from "rxjs";
 export interface User {
@@ -20,6 +20,13 @@ export interface Page<T> {
   previous?: string | null;
 }
 export type RecordData = Record<string, unknown>;
+const privateAttachment = registerPlugin<{
+  save(options: {
+    base64: string;
+    filename: string;
+    mimeType: string;
+  }): Promise<{ saved: boolean }>;
+}>("PrivateAttachment");
 @Injectable({ providedIn: "root" })
 export class Api {
   private http = inject(HttpClient);
@@ -76,12 +83,30 @@ export class Api {
     const blob = await firstValueFrom(
       this.http.get(`${this.base}/${path}`, { responseType: "blob" }),
     );
+    if (Capacitor.getPlatform() === "android") {
+      if (blob.size > 10 * 1024 * 1024)
+        throw new Error("O anexo excede o limite de 10 MB.");
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",", 2)[1]);
+        reader.onerror = () => reject(new Error("Não foi possível ler o anexo."));
+        reader.readAsDataURL(blob);
+      });
+      return (
+        await privateAttachment.save({
+          base64,
+          filename,
+          mimeType: blob.type || "application/octet-stream",
+        })
+      ).saved;
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return false;
   }
   can(...roles: string[]) {
     return (

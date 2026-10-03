@@ -591,7 +591,7 @@ export class AppointmentCreate implements OnInit {
         }
         <div class="actions section">
           <ion-button fill="outline" (click)="download()" [disabled]="busy()"
-            >Abrir anexo privado</ion-button
+            >Salvar anexo privado</ion-button
           >
           @if (api.can("purchasing")) {
             <ion-button (click)="open('purchase-review')" [disabled]="busy()"
@@ -1216,17 +1216,22 @@ export class AppointmentDetail implements OnInit {
     );
   }
   async download() {
+    this.busy.set(true);
     this.error.set("");
+    this.success.set("");
     try {
       const invoice =
         this.invoiceData() ??
         (await this.api.get<InvoiceData>(`invoices/${this.a()?.invoice}/`));
-      await this.api.download(
+      const saved = await this.api.download(
         `attachments/${invoice.attachment_id}/download/`,
         invoice.original_name || `nota-${invoice.number || this.a()?.id}`,
       );
+      if (saved) this.success.set("Anexo salvo no local escolhido.");
     } catch (e) {
       this.error.set(apiError(e));
+    } finally {
+      this.busy.set(false);
     }
   }
   async execute() {
@@ -1308,7 +1313,7 @@ export class AppointmentDetail implements OnInit {
       });
       this.action.set("");
       await this.load();
-      this.success.set(`${this.actionTitleFor(act)} gravado no servidor.`);
+      this.success.set(`${this.actionTitleFor(act)}: registro salvo no servidor.`);
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
