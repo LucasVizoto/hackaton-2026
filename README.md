@@ -4,6 +4,8 @@ Agenda e operação de recebimentos, boletins diários e diagnóstico financeiro
 
 ## Executar no Windows / PowerShell 7
 
+Acabou de clonar? Siga o [guia de instalação e primeira execução](docs/como_rodar.md), com ferramentas necessárias, contas de demonstração e solução dos erros mais comuns.
+
 Pré-requisitos: Docker Desktop ativo, Python 3.14, uv e Node 24/npm. O backend roda nativamente; Compose sobe somente o PostgreSQL, na porta local 55433. Android é um passo separado, sem download automático de SDK.
 
 ```powershell

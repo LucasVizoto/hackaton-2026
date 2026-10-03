@@ -9,7 +9,7 @@ Os quatro artefatos exigidos pelo regulamento, seção H, estão abaixo. Cada um
 | Processo BPMN | [Processo](processo.md) | [SVG](imagens/recebimento-bpmn.svg), [BPMN 2.0](fontes/recebimento.bpmn), [draw.io](fontes/recebimento-bpmn.drawio) |
 | DER | [Modelo de dados](der.md) | [SVG](imagens/der.svg), [draw.io](fontes/der.drawio) |
 
-Documentos de apoio: [hipóteses e limitações](hipoteses.md), [contrato da API](api.md), [indicadores e cobertura](indicadores.md), [importação privada](importacao.md), [roteiro de oito minutos](roteiro_8_minutos.md), [validação final](validacao.md).
+Documentos de apoio: [instalação e primeira execução](como_rodar.md), [hipóteses e limitações](hipoteses.md), [contrato da API](api.md), [indicadores e cobertura](indicadores.md), [importação privada](importacao.md), [roteiro de oito minutos](roteiro_8_minutos.md), [validação final](validacao.md).
 
 Última rodada registrada: 81 testes PostgreSQL e sete de apresentação, lint, migrations, Compose, build Angular e sincronização passaram. A instrumentação agregada Android passou em um AVD. O APK atual passou em login, consulta e chegada refletida na web; checkpoint e reinício API/PostgreSQL preservaram o estado. A falha de conexão passou em inspeção visual/estado, com asserção Maestro do alerta FAIL por omissão na hierarquia WebView. O [relatório de validação](validacao.md) delimita os resultados. Nenhum aparelho físico testado; iOS NOT RUN.
 
