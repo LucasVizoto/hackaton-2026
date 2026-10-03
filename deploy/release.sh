@@ -15,7 +15,11 @@ runuser -u cocapec -- env HOME=/srv/cocapec bash -c 'cd "$1/frontend"; npm ci; n
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" check --deploy --fail-level WARNING
 previous=$(readlink -f /srv/cocapec/current || true)
 if [ -n "$previous" ]; then supervisorctl stop cocapec-api; fi
-if ! runuser -u postgres -- psql -X -t -A -d cocapec -c "SELECT to_regclass('public.imports_seedrun') IS NOT NULL;" | grep -qx t; then
+baseline_ready=false
+if runuser -u postgres -- psql -X -t -A -d cocapec -c "SELECT to_regclass('public.imports_seedrun') IS NOT NULL;" | grep -qx t; then
+    if runuser -u postgres -- psql -X -t -A -d cocapec -c "SELECT EXISTS(SELECT 1 FROM imports_seedrun);" | grep -qx t; then baseline_ready=true; fi
+fi
+if [ "$baseline_ready" = false ]; then
     runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" bootstrap_database --dry-run --report /srv/cocapec/shared/reports/bootstrap-dry-run.json
     runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" bootstrap_database --report /srv/cocapec/shared/reports/bootstrap.json
 else

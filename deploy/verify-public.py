@@ -27,11 +27,11 @@ def request(path, token='', data=None, extra=None):
     try:
         response = urlopen(Request(args.url + path, data=body, headers=headers), timeout=30)
     except HTTPError as error:
-        return error.code, {}, dict(error.headers)
+        return error.code, {}, {key.lower(): value for key, value in error.headers.items()}
     with response:
         raw = response.read()
         value = json.loads(raw) if 'application/json' in response.headers.get('Content-Type', '') else raw
-        return response.status, value, dict(response.headers)
+        return response.status, value, {key.lower(): value for key, value in response.headers.items()}
 
 
 assert request('/api/v1/health/')[1] == {'status': 'ok', 'database': 'postgresql'}
@@ -43,7 +43,7 @@ for username, role in [
 ]:
     status, login, headers = request('/api/v1/auth/login/', data={'username': username, 'password': password})
     assert status == 200 and login['user']['role'] == role
-    assert 'no-store' in headers.get('Cache-Control', '')
+    assert 'no-store' in headers.get('cache-control', '')
     tokens[username] = login['token']
     assert request('/api/v1/auth/me/', tokens[username])[1]['role'] == role
 supplier_a, supplier_b = tokens['fornecedor_demo'], tokens['fornecedor_b_demo']
@@ -53,14 +53,14 @@ download = f"/api/v1/attachments/{invoice['attachment_id']}/download/"
 assert request(download)[0] == 401
 assert request(download, supplier_b)[0] in (403, 404)
 status, contents, headers = request(download, supplier_a)
-assert status == 200 and len(contents) > 0 and 'no-store' in headers.get('Cache-Control', '')
+assert status == 200 and len(contents) > 0 and 'no-store' in headers.get('cache-control', '')
 for path in ('/.env', '/.git/config', '/.private/media/x', '/media/x', '/sources/x'):
     assert request(path)[0] == 404
 assert request('/agenda')[0] == 200
 status, config, headers = request('/runtime-config.json')
 assert status == 200 and config['nativeApiUrl'] == args.url + '/api/v1'
-assert 'no-store' in headers.get('Cache-Control', '')
+assert 'no-store' in headers.get('cache-control', '')
 status, _, headers = request('/api/v1/health/', extra={'Origin': 'https://localhost'})
-assert status == 200 and headers.get('access-control-allow-origin', headers.get('Access-Control-Allow-Origin')) == 'https://localhost'
-assert 'Access-Control-Allow-Origin' not in request('/api/v1/health/', extra={'Origin': 'https://untrusted.invalid'})[2]
+assert status == 200 and headers.get('access-control-allow-origin') == 'https://localhost'
+assert 'access-control-allow-origin' not in request('/api/v1/health/', extra={'Origin': 'https://untrusted.invalid'})[2]
 print('Public HTTPS acceptance PASS: five roles, isolation, private downloads, SPA, Android origin and cache headers.')

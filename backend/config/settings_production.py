@@ -13,6 +13,9 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 3600
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
+# This demo hostname does not opt its future subdomains into HSTS or preload.
+# Keep the remaining deployment security checks active.
+SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]
 CSRF_TRUSTED_ORIGINS = ["https://cocapec.lucasvizoto.com"]
 CORS_ALLOWED_ORIGINS = ["https://cocapec.lucasvizoto.com", "https://localhost"]
 STATIC_ROOT = os.environ.get("STATIC_ROOT", "/srv/cocapec/shared/static")
