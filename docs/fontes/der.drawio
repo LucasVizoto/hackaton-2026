@@ -1,0 +1,195 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="page_0" name="DER · Recebimento e capacidade global">
+    <mxGraphModel adaptiveColors="auto" page="1" pageWidth="1640" pageHeight="1040" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Supplier" value="Supplier&lt;br&gt;PK id · UQ code&lt;br&gt;name / document privados&lt;br&gt;origin" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Invoice" value="Invoice&lt;br&gt;PK id · FK supplier / created_by&lt;br&gt;file privado / sha256&lt;br&gt;number / key / extracted&lt;br&gt;origin" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="InvoiceItem" value="InvoiceItem&lt;br&gt;PK id · FK invoice&lt;br&gt;UQ invoice / position&lt;br&gt;supplier_code / quantity&lt;br&gt;unit_value Decimal(26,10)&lt;br&gt;sem FK automática a Product" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="User" value="User (Django Auth)&lt;br&gt;PK id&lt;br&gt;responsáveis e permissões&lt;br&gt;token somente em memória" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="GlobalSlot" value="GlobalSlot&lt;br&gt;PK id&lt;br&gt;UQ date / time&lt;br&gt;08 / 10 / 13 / 15h&lt;br&gt;grade global" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Appointment" value="Appointment&lt;br&gt;PK id · FK supplier / invoice / slot&lt;br&gt;compras / armazém / operação&lt;br&gt;chegada / entrada / saída&lt;br&gt;origin / revision / capacidade" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="WarehouseVisit" value="WarehouseVisit&lt;br&gt;PK id · FK appointment / warehouse&lt;br&gt;UQ appointment / warehouse&lt;br&gt;UQ appointment / sequence&lt;br&gt;eventos / recursos por etapa" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Warehouse" value="Warehouse&lt;br&gt;PK id · UQ code&lt;br&gt;name&lt;br&gt;local físico" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="CapacityHold" value="CapacityHold&lt;br&gt;PK id · FK slot / source_appointment&lt;br&gt;FK assigned_to opcional&lt;br&gt;units / exclusive / active&lt;br&gt;reason / created_by" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="ReceivingEvent" value="ReceivingEvent&lt;br&gt;PK id · FK appointment / actor&lt;br&gt;kind / occurred_at / recorded_at&lt;br&gt;data de auditoria" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="NonReceipt" value="NonReceipt&lt;br&gt;PK id · FK supplier opcional&lt;br&gt;1:1 appointment opcional&lt;br&gt;reason / description / occurred_at&lt;br&gt;origin / created_by" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Equipment" value="Equipment&lt;br&gt;PK id · UQ code&lt;br&gt;FK warehouse opcional / mobile&lt;br&gt;M:N Appointment / Visit&lt;br&gt;intermediárias Django" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Holiday" value="Holiday&lt;br&gt;PK id · UQ date&lt;br&gt;description&lt;br&gt;configuração do calendário" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="800" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_0" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Supplier" target="Invoice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Invoice" target="InvoiceItem">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Invoice" target="Appointment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="GlobalSlot" target="Appointment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Appointment" target="WarehouseVisit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5" value="N : 1" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="WarehouseVisit" target="Warehouse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="GlobalSlot" target="CapacityHold">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Appointment" target="ReceivingEvent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8" value="1 : 0..1" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Appointment" target="NonReceipt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9" value="0..1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Warehouse" target="Equipment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10" value="M : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="WarehouseVisit" target="Equipment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_1" name="DER · Boletim, catálogo e identidade mínima">
+    <mxGraphModel adaptiveColors="auto" page="1" pageWidth="1640" pageHeight="1100" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Warehouse" value="Warehouse&lt;br&gt;PK id · UQ code&lt;br&gt;local físico" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="DailyBulletin" value="DailyBulletin&lt;br&gt;PK id · FK warehouse / created_by&lt;br&gt;UQ warehouse / reference_date&lt;br&gt;origin / status / revision&lt;br&gt;floor / calculation snapshot" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="BulletinLine" value="BulletinLine&lt;br&gt;PK id · FK bulletin&lt;br&gt;UQ bulletin / category&lt;br&gt;unloading / removal / transfer&lt;br&gt;price aplicado ≥ 0" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="ServiceRate" value="ServiceRate&lt;br&gt;PK id · UQ code&lt;br&gt;label / price ≥ 0&lt;br&gt;14 categorias&lt;br&gt;tarifa copiada na linha" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Worker" value="Worker&lt;br&gt;PK id · UQ registration&lt;br&gt;name / origin" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="BulletinParticipant" value="BulletinParticipant&lt;br&gt;PK id · FK bulletin / worker&lt;br&gt;UQ bulletin / worker&lt;br&gt;fraction = 0.5 ou 1.0&lt;br&gt;até 20 no serviço" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="BulletinRevision" value="BulletinRevision&lt;br&gt;PK id · FK bulletin / actor&lt;br&gt;revision / reason / snapshot&lt;br&gt;passado preservado" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Product" value="Product&lt;br&gt;PK id · UQ code&lt;br&gt;name / unit / weight / group&lt;br&gt;produto único" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="ProductDeposit" value="ProductDeposit&lt;br&gt;PK id · FK product&lt;br&gt;UQ product / depot&lt;br&gt;depot textual; não Warehouse" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="User" value="User (Django Auth)&lt;br&gt;PK id&lt;br&gt;autor / permissões" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="UserProfile" value="UserProfile&lt;br&gt;PK id · 1:1 user&lt;br&gt;FK supplier opcional&lt;br&gt;role mínimo" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Supplier" value="Supplier&lt;br&gt;PK id · UQ code&lt;br&gt;vínculo externo isolado" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="800" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_0" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Warehouse" target="DailyBulletin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="DailyBulletin" target="BulletinLine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="DailyBulletin" target="BulletinParticipant">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Worker" target="BulletinParticipant">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="DailyBulletin" target="BulletinRevision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Product" target="ProductDeposit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6" value="1 : 0..1" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="User" target="UserProfile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7" value="0..1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Supplier" target="UserProfile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_2" name="DER · Histórico documental e proveniência privada">
+    <mxGraphModel adaptiveColors="auto" page="1" pageWidth="1240" pageHeight="1040" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ImportBatch" value="ImportBatch&lt;br&gt;PK id · UQ kind/hash/version&lt;br&gt;1 lote ativo por kind&lt;br&gt;source_name / summary / issues&lt;br&gt;origin historico_importado" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="SourceRow" value="SourceRow&lt;br&gt;PK id · FK batch&lt;br&gt;UQ batch / sheet / row&lt;br&gt;natural_key / originalJSON&lt;br&gt;problems: JSON privado" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="HistoricalMovement" value="HistoricalMovement&lt;br&gt;PK id · FK batch / product? / supplier?&lt;br&gt;UQ batch / source_row&lt;br&gt;datas / pedido / recebimento&lt;br&gt;códigos / medidas / original privados" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="HistoricalLaborDay" value="HistoricalLaborDay&lt;br&gt;PK id · FK batch&lt;br&gt;UQ batch / source_row&lt;br&gt;day / worker_count / coffee_worker_count&lt;br&gt;payroll_paid RH ≠ custo boletim" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="840" y="320" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Product" value="Product&lt;br&gt;PK id · UQ code&lt;br&gt;FK histórica opcional&lt;br&gt;ausência não elimina linha" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="Supplier" value="Supplier&lt;br&gt;PK id · UQ code&lt;br&gt;FK histórica opcional&lt;br&gt;códigos originais preservados" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;align=left;verticalAlign=top;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="340" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="limit" value="Sem identidade de caminhão ou tempos históricos. Não somar Peso repetido. Consultas usam apenas batch.active. Não há relação automática entre histórico documental e boletim operacional." style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=note;fillColor=#f4f0e5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="840" width="1160" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_0" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="ImportBatch" target="SourceRow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="ImportBatch" target="HistoricalMovement">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" value="1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="ImportBatch" target="HistoricalLaborDay">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3" value="0..1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Product" target="HistoricalMovement">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4" value="0..1 : N" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;" edge="1" parent="1" source="Supplier" target="HistoricalMovement">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

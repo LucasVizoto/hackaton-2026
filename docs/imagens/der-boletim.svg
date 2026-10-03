@@ -1,0 +1,148 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="1100" viewBox="0 0 1640 1100" role="img">
+  <title>DER · Boletim, catálogo e identidade mínima</title>
+  <desc>Diagrama documental do MVP. Fonte editável na pasta docs/fontes. Não contém registros privados.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#56665d" />
+    </marker>
+  </defs>
+  <rect width="1640" height="1100" fill="white" />
+  <text x="35" y="35" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600">DER · Boletim, catálogo e identidade mínima</text>
+  <polyline points="380.0,175.0 410.0,175.0 410.0,175.0 440.0,175.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="410.0" y="167.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="780.0,175.0 810.0,175.0 810.0,175.0 840.0,175.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="810.0" y="167.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="610.0,270.0 610.0,295.0 610.0,295.0 610.0,320.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="617.0" y="287.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="380.0,415.0 410.0,415.0 410.0,415.0 440.0,415.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="410.0" y="407.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="780.0,175.0 810.0,175.0 810.0,415.0 840.0,415.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="817.0" y="287.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="380.0,655.0 410.0,655.0 410.0,655.0 440.0,655.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="410.0" y="647.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="1180.0,655.0 1210.0,655.0 1210.0,655.0 1240.0,655.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="1210.0" y="647.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : 0..1</text>
+  <polyline points="1410.0,800.0 1410.0,775.0 1410.0,775.0 1410.0,750.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="1417.0" y="767.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">0..1 : N</text>
+  <g>
+    <rect x="40" y="80" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="40" y="80" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="52" y="104" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="52" dy="0" font-weight="600">Warehouse</tspan>
+      <tspan x="52" dy="24">PK id · UQ code</tspan>
+      <tspan x="52" dy="24">local físico</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="440" y="80" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="440" y="80" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="452" y="104" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="452" dy="0" font-weight="600">DailyBulletin</tspan>
+      <tspan x="452" dy="24">PK id · FK warehouse / created_by</tspan>
+      <tspan x="452" dy="24">UQ warehouse / reference_date</tspan>
+      <tspan x="452" dy="24">origin / status / revision</tspan>
+      <tspan x="452" dy="24">floor / calculation snapshot</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="840" y="80" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="840" y="80" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="852" y="104" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="852" dy="0" font-weight="600">BulletinLine</tspan>
+      <tspan x="852" dy="24">PK id · FK bulletin</tspan>
+      <tspan x="852" dy="24">UQ bulletin / category</tspan>
+      <tspan x="852" dy="24">unloading / removal / transfer</tspan>
+      <tspan x="852" dy="24">price aplicado ≥ 0</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="1240" y="80" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="1240" y="80" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="1252" y="104" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="1252" dy="0" font-weight="600">ServiceRate</tspan>
+      <tspan x="1252" dy="24">PK id · UQ code</tspan>
+      <tspan x="1252" dy="24">label / price ≥ 0</tspan>
+      <tspan x="1252" dy="24">14 categorias</tspan>
+      <tspan x="1252" dy="24">tarifa copiada na linha</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="40" y="320" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="40" y="320" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="52" y="344" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="52" dy="0" font-weight="600">Worker</tspan>
+      <tspan x="52" dy="24">PK id · UQ registration</tspan>
+      <tspan x="52" dy="24">name / origin</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="440" y="320" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="440" y="320" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="452" y="344" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="452" dy="0" font-weight="600">BulletinParticipant</tspan>
+      <tspan x="452" dy="24">PK id · FK bulletin / worker</tspan>
+      <tspan x="452" dy="24">UQ bulletin / worker</tspan>
+      <tspan x="452" dy="24">fraction = 0.5 ou 1.0</tspan>
+      <tspan x="452" dy="24">até 20 no serviço</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="840" y="320" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="840" y="320" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="852" y="344" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="852" dy="0" font-weight="600">BulletinRevision</tspan>
+      <tspan x="852" dy="24">PK id · FK bulletin / actor</tspan>
+      <tspan x="852" dy="24">revision / reason / snapshot</tspan>
+      <tspan x="852" dy="24">passado preservado</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="40" y="560" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="40" y="560" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="52" y="584" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="52" dy="0" font-weight="600">Product</tspan>
+      <tspan x="52" dy="24">PK id · UQ code</tspan>
+      <tspan x="52" dy="24">name / unit / weight / group</tspan>
+      <tspan x="52" dy="24">produto único</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="440" y="560" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="440" y="560" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="452" y="584" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="452" dy="0" font-weight="600">ProductDeposit</tspan>
+      <tspan x="452" dy="24">PK id · FK product</tspan>
+      <tspan x="452" dy="24">UQ product / depot</tspan>
+      <tspan x="452" dy="24">depot textual; não Warehouse</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="840" y="560" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="840" y="560" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="852" y="584" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="852" dy="0" font-weight="600">User (Django Auth)</tspan>
+      <tspan x="852" dy="24">PK id</tspan>
+      <tspan x="852" dy="24">autor / permissões</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="1240" y="560" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="1240" y="560" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="1252" y="584" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="1252" dy="0" font-weight="600">UserProfile</tspan>
+      <tspan x="1252" dy="24">PK id · 1:1 user</tspan>
+      <tspan x="1252" dy="24">FK supplier opcional</tspan>
+      <tspan x="1252" dy="24">role mínimo</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="1240" y="800" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="1240" y="800" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="1252" y="824" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="1252" dy="0" font-weight="600">Supplier</tspan>
+      <tspan x="1252" dy="24">PK id · UQ code</tspan>
+      <tspan x="1252" dy="24">vínculo externo isolado</tspan>
+    </text>
+  </g>
+</svg>

@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="490" viewBox="0 0 1100 490" role="img">
+  <title>Dois exemplos oficiais: produção constante e aplicação do piso</title>
+  <rect width="1100" height="490" fill="#ffffff" />
+  <text x="35" y="42" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="600">Boletim: produção + complemento = total</text>
+  <text x="35" y="76" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400">Exemplo oficial e variação — não representam uma série histórica</text>
+  <text x="35" y="138" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600">11 diárias</text>
+  <rect x="240" y="120" width="670.282496" height="54" fill="#205f47" />
+  <rect x="910.282496" y="120" width="53.807497" height="54" fill="#c79c55" />
+  <text x="240" y="203" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="400">Produção R$918,20</text>
+  <text x="570" y="203" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="400">Complemento R$73,71</text>
+  <text x="900" y="205" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600">R$991,90</text>
+  <text x="240" y="230" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400">Exatos: P=918.1952 · T=991.9041 · C=73.7089</text>
+  <text x="35" y="283" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600">10,5 diárias</text>
+  <rect x="240" y="265" width="670.282496" height="54" fill="#205f47" />
+  <rect x="910.282496" y="265" width="20.8943155" height="54" fill="#c79c55" />
+  <text x="240" y="348" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="400">Produção R$918,20</text>
+  <text x="570" y="348" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="400">Complemento R$28,62</text>
+  <text x="900" y="350" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600">R$946,82</text>
+  <text x="240" y="375" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400">Exatos: P=918.1952 · T=946.81755 · C=28.62235</text>
+  <text x="35" y="437" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="600">P=Σ quantidade×tarifa · F=E×90.1731 · T=max(P,F) · C=T−P</text>
+  <text x="35" y="467" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400">R$45,09 de diferença condicionada; produção constante é hipótese, não economia garantida.</text>
+</svg>

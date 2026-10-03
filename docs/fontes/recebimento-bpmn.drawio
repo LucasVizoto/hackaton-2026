@@ -1,0 +1,234 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="page_0" name="BPMN · Recebimento e exceções antes da entrada">
+    <mxGraphModel adaptiveColors="auto" page="1" pageWidth="1860" pageHeight="1160" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="lane_0" value="Fornecedor" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;swimlane;horizontal=0;startSize=110;fillColor=#f5f7f4;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="0" y="60" width="1840" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_1" value="Sistema" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;swimlane;horizontal=0;startSize=110;fillColor=#f5f7f4;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="0" y="210" width="1840" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_2" value="Compras" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;swimlane;horizontal=0;startSize=110;fillColor=#f5f7f4;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="0" y="360" width="1840" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_3" value="Armazém" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;swimlane;horizontal=0;startSize=110;fillColor=#f5f7f4;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="0" y="510" width="1840" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_4" value="Armazém cancelamento" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;swimlane;horizontal=0;startSize=110;fillColor=#f5f7f4;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="0" y="660" width="1840" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_5" value="Armazém natureza / recusa" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;swimlane;horizontal=0;startSize=110;fillColor=#f5f7f4;pointerEvents=0;" vertex="1" parent="1">
+          <mxGeometry x="0" y="810" width="1840" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="start" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=2;fontSize=14;" vertex="1" parent="lane_0">
+          <mxGeometry x="120" y="45" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="request" value="Anexar NF e solicitar horário" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_0">
+          <mxGeometry x="300" y="45" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="reserve" value="Validar e reservar capacidade global" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_1">
+          <mxGeometry x="480" y="45" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="capacity" value="X" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rhombus;fontSize=14;" vertex="1" parent="lane_1">
+          <mxGeometry x="660" y="45" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="unavailable" value="Informar indisponibilidade" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_0">
+          <mxGeometry x="660" y="45" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="blocked" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=4;fontSize=14;" vertex="1" parent="lane_0">
+          <mxGeometry x="840" y="45" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="wait" value="Aguardar chegada + dupla validação" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="840" y="28" width="160" height="94" as="geometry" />
+        </mxCell>
+        <mxCell id="entry" value="Registrar entrada" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="1050" y="45" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="stages" value="Executar destinos sequenciais" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="1230" y="45" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="finish" value="Registrar saída e recursos" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="1410" y="45" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=4;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="1620" y="45" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="cancel_event" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=mxgraph.bpmn.event;perimeter=ellipsePerimeter;outlineConnect=0;aspect=fixed;outline=boundInt;symbol=message;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="850" y="115" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="reject_event" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=mxgraph.bpmn.event;perimeter=ellipsePerimeter;outlineConnect=0;aspect=fixed;outline=boundInt;symbol=error;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="895" y="115" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="nature_event" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=mxgraph.bpmn.event;perimeter=ellipsePerimeter;outlineConnect=0;aspect=fixed;outline=boundInt;symbol=message;fontSize=14;" vertex="1" parent="lane_3">
+          <mxGeometry x="940" y="115" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="hold" value="Cancelar e reter capacidade" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_4">
+          <mxGeometry x="640" y="45" width="220" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="assign" value="Atribuir vaga a destinatário" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_4">
+          <mxGeometry x="1020" y="45" width="220" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="cancelled" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=4;fontSize=14;" vertex="1" parent="lane_4">
+          <mxGeometry x="1440" y="45" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="reschedule" value="Mover reserva e registrar exceção de natureza" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_5">
+          <mxGeometry x="640" y="45" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="refuse" value="Registrar não recebimento e decisão de capacidade" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="lane_5">
+          <mxGeometry x="1080" y="45" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="refused" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=4;fontSize=14;" vertex="1" parent="lane_5">
+          <mxGeometry x="1500" y="45" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="details" value="Subprocesso: chegada e aprovações independentes. Início exige chegada, ambas as aprovações e destinos. Envelopes = mensagens (laranja: cancelamento; azul: natureza). Raio = erro de divergência (vermelho). Decisões preservam o histórico." style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=note;fillColor=#f4f0e5;" vertex="1" parent="1">
+          <mxGeometry x="120" y="1010" width="1660" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_0" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_0" source="start" target="request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="request" target="reserve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_1" source="reserve" target="capacity">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3" value="sem vaga" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="capacity" target="unavailable">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_0" source="unavailable" target="blocked">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5" value="reserva válida" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="capacity" target="wait">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_3" source="wait" target="entry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_3" source="entry" target="stages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_3" source="stages" target="finish">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_3" source="finish" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10" value="" style="html=1;fontSize=15;strokeColor=#9a643c;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="cancel_event" target="hold">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;fontSize=15;strokeColor=#9a643c;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_4" source="hold" target="assign">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_12" value="" style="html=1;fontSize=15;strokeColor=#9a643c;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_4" source="assign" target="cancelled">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_13" value="" style="html=1;fontSize=15;strokeColor=#316a82;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="nature_event" target="reschedule">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_14" value="" style="html=1;fontSize=15;strokeColor=#316a82;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="reschedule" target="wait">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_15" value="" style="html=1;fontSize=15;strokeColor=#a64535;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="reject_event" target="refuse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_16" value="" style="html=1;fontSize=15;strokeColor=#a64535;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="lane_5" source="refuse" target="refused">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_1" name="BPMN · Subprocesso — chegada e validações independentes">
+    <mxGraphModel adaptiveColors="auto" page="1" pageWidth="1740" pageHeight="860" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="wait_start" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=2;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="100" y="180" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="parallel_start" value="+" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rhombus;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="300" y="180" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="arrival" value="Registrar chegada, mesmo com pendências" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="500" y="60" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="purchase_review" value="Comparar NF com pedido identificado" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="500" y="300" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="purchase_decision" value="X" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rhombus;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="850" y="310" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="warehouse_review" value="Verificar autorização e confirmar destinos" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="300" width="250" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="parallel_join" value="+" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rhombus;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="180" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="wait_end" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;strokeWidth=4;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1580" y="180" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pending_review" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=mxgraph.bpmn.event;perimeter=ellipsePerimeter;outlineConnect=0;aspect=fixed;outline=catching;symbol=conditional;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="850" y="490" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rejected_receipt" value="Confirmar divergência" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=1;arcSize=12;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="630" width="250" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="wait_rejected" value="" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=mxgraph.bpmn.event;perimeter=ellipsePerimeter;outlineConnect=0;aspect=fixed;outline=end;symbol=error;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="640" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="+ é gateway paralelo: ambos os ramos precisam concluir. X é decisão exclusiva. Documento pautado = condição de conferência humana. Raio preenchido lança erro à borda do subprocesso: não habilita entrada. Horários reais são registrados, não estimados pelo modelo." style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=note;fillColor=#f4f0e5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="760" width="1660" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_0" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="wait_start" target="parallel_start">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="parallel_start" target="arrival">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="parallel_start" target="purchase_review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="arrival" target="parallel_join">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="purchase_review" target="purchase_decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5" value="pendente" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="purchase_decision" target="pending_review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6" value="conferência disponível" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;exitX=0.0;exitY=0.5;entryX=0.5;entryY=1.0;" edge="1" parent="1" source="pending_review" target="purchase_review">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="780" y="520" />
+              <mxPoint x="780" y="400" />
+              <mxPoint x="625" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" value="aprovada" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="purchase_decision" target="warehouse_review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="warehouse_review" target="parallel_join">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="parallel_join" target="wait_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10" value="rejeitada" style="html=1;fontSize=15;strokeColor=#a64535;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;exitX=1.0;exitY=0.5;entryX=0.0;entryY=0.5;" edge="1" parent="1" source="purchase_decision" target="rejected_receipt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="995" y="340" />
+              <mxPoint x="995" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;fontSize=15;strokeColor=#a64535;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;" edge="1" parent="1" source="rejected_receipt" target="wait_rejected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

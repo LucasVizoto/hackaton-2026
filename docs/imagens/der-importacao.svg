@@ -1,0 +1,96 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1040" viewBox="0 0 1240 1040" role="img">
+  <title>DER · Histórico documental e proveniência privada</title>
+  <desc>Diagrama documental do MVP. Fonte editável na pasta docs/fontes. Não contém registros privados.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#56665d" />
+    </marker>
+  </defs>
+  <rect width="1240" height="1040" fill="white" />
+  <text x="35" y="35" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600">DER · Histórico documental e proveniência privada</text>
+  <polyline points="440.0,175.0 410.0,175.0 410.0,415.0 380.0,415.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="417.0" y="287.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="610.0,270.0 610.0,295.0 610.0,295.0 610.0,320.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="617.0" y="287.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="780.0,175.0 810.0,175.0 810.0,415.0 840.0,415.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="817.0" y="287.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">1 : N</text>
+  <polyline points="380.0,655.0 410.0,655.0 410.0,415.0 440.0,415.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="417.0" y="527.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">0..1 : N</text>
+  <polyline points="610.0,560.0 610.0,535.0 610.0,535.0 610.0,510.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <text x="617.0" y="527.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">0..1 : N</text>
+  <g>
+    <rect x="440" y="80" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="440" y="80" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="452" y="104" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="452" dy="0" font-weight="600">ImportBatch</tspan>
+      <tspan x="452" dy="24">PK id · UQ kind/hash/version</tspan>
+      <tspan x="452" dy="24">1 lote ativo por kind</tspan>
+      <tspan x="452" dy="24">source_name / summary / issues</tspan>
+      <tspan x="452" dy="24">origin historico_importado</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="40" y="320" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="40" y="320" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="52" y="344" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="52" dy="0" font-weight="600">SourceRow</tspan>
+      <tspan x="52" dy="24">PK id · FK batch</tspan>
+      <tspan x="52" dy="24">UQ batch / sheet / row</tspan>
+      <tspan x="52" dy="24">natural_key / originalJSON</tspan>
+      <tspan x="52" dy="24">problems: JSON privado</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="440" y="320" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="440" y="320" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="452" y="344" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="452" dy="0" font-weight="600">HistoricalMovement</tspan>
+      <tspan x="452" dy="24">PK id · FK batch / product? /</tspan>
+      <tspan x="452" dy="24">supplier?</tspan>
+      <tspan x="452" dy="24">UQ batch / source_row</tspan>
+      <tspan x="452" dy="24">datas / pedido / recebimento</tspan>
+      <tspan x="452" dy="24">códigos / medidas / original</tspan>
+      <tspan x="452" dy="24">privados</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="840" y="320" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="840" y="320" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="852" y="344" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="852" dy="0" font-weight="600">HistoricalLaborDay</tspan>
+      <tspan x="852" dy="24">PK id · FK batch</tspan>
+      <tspan x="852" dy="24">UQ batch / source_row</tspan>
+      <tspan x="852" dy="24">day / worker_count /</tspan>
+      <tspan x="852" dy="24">coffee_worker_count</tspan>
+      <tspan x="852" dy="24">payroll_paid RH ≠ custo boletim</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="40" y="560" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="40" y="560" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="52" y="584" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="52" dy="0" font-weight="600">Product</tspan>
+      <tspan x="52" dy="24">PK id · UQ code</tspan>
+      <tspan x="52" dy="24">FK histórica opcional</tspan>
+      <tspan x="52" dy="24">ausência não elimina linha</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="440" y="560" width="340" height="190" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <rect x="440" y="560" width="340" height="34" fill="#e8f0eb" stroke="#24352e" />
+    <text x="452" y="584" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="452" dy="0" font-weight="600">Supplier</tspan>
+      <tspan x="452" dy="24">PK id · UQ code</tspan>
+      <tspan x="452" dy="24">FK histórica opcional</tspan>
+      <tspan x="452" dy="24">códigos originais preservados</tspan>
+    </text>
+  </g>
+  <g>
+    <rect x="40" y="840" width="1160" height="140" fill="#f4f0e5" stroke="#24352e" stroke-width="1.8" />
+    <text x="620.0" y="903.0" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="620.0" dy="0">Sem identidade de caminhão ou tempos históricos. Não somar Peso repetido. Consultas usam apenas batch.active. Não há</tspan>
+      <tspan x="620.0" dy="24">relação automática entre histórico documental e boletim operacional.</tspan>
+    </text>
+  </g>
+</svg>

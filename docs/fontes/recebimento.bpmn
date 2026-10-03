@@ -1,0 +1,461 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="DefinitionsReceiving" targetNamespace="urn:cocapec:mvp:documental">
+  <bpmn:message id="MessageCancel" name="Solicitação de cancelamento anterior à entrada" />
+  <bpmn:message id="MessageNature" name="Impedimento de natureza anterior à entrada" />
+  <bpmn:error id="ErrorInvoiceRejected" name="Divergência entre nota e pedido" errorCode="invoice_mismatch" />
+  <bpmn:collaboration id="CollaborationReceiving">
+    <bpmn:participant id="ParticipantReceiving" name="Recebimento Inteligente" processRef="ProcessReceiving" />
+  </bpmn:collaboration>
+  <bpmn:process id="ProcessReceiving" name="Recebimento de fornecedor" isExecutable="false">
+    <bpmn:laneSet id="LanesReceiving">
+      <bpmn:lane id="lane_0" name="Fornecedor">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>request</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>unavailable</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>blocked</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_1" name="Sistema">
+        <bpmn:flowNodeRef>reserve</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>capacity</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_2" name="Compras" />
+      <bpmn:lane id="lane_3" name="Armazém">
+        <bpmn:flowNodeRef>wait</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>entry</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>stages</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>finish</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>cancel_event</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>nature_event</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>reject_event</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_4" name="Armazém cancelamento">
+        <bpmn:flowNodeRef>hold</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>assign</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>cancelled</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_5" name="Armazém natureza / recusa">
+        <bpmn:flowNodeRef>reschedule</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>refuse</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>refused</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="">
+      <bpmn:outgoing>Flow_0</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="request" name="Anexar NF e solicitar horário">
+      <bpmn:incoming>Flow_0</bpmn:incoming>
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="reserve" name="Validar e reservar capacidade global">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="capacity" name="">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="unavailable" name="Informar indisponibilidade">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="blocked" name="">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:subProcess id="wait" name="Aguardar chegada + dupla validação">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:incoming>Flow_14</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+      <bpmn:startEvent id="wait_start" name="">
+        <bpmn:outgoing>WaitFlow_0</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:parallelGateway id="parallel_start" name="Chegada e conferência independentes">
+        <bpmn:incoming>WaitFlow_0</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_1</bpmn:outgoing>
+        <bpmn:outgoing>WaitFlow_2</bpmn:outgoing>
+      </bpmn:parallelGateway>
+      <bpmn:userTask id="arrival" name="Registrar chegada, mesmo com aprovações pendentes">
+        <bpmn:incoming>WaitFlow_1</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_3</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="purchase_review" name="Comparar NF com pedido identificado">
+        <bpmn:incoming>WaitFlow_2</bpmn:incoming>
+        <bpmn:incoming>WaitFlow_6</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_4</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="purchase_decision" name="Decisão de Compras">
+        <bpmn:incoming>WaitFlow_4</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_5</bpmn:outgoing>
+        <bpmn:outgoing>WaitFlow_7</bpmn:outgoing>
+        <bpmn:outgoing>WaitFlow_10</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:intermediateCatchEvent id="pending_review" name="Aguardar conferência humana">
+        <bpmn:incoming>WaitFlow_5</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_6</bpmn:outgoing>
+        <bpmn:conditionalEventDefinition id="ConditionReview">
+          <bpmn:condition xsi:type="bpmn:tFormalExpression">conferencia_humana_disponivel</bpmn:condition>
+        </bpmn:conditionalEventDefinition>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:userTask id="warehouse_review" name="Verificar autorização e confirmar destinos">
+        <bpmn:incoming>WaitFlow_7</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_8</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:parallelGateway id="parallel_join" name="Chegada e validações concluídas">
+        <bpmn:incoming>WaitFlow_3</bpmn:incoming>
+        <bpmn:incoming>WaitFlow_8</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_9</bpmn:outgoing>
+      </bpmn:parallelGateway>
+      <bpmn:endEvent id="wait_end" name="Pré-condições atendidas">
+        <bpmn:incoming>WaitFlow_9</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:userTask id="rejected_receipt" name="Confirmar divergência">
+        <bpmn:incoming>WaitFlow_10</bpmn:incoming>
+        <bpmn:outgoing>WaitFlow_11</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:endEvent id="wait_rejected" name="Divergência interrompe espera">
+        <bpmn:incoming>WaitFlow_11</bpmn:incoming>
+        <bpmn:errorEventDefinition id="ErrorRejected" errorRef="ErrorInvoiceRejected" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="WaitFlow_0" sourceRef="wait_start" targetRef="parallel_start" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_1" sourceRef="parallel_start" targetRef="arrival" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_2" sourceRef="parallel_start" targetRef="purchase_review" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_3" sourceRef="arrival" targetRef="parallel_join" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_4" sourceRef="purchase_review" targetRef="purchase_decision" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_5" sourceRef="purchase_decision" targetRef="pending_review" name="pendente" />
+      <bpmn:sequenceFlow id="WaitFlow_6" sourceRef="pending_review" targetRef="purchase_review" name="conferência disponível" />
+      <bpmn:sequenceFlow id="WaitFlow_7" sourceRef="purchase_decision" targetRef="warehouse_review" name="aprovada" />
+      <bpmn:sequenceFlow id="WaitFlow_8" sourceRef="warehouse_review" targetRef="parallel_join" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_9" sourceRef="parallel_join" targetRef="wait_end" name="" />
+      <bpmn:sequenceFlow id="WaitFlow_10" sourceRef="purchase_decision" targetRef="rejected_receipt" name="rejeitada" />
+      <bpmn:sequenceFlow id="WaitFlow_11" sourceRef="rejected_receipt" targetRef="wait_rejected" name="" />
+    </bpmn:subProcess>
+    <bpmn:userTask id="entry" name="Registrar entrada">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="stages" name="Executar destinos sequenciais">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="finish" name="Registrar saída e recursos">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="">
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="cancel_event" name="" attachedToRef="wait" cancelActivity="true">
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="MessageCancel" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="reject_event" name="!" attachedToRef="wait" cancelActivity="true">
+      <bpmn:outgoing>Flow_15</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="ErrorInvoiceRejected" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="nature_event" name="" attachedToRef="wait" cancelActivity="true">
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="MessageNature" />
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="hold" name="Cancelar e reter capacidade">
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="assign" name="Atribuir vaga a destinatário">
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="cancelled" name="">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:userTask id="reschedule" name="Mover reserva e registrar exceção de natureza">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+      <bpmn:outgoing>Flow_14</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="refuse" name="Registrar não recebimento e decisão de capacidade">
+      <bpmn:incoming>Flow_15</bpmn:incoming>
+      <bpmn:outgoing>Flow_16</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="refused" name="">
+      <bpmn:incoming>Flow_16</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_0" sourceRef="start" targetRef="request" name="" />
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="request" targetRef="reserve" name="" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="reserve" targetRef="capacity" name="" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="capacity" targetRef="unavailable" name="sem vaga" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="unavailable" targetRef="blocked" name="" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="capacity" targetRef="wait" name="reserva válida" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="wait" targetRef="entry" name="" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="entry" targetRef="stages" name="" />
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="stages" targetRef="finish" name="" />
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="finish" targetRef="end" name="" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="cancel_event" targetRef="hold" name="" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="hold" targetRef="assign" name="" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="assign" targetRef="cancelled" name="" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="nature_event" targetRef="reschedule" name="" />
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="reschedule" targetRef="wait" name="" />
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="reject_event" targetRef="refuse" name="" />
+    <bpmn:sequenceFlow id="Flow_16" sourceRef="refuse" targetRef="refused" name="" />
+  </bpmn:process>
+  <bpmn:process id="ProcessUnscheduled" name="Chegada sem agendamento" isExecutable="false">
+    <bpmn:startEvent id="unscheduled_start" name="Chegada avulsa" />
+    <bpmn:exclusiveGateway id="unscheduled_capacity" name="Há disponibilidade global?" />
+    <bpmn:userTask id="unscheduled_schedule" name="Realizar agendamento no ato e cumprir fluxo normal" />
+    <bpmn:userTask id="unscheduled_refusal" name="Registrar não recebimento sem agendamento: sem vaga" />
+    <bpmn:endEvent id="unscheduled_end" name="" />
+    <bpmn:sequenceFlow id="UnscheduledFlow_0" sourceRef="unscheduled_start" targetRef="unscheduled_capacity" name="" />
+    <bpmn:sequenceFlow id="UnscheduledFlow_1" sourceRef="unscheduled_capacity" targetRef="unscheduled_schedule" name="sim" />
+    <bpmn:sequenceFlow id="UnscheduledFlow_2" sourceRef="unscheduled_capacity" targetRef="unscheduled_refusal" name="não" />
+    <bpmn:sequenceFlow id="UnscheduledFlow_3" sourceRef="unscheduled_schedule" targetRef="unscheduled_end" name="" />
+    <bpmn:sequenceFlow id="UnscheduledFlow_4" sourceRef="unscheduled_refusal" targetRef="unscheduled_end" name="" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="DiagramReceiving">
+    <bpmndi:BPMNPlane id="PlaneReceiving" bpmnElement="CollaborationReceiving">
+      <bpmndi:BPMNShape id="PoolShape" bpmnElement="ParticipantReceiving" isHorizontal="true">
+        <dc:Bounds x="0" y="60" width="1840" height="900" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lane_0" bpmnElement="lane_0">
+        <dc:Bounds x="0" y="60" width="1840" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lane_1" bpmnElement="lane_1">
+        <dc:Bounds x="0" y="210" width="1840" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lane_2" bpmnElement="lane_2">
+        <dc:Bounds x="0" y="360" width="1840" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lane_3" bpmnElement="lane_3">
+        <dc:Bounds x="0" y="510" width="1840" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lane_4" bpmnElement="lane_4">
+        <dc:Bounds x="0" y="660" width="1840" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_lane_5" bpmnElement="lane_5">
+        <dc:Bounds x="0" y="810" width="1840" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start">
+        <dc:Bounds x="120" y="105" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_request" bpmnElement="request">
+        <dc:Bounds x="300" y="105" width="140" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reserve" bpmnElement="reserve">
+        <dc:Bounds x="480" y="255" width="140" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_capacity" bpmnElement="capacity">
+        <dc:Bounds x="660" y="255" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_unavailable" bpmnElement="unavailable">
+        <dc:Bounds x="660" y="105" width="140" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_blocked" bpmnElement="blocked">
+        <dc:Bounds x="840" y="105" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wait" bpmnElement="wait" isExpanded="false">
+        <dc:Bounds x="840" y="538" width="160" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_entry" bpmnElement="entry">
+        <dc:Bounds x="1050" y="555" width="140" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_stages" bpmnElement="stages">
+        <dc:Bounds x="1230" y="555" width="140" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_finish" bpmnElement="finish">
+        <dc:Bounds x="1410" y="555" width="140" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_end" bpmnElement="end">
+        <dc:Bounds x="1620" y="555" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_cancel_event" bpmnElement="cancel_event">
+        <dc:Bounds x="850" y="625" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reject_event" bpmnElement="reject_event">
+        <dc:Bounds x="895" y="625" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_nature_event" bpmnElement="nature_event">
+        <dc:Bounds x="940" y="625" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_hold" bpmnElement="hold">
+        <dc:Bounds x="640" y="705" width="220" height="65" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_assign" bpmnElement="assign">
+        <dc:Bounds x="1020" y="705" width="220" height="65" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_cancelled" bpmnElement="cancelled">
+        <dc:Bounds x="1440" y="705" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reschedule" bpmnElement="reschedule">
+        <dc:Bounds x="640" y="855" width="280" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_refuse" bpmnElement="refuse">
+        <dc:Bounds x="1080" y="855" width="280" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_refused" bpmnElement="refused">
+        <dc:Bounds x="1500" y="855" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_0" bpmnElement="Flow_0">
+        <di:waypoint x="150.0" y="135.0" />
+        <di:waypoint x="370.0" y="135.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_1" bpmnElement="Flow_1">
+        <di:waypoint x="370.0" y="135.0" />
+        <di:waypoint x="550.0" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_2" bpmnElement="Flow_2">
+        <di:waypoint x="550.0" y="285.0" />
+        <di:waypoint x="690.0" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_3" bpmnElement="Flow_3">
+        <di:waypoint x="690.0" y="285.0" />
+        <di:waypoint x="730.0" y="135.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_4" bpmnElement="Flow_4">
+        <di:waypoint x="730.0" y="135.0" />
+        <di:waypoint x="870.0" y="135.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_5" bpmnElement="Flow_5">
+        <di:waypoint x="690.0" y="285.0" />
+        <di:waypoint x="920.0" y="585.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_6" bpmnElement="Flow_6">
+        <di:waypoint x="920.0" y="585.0" />
+        <di:waypoint x="1120.0" y="585.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_7" bpmnElement="Flow_7">
+        <di:waypoint x="1120.0" y="585.0" />
+        <di:waypoint x="1300.0" y="585.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_8" bpmnElement="Flow_8">
+        <di:waypoint x="1300.0" y="585.0" />
+        <di:waypoint x="1480.0" y="585.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_9" bpmnElement="Flow_9">
+        <di:waypoint x="1480.0" y="585.0" />
+        <di:waypoint x="1650.0" y="585.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_10" bpmnElement="Flow_10">
+        <di:waypoint x="870.0" y="645.0" />
+        <di:waypoint x="750.0" y="737.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_11" bpmnElement="Flow_11">
+        <di:waypoint x="750.0" y="737.5" />
+        <di:waypoint x="1130.0" y="737.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_12" bpmnElement="Flow_12">
+        <di:waypoint x="1130.0" y="737.5" />
+        <di:waypoint x="1470.0" y="735.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_13" bpmnElement="Flow_13">
+        <di:waypoint x="960.0" y="645.0" />
+        <di:waypoint x="780.0" y="895.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_14" bpmnElement="Flow_14">
+        <di:waypoint x="780.0" y="895.0" />
+        <di:waypoint x="920.0" y="585.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_15" bpmnElement="Flow_15">
+        <di:waypoint x="915.0" y="645.0" />
+        <di:waypoint x="1220.0" y="895.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_16" bpmnElement="Flow_16">
+        <di:waypoint x="1220.0" y="895.0" />
+        <di:waypoint x="1530.0" y="885.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="DiagramApprovalDetail">
+    <bpmndi:BPMNPlane id="PlaneApprovalDetail" bpmnElement="wait">
+      <bpmndi:BPMNShape id="DetailShape_wait_start" bpmnElement="wait_start">
+        <dc:Bounds x="100" y="180" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_parallel_start" bpmnElement="parallel_start">
+        <dc:Bounds x="300" y="180" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_arrival" bpmnElement="arrival">
+        <dc:Bounds x="500" y="60" width="250" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_purchase_review" bpmnElement="purchase_review">
+        <dc:Bounds x="500" y="300" width="250" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_purchase_decision" bpmnElement="purchase_decision">
+        <dc:Bounds x="850" y="310" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_warehouse_review" bpmnElement="warehouse_review">
+        <dc:Bounds x="1050" y="300" width="250" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_parallel_join" bpmnElement="parallel_join">
+        <dc:Bounds x="1380" y="180" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_wait_end" bpmnElement="wait_end">
+        <dc:Bounds x="1580" y="180" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_pending_review" bpmnElement="pending_review">
+        <dc:Bounds x="850" y="490" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_rejected_receipt" bpmnElement="rejected_receipt">
+        <dc:Bounds x="1050" y="630" width="250" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DetailShape_wait_rejected" bpmnElement="wait_rejected">
+        <dc:Bounds x="1430" y="640" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="DetailEdge_0" bpmnElement="WaitFlow_0">
+        <di:waypoint x="130.0" y="210.0" />
+        <di:waypoint x="330.0" y="210.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_1" bpmnElement="WaitFlow_1">
+        <di:waypoint x="330.0" y="210.0" />
+        <di:waypoint x="625.0" y="105.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_2" bpmnElement="WaitFlow_2">
+        <di:waypoint x="330.0" y="210.0" />
+        <di:waypoint x="625.0" y="345.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_3" bpmnElement="WaitFlow_3">
+        <di:waypoint x="625.0" y="105.0" />
+        <di:waypoint x="1410.0" y="210.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_4" bpmnElement="WaitFlow_4">
+        <di:waypoint x="625.0" y="345.0" />
+        <di:waypoint x="880.0" y="340.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_5" bpmnElement="WaitFlow_5">
+        <di:waypoint x="880.0" y="340.0" />
+        <di:waypoint x="880.0" y="520.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_6" bpmnElement="WaitFlow_6">
+        <di:waypoint x="850" y="520" />
+        <di:waypoint x="780" y="520" />
+        <di:waypoint x="780" y="400" />
+        <di:waypoint x="625" y="400" />
+        <di:waypoint x="625" y="390" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="600" y="411" width="170" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_7" bpmnElement="WaitFlow_7">
+        <di:waypoint x="880.0" y="340.0" />
+        <di:waypoint x="1175.0" y="345.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_8" bpmnElement="WaitFlow_8">
+        <di:waypoint x="1175.0" y="345.0" />
+        <di:waypoint x="1410.0" y="210.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_9" bpmnElement="WaitFlow_9">
+        <di:waypoint x="1410.0" y="210.0" />
+        <di:waypoint x="1610.0" y="210.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_10" bpmnElement="WaitFlow_10">
+        <di:waypoint x="910" y="340" />
+        <di:waypoint x="995" y="340" />
+        <di:waypoint x="995" y="670" />
+        <di:waypoint x="1050" y="670" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1002" y="516" width="170" height="18" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DetailEdge_11" bpmnElement="WaitFlow_11">
+        <di:waypoint x="1175.0" y="670.0" />
+        <di:waypoint x="1460.0" y="670.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,137 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device" version="26.0.0">
+  <diagram id="page_0" name="UML · Casos de uso">
+    <mxGraphModel adaptiveColors="auto" page="1" pageWidth="1500" pageHeight="1200" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="system" value="Recebimento Inteligente — aplicação única" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;rounded=0;container=1;pointerEvents=0;fillColor=none;verticalAlign=top;align=left;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="260" y="60" width="1200" height="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="supplier" value="Fornecedor" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=umlActor;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="50" y="100" width="160" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="purchasing" value="Compras" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=umlActor;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="50" y="350" width="160" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="warehouse" value="Armazém" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=umlActor;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="50" y="600" width="160" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="management" value="Gestão" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;shape=umlActor;fillColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="50" y="910" width="160" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="schedule" value="Solicitar agendamento" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="65" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="upload" value="Anexar nota fiscal" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="175" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="link_invoice" value="Vincular nota fiscal" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="360" y="65" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="consult" value="Consultar próprios registros" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="660" y="65" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="review" value="Conferir NF × pedido" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="285" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="decision" value="Registrar decisão de Compras" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="660" y="285" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="destinations" value="Verificar autorização e destinos" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="485" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="arrive" value="Registrar chegada" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="360" y="485" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="execute" value="Executar entrada / etapas / saída" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="660" y="485" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="resources" value="Confirmar chapas e equipamentos" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="660" y="605" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cancel" value="Cancelar e reter capacidade" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="605" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="assign" value="Atribuir vaga cancelada" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="360" y="605" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="nature" value="Reagendar por natureza" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="725" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="nonreceipt" value="Registrar não recebimento" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="360" y="725" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="bulletin" value="Preencher e fechar boletim" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="660" y="725" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="indicators" value="Consultar indicadores e cobertura" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="60" y="935" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="diagnosis" value="Diagnóstico em reais por local" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="360" y="935" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="scenario" value="Simular cenário condicionado" style="html=1;whiteSpace=wrap;fontFamily=Segoe UI;fontSize=18;strokeColor=#24352e;fillColor=#ffffff;fontColor=#24352e;ellipse;" vertex="1" parent="system">
+          <mxGeometry x="660" y="935" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_0" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="supplier" target="schedule">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="supplier" target="upload">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="supplier" target="consult">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="supplier" target="cancel">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="purchasing" target="review">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="destinations">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="arrive">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="execute">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="cancel">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="assign">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="nature">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="nonreceipt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_12" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="warehouse" target="bulletin">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_13" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="management" target="indicators">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_14" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="management" target="diagnosis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_15" value="" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=none;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="management" target="scenario">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_16" value="«include»" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;dashed=1;" edge="1" parent="system" source="review" target="decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_17" value="«include»" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;dashed=1;" edge="1" parent="system" source="schedule" target="link_invoice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_18" value="«include»" style="html=1;fontSize=15;strokeColor=#56665d;edgeStyle=orthogonalEdgeStyle;rounded=1;endArrow=classic;dashed=1;" edge="1" parent="system" source="execute" target="resources">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

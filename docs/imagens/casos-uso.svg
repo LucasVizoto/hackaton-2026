@@ -1,0 +1,186 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1200" viewBox="0 0 1500 1200" role="img">
+  <title>UML · Casos de uso</title>
+  <desc>Diagrama documental do MVP. Fonte editável na pasta docs/fontes. Não contém registros privados.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#56665d" />
+    </marker>
+  </defs>
+  <rect width="1500" height="1200" fill="white" />
+  <text x="35" y="35" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600">UML · Casos de uso</text>
+  <g>
+    <rect x="260" y="60" width="1200" height="1080" fill="none" stroke="#24352e" stroke-width="1.8" />
+    <text x="275" y="88" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="start">
+      <tspan x="275" dy="0">Recebimento Inteligente — aplicação única</tspan>
+    </text>
+  </g>
+  <polyline points="210.0,165.0 220.0,165.0 220.0,105.0 445.0,105.0 445.0,125.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,165.0 220.0,165.0 220.0,215.0 445.0,215.0 445.0,235.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,165.0 220.0,165.0 220.0,105.0 1045.0,105.0 1045.0,125.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,165.0 220.0,165.0 220.0,645.0 445.0,645.0 445.0,665.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,415.0 227.0,415.0 227.0,325.0 445.0,325.0 445.0,345.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,525.0 445.0,525.0 445.0,545.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,525.0 745.0,525.0 745.0,545.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,525.0 1045.0,525.0 1045.0,545.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,645.0 445.0,645.0 445.0,665.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,645.0 745.0,645.0 745.0,665.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,765.0 445.0,765.0 445.0,785.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,765.0 745.0,765.0 745.0,785.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,665.0 234.0,665.0 234.0,765.0 1045.0,765.0 1045.0,785.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,975.0 241.0,975.0 241.0,975.0 445.0,975.0 445.0,995.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,975.0 241.0,975.0 241.0,975.0 745.0,975.0 745.0,995.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="210.0,975.0 241.0,975.0 241.0,975.0 1045.0,975.0 1045.0,995.0" fill="none" stroke="#56665d" stroke-width="1.8" />
+  <polyline points="570.0,387.5 745.0,387.5 745.0,387.5 920.0,387.5" fill="none" stroke="#56665d" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="7 5" />
+  <text x="745.0" y="379.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">«include»</text>
+  <polyline points="570.0,167.5 595.0,167.5 595.0,167.5 620.0,167.5" fill="none" stroke="#56665d" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="7 5" />
+  <text x="595.0" y="159.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="middle" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">«include»</text>
+  <polyline points="1045.0,630.0 1045.0,647.5 1045.0,647.5 1045.0,665.0" fill="none" stroke="#56665d" stroke-width="1.8" marker-end="url(#arrow)" stroke-dasharray="7 5" />
+  <text x="1052.0" y="639.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="14" text-anchor="start" paint-order="stroke" stroke="white" stroke-width="5" stroke-linejoin="round">«include»</text>
+  <g>
+    <circle cx="130.0" cy="120" r="12" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <path d="M130.0,132 L130.0,170 M104.0,145 L156.0,145 M130.0,170 L105.0,200 M130.0,170 L155.0,200" fill="none" stroke="#24352e" stroke-width="2" />
+    <text x="130.0" y="223" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="130.0" dy="0">Fornecedor</tspan>
+    </text>
+  </g>
+  <g>
+    <circle cx="130.0" cy="370" r="12" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <path d="M130.0,382 L130.0,420 M104.0,395 L156.0,395 M130.0,420 L105.0,450 M130.0,420 L155.0,450" fill="none" stroke="#24352e" stroke-width="2" />
+    <text x="130.0" y="473" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="130.0" dy="0">Compras</tspan>
+    </text>
+  </g>
+  <g>
+    <circle cx="130.0" cy="620" r="12" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <path d="M130.0,632 L130.0,670 M104.0,645 L156.0,645 M130.0,670 L105.0,700 M130.0,670 L155.0,700" fill="none" stroke="#24352e" stroke-width="2" />
+    <text x="130.0" y="723" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="130.0" dy="0">Armazém</tspan>
+    </text>
+  </g>
+  <g>
+    <circle cx="130.0" cy="930" r="12" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <path d="M130.0,942 L130.0,980 M104.0,955 L156.0,955 M130.0,980 L105.0,1010 M130.0,980 L155.0,1010" fill="none" stroke="#24352e" stroke-width="2" />
+    <text x="130.0" y="1033" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="130.0" dy="0">Gestão</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="167.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="172.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Solicitar agendamento</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="277.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="282.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Anexar nota fiscal</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="745.0" cy="167.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="745.0" y="172.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="745.0" dy="0">Vincular nota fiscal</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="1045.0" cy="167.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="1045.0" y="160.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="1045.0" dy="0">Consultar próprios</tspan>
+      <tspan x="1045.0" dy="24">registros</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="387.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="392.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Conferir NF × pedido</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="1045.0" cy="387.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="1045.0" y="380.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="1045.0" dy="0">Registrar decisão de</tspan>
+      <tspan x="1045.0" dy="24">Compras</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="587.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="580.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Verificar autorização e</tspan>
+      <tspan x="445.0" dy="24">destinos</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="745.0" cy="587.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="745.0" y="592.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="745.0" dy="0">Registrar chegada</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="1045.0" cy="587.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="1045.0" y="580.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="1045.0" dy="0">Executar entrada / etapas</tspan>
+      <tspan x="1045.0" dy="24">/ saída</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="1045.0" cy="707.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="1045.0" y="700.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="1045.0" dy="0">Confirmar chapas e</tspan>
+      <tspan x="1045.0" dy="24">equipamentos</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="707.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="700.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Cancelar e reter</tspan>
+      <tspan x="445.0" dy="24">capacidade</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="745.0" cy="707.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="745.0" y="712.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="745.0" dy="0">Atribuir vaga cancelada</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="827.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="832.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Reagendar por natureza</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="745.0" cy="827.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="745.0" y="832.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="745.0" dy="0">Registrar não recebimento</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="1045.0" cy="827.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="1045.0" y="820.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="1045.0" dy="0">Preencher e fechar</tspan>
+      <tspan x="1045.0" dy="24">boletim</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="445.0" cy="1037.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="445.0" y="1030.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="445.0" dy="0">Consultar indicadores e</tspan>
+      <tspan x="445.0" dy="24">cobertura</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="745.0" cy="1037.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="745.0" y="1030.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="745.0" dy="0">Diagnóstico em reais por</tspan>
+      <tspan x="745.0" dy="24">local</tspan>
+    </text>
+  </g>
+  <g>
+    <ellipse cx="1045.0" cy="1037.5" rx="125.0" ry="42.5" fill="white" stroke="#24352e" stroke-width="1.8" />
+    <text x="1045.0" y="1030.5" fill="#24352e" font-family="Segoe UI, Arial, sans-serif" font-size="18" text-anchor="middle">
+      <tspan x="1045.0" dy="0">Simular cenário</tspan>
+      <tspan x="1045.0" dy="24">condicionado</tspan>
+    </text>
+  </g>
+</svg>
