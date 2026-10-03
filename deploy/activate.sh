@@ -22,17 +22,26 @@ if [ -n "$previous" ]; then printf '%s\n' "$previous" >/srv/cocapec/shared/previ
 ln -sfn "$release" /srv/cocapec/current.next
 mv -Tf /srv/cocapec/current.next /srv/cocapec/current
 chmod 755 /srv/cocapec/releases
+if [ -d /srv/cocapec/shared/downloads ]; then
+    mkdir -p "$release/frontend/dist/browser/downloads"
+    find /srv/cocapec/shared/downloads -maxdepth 1 -type f \( -name 'cocapec-*.apk' -o -name 'cocapec-*.apk.sha256' \) -exec cp {} "$release/frontend/dist/browser/downloads/" \;
+    chown -R cocapec:cocapec "$release/frontend/dist/browser/downloads"
+fi
 chmod -R o-rwx "$release"
 chmod o+x "$release" "$release/frontend" "$release/frontend/dist"
 chmod -R o+rX "$release/frontend/dist/browser"
 setcap cap_net_bind_service=+ep /usr/bin/caddy
 touch /var/log/caddy/cocapec-access.log
 chown caddy:caddy /var/log/caddy/cocapec-access.log
+python3 "$release/deploy/render-caddy.py"
 runuser -u caddy -- env HOME=/var/lib/caddy XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 cp "$release/deploy/supervisor.conf" /etc/supervisor/conf.d/cocapec.conf
 supervisorctl reread
 supervisorctl update
-if [ -n "$previous" ]; then supervisorctl restart cocapec-api; fi
+if [ -n "$previous" ]; then
+    supervisorctl start cocapec-api
+    supervisorctl restart cocapec-web
+fi
 for attempt in $(seq 1 30); do
     if supervisorctl status | awk '($2 != "RUNNING"){bad=1} END{exit(bad || NR != 3)}'; then break; fi
     sleep 2
