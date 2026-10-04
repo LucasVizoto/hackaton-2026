@@ -54,7 +54,7 @@ def _stage(ap, visit, visits):
     return ("waiting", reason) if reason else ("ready", "")
 
 
-def unloads_payload(day, origin, user):
+def unloads_payload(day, origin, user, today=None):
     visits = list(
         WarehouseVisit.objects.filter(appointment__slot__date=day, appointment__origin=origin,
                                       appointment__workflow_version=2)
@@ -84,6 +84,11 @@ def unloads_payload(day, origin, user):
         crew = sorted(crews[(ap.pk, visit.warehouse_id)], key=lambda person: person["name"])
         actions = {item["code"]: {"allowed": item["allowed"], "reason": item["reason"]}
                    for item in visit_actions(visit, user)}
+        # O servidor só aceita a entrada na data local da reserva; o painel avisa antes do clique.
+        if actions.get("check-in", {}).get("allowed") and today and today != day:
+            actions["check-in"] = {"allowed": False, "reason": (
+                f"A entrada no armazém só pode ser registrada no dia da descarga ({day:%d/%m})."
+            )}
         items.append({
             "visit": str(visit.pk), "appointment": str(ap.pk), "revision": ap.revision,
             "sequence": visit.sequence, "stages": len(siblings),
@@ -122,4 +127,5 @@ class UnloadBoardView(APIView):
         filters = UnloadFilters(data=request.query_params)
         filters.is_valid(raise_exception=True)
         data = filters.validated_data
-        return Response(unloads_payload(data.get("date") or timezone.localdate(), data["origin"], request.user))
+        today = timezone.localdate()
+        return Response(unloads_payload(data.get("date") or today, data["origin"], request.user, today))

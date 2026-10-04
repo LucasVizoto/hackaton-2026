@@ -170,7 +170,7 @@ const ORIGINS: [string, string][] = [["operacional_registrado", "Operação"], [
             <li [class.is-done]="!!item.checked_in_at" [attr.aria-current]="item.stage === 'ready' && item.crew.length ? 'step' : null">Entrada</li>
             <li [class.is-done]="!!item.checked_out_at" [attr.aria-current]="item.stage === 'running' ? 'step' : null">Saída</li>
           </ol>
-          @if (sheetError()) { <div app-feedback tone="error">{{ sheetError() }}</div> }
+          @if (sheetError() && !(canOperate && (item.stage === "ready" || item.stage === "running"))) { <div app-feedback tone="error">{{ sheetError() }}</div> }
           @if (sheetSuccess()) { <div app-feedback tone="success">{{ sheetSuccess() }}</div> }
 
           @if (item.stage === "waiting") {
@@ -185,6 +185,7 @@ const ORIGINS: [string, string][] = [["operacional_registrado", "Operação"], [
               @if (crewDirty()) { <p class="field-help field-error">Salve a equipe antes de registrar a entrada.</p> }
               <ng-container [ngTemplateOutlet]="timing" />
               @if (!item.actions["check-in"]?.allowed) { <p class="field-help">{{ item.actions["check-in"]?.reason }}</p> }
+              @if (sheetError()) { <div app-feedback tone="error" class="action-error" tabindex="-1">{{ sheetError() }}</div> }
               <ion-button type="submit" expand="block" [disabled]="busy() || crewDirty() || !item.actions['check-in']?.allowed">{{ busy() ? "Registrando…" : "Registrar entrada " + (customTime() ? "" : "agora") }}</ion-button>
             </section>
           }
@@ -204,6 +205,7 @@ const ORIGINS: [string, string][] = [["operacional_registrado", "Operação"], [
                 <p>Equipamento: <strong>{{ checkoutEquipmentText() }}</strong></p>
                 @if (crewDirty()) { <p class="field-help field-error">Salve a equipe antes de registrar a saída.</p> }
                 <ng-container [ngTemplateOutlet]="timing" />
+                @if (sheetError()) { <div app-feedback tone="error" class="action-error" tabindex="-1">{{ sheetError() }}</div> }
                 <ion-button type="submit" expand="block" [disabled]="busy() || crewDirty()">{{ busy() ? "Registrando…" : checkoutLabel() }}</ion-button>
               } @else {
                 <p>{{ item.actions["check-out"]?.reason || "Saída indisponível no momento." }}</p>
@@ -380,6 +382,8 @@ export class Unloading implements OnInit {
       }
     } catch (e) {
       this.sheetError.set(apiError(e));
+      // O erro fica junto do botão que falhou; leva a vista até ele.
+      setTimeout(() => this.sheet().nativeElement.querySelector<HTMLElement>(".action-error")?.focus(), 0);
       this.idempotencyKey = crypto.randomUUID();
       void this.load(true);
     } finally {

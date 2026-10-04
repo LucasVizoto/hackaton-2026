@@ -1,8 +1,11 @@
 from datetime import timedelta
+from unittest import mock
+import uuid
 
 from django.test import TestCase
 
 from catalog.models import Equipment, Worker
+from receiving.models import Appointment, ReceivingEvent
 from receiving.tests import AT, DAY, RESOURCES
 from receiving import tests_v2
 
@@ -18,9 +21,10 @@ class UnloadBoardTests(TestCase):
     arrive = tests_v2.ReceivingV2Tests.arrive
     line = tests_v2.ReceivingV2Tests.line
 
-    def board(self, user=None):
+    def board(self, user=None, today=DAY):
         self.client.force_authenticate(user or self.operator)
-        response = self.client.get(URL)
+        with mock.patch("labor.views_unloads.timezone.localdate", return_value=today):
+            response = self.client.get(URL)
         self.assertEqual(response.status_code, 200, response.data)
         return response.data
 
@@ -71,3 +75,44 @@ class UnloadBoardTests(TestCase):
         self.client.force_authenticate(self.operator)
         other = self.client.get(f"/api/v2/allocation/unloads/?date={DAY.isoformat()}")
         self.assertEqual(other.data["items"], [])
+
+    def test_entry_and_exit_from_the_screen_are_persisted(self):
+        """Mesmas rotas e corpo que a tela envia (ISO em UTC, chave de repetição e revisão)."""
+        ap = self.create()
+        self.approve(ap)
+        self.arrive(ap)
+        self.line(ap)
+        item = self.board()["items"][0]
+        self.client.force_authenticate(self.operator)
+        entry = (AT + timedelta(minutes=5)).astimezone(tz=None).isoformat()
+        body = {"idempotency_key": str(uuid.uuid4()), "expected_revision": item["revision"], "occurred_at": entry}
+        response = self.client.post(f"/api/v2/warehouse-visits/{item['visit']}/check-in/", body, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIsNotNone(response.data["checked_in_at"])
+        ap.refresh_from_db()
+        visit = ap.visits.get()
+        self.assertEqual((ap.operation_status, visit.checked_in_at), ("in_progress", AT + timedelta(minutes=5)))
+        self.assertTrue(ReceivingEvent.objects.filter(appointment=ap, kind="warehouse_check_in").exists())
+        detail = self.client.get(f"/api/v2/appointments/{ap.pk}/").data
+        self.assertIsNotNone(detail["visits"][0]["checked_in_at"])
+        # Repetir o mesmo clique (rede lenta) não duplica nem falha.
+        self.assertEqual(self.client.post(f"/api/v2/warehouse-visits/{item['visit']}/check-in/", body, format="json").status_code, 200)
+        item = self.board()["items"][0]
+        self.assertEqual(item["stage"], "running")
+        exit_body = {"idempotency_key": str(uuid.uuid4()), "expected_revision": item["revision"],
+                     "occurred_at": (AT + timedelta(minutes=40)).isoformat(), "worker_count": 3,
+                     "equipment_ids": [], "resources_confirmed": True}
+        response = self.client.post(f"/api/v2/warehouse-visits/{item['visit']}/check-out/", exit_body, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        ap.refresh_from_db()
+        self.assertEqual((ap.operation_status, ap.visits.get().worker_count), ("completed", 3))
+
+    def test_entry_is_only_offered_on_the_unload_day(self):
+        ap = self.create()
+        self.approve(ap)
+        self.arrive(ap)
+        item = self.board(today=DAY - timedelta(days=1))["items"][0]
+        self.assertEqual(item["stage"], "ready")
+        self.assertFalse(item["actions"]["check-in"]["allowed"])
+        self.assertIn("dia da descarga", item["actions"]["check-in"]["reason"])
+        self.assertTrue(Appointment.objects.filter(pk=ap.pk, operation_status="arrived").exists())

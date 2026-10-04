@@ -219,7 +219,7 @@ export class AppointmentList implements OnInit {
     <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
       <a [routerLink]="api.can('gatehouse') ? '/portaria' : '/agenda'">{{ api.can('gatehouse') ? 'Voltar à portaria' : 'Voltar à agenda' }}</a>
     </app-page-header>
-    @if (error() && action() !== 'gate-check-in') {
+    @if (error() && !action()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (success()) {
@@ -393,7 +393,7 @@ export class AppointmentList implements OnInit {
       @if (action()) {
         <form #actionForm class="panel form-page" [class.gate-entry-form]="action() === 'gate-check-in'" [formGroup]="form" (ngSubmit)="execute()" [attr.aria-busy]="busy()" aria-labelledby="receiving-action-title">
           <h2 id="receiving-action-title">{{ actionTitle() }}</h2>
-          @if (action() === 'gate-check-in' && error()) {
+          @if (error()) {
             <div #entryError app-feedback tone="error" tabindex="-1">{{ error() }}</div>
           }
           @if(action()==='exceptions'){<label>Tipo<select formControlName="exception_kind"><option value="late">Atraso</option><option value="no_show">Ausência</option>@if(api.can('warehouse','purchasing')){<option value="nature">Impedimento por natureza</option><option value="invoice_mismatch">Divergência documental</option>}<option value="other">Outro</option></select></label><label>Descrição<textarea formControlName="notes" required></textarea></label><label>Quando ocorreu<input type="datetime-local" formControlName="occurred_at" /></label><p class="field-help">O registro não aplica multa ou bloqueio automático.</p>}
@@ -1082,7 +1082,8 @@ export class AppointmentDetail implements OnInit {
       this.error.set(act === "gate-check-in" && e instanceof HttpErrorResponse && (e.status === 0 || e.status >= 500)
         ? "Não foi possível registrar a entrada. Confira a conexão e tente novamente."
         : apiError(e));
-      if (act === "gate-check-in") afterNextRender(() => this.entryError()?.nativeElement.focus(), { injector: this.injector });
+      // O erro aparece junto do formulário que o usuário acabou de enviar, nunca só no topo da página.
+      afterNextRender(() => this.entryError()?.nativeElement.focus(), { injector: this.injector });
       if(act === 'reschedule' && e instanceof HttpErrorResponse && e.status === 409){
         this.rescheduleReady.set(false);
         // Keep the date and reason while reloading the server revision and capacity.
