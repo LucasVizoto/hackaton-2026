@@ -18,6 +18,17 @@ Todos os resultados precisam de período, origem e unidade. `operacional_registr
 
 `analytics/labor-costs/` acrescenta `individuals.records` por pessoa com `cost_warehouses` e `activity_warehouses`, `presence` e `reconciliation`. O filtro de local financeiro seleciona o armazém responsável; a presença usa o local da atividade. A lista nominal é limitada a 100 linhas com `count`, `returned_count` e `truncated`, sem reduzir os totais. A reconciliação compara parcelas efetivamente salvas; `legacy_bulletins_without_allocations` informa a cobertura faltante.
 
+## Comparativo de custos e gargalos em Gestão
+
+`GET /api/v2/analytics/labor-costs/` também retorna:
+
+- `daily_series`: uma linha por dia do recorte, em ordem cronológica, com `date`, `production`, `total_payable`, `supplement` e `bulletin_count`. Valores monetários são strings decimais exatas; dia sem boletim fechado tem valores nulos e contagem zero. Resumo, série e fontes usam o mesmo conjunto completo de snapshots, sem o limite de 100 registros da consulta de evidências.
+- `weekly_supplement`: `period`, `groups`, `closed_bulletins` e `leaders`. A janela começa no maior entre `date_from` e `date_to − 6 dias`; cada grupo informa armazém, complemento exato, número de boletins e datas cobertas. `leaders` contém todos os IDs empatados no maior complemento positivo. Lista vazia de líderes, com boletins fechados, significa complemento zero; sem boletins significa ausência de cobertura.
+
+`GET /api/v2/analytics/operations/` retorna `gate_wait_by_warehouse`, com armazém, `average_minutes`, `valid_records` e `excluded_records`. A população usa a saída da portaria no período. A espera exige chegada à portaria ≤ entrada no primeiro destino pela sequência ≤ saída da unidade. Um destino posterior não herda a espera global. Registros sem marcos válidos são excluídos, não substituídos por outra visita ou por zero; a cobertura também informa exclusões e registros sem destino. Para histórico documental, o campo é nulo; lista vazia operacional significa ausência de observações atribuíveis ao recorte.
+
+O painel compara **valor produzido** com **total a pagar**, não pagamento efetivado. A faixa representa o complemento e interrompe nos dias sem boletim. O destaque de espera mostra os empates e a cobertura por armazém; o destaque financeiro mostra a janela de até sete dias. Alterar o filtro mantém origem e local separados. As consultas preservam as permissões existentes, e a análise da IA continua restrita a Gestão/admin.
+
 O extrato da pessoa distingue `operational` de `historical_rh`. Folha histórica é visível apenas a Gestão/admin, considera lotes ativos e totaliza observações utilizáveis. Datas inválidas/ausentes ficam na qualidade, fora do intervalo datado; pagamento ausente é nulo. Um pagamento observado não identifica automaticamente produção, fração ou boletim.
 
 Complemento elevado indica que o piso coletivo ultrapassou a produção lançada. Isso não comprova ociosidade: trabalho interno, carregamento a cooperados, indisponibilidade de máquina, simultaneidade e cobertura incompleta precisam ser avaliados. Complemento zero tampouco prova equipe suficiente.

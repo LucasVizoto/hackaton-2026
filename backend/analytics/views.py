@@ -115,6 +115,9 @@ def financial_summary(bulletins):
 class LaborCostsView(APIView):
     permission_classes = [IsInternal]
 
+    def cost_details(self, request, bulletins, filters):
+        return {}
+
     def get(self, request):
         filters = read_filters(request)
         query = (
@@ -193,6 +196,7 @@ class LaborCostsView(APIView):
                     "note": "Calendário de boletins esperados não configurado; dias ausentes continuam ausentes.",
                 },
                 "warnings": warnings,
+                **self.cost_details(request, bulletins, filters),
             }
         )
 

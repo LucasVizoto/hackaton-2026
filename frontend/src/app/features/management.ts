@@ -1,7 +1,9 @@
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { Component, inject, OnDestroy, OnInit, signal } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { RouterLink } from "@angular/router";
-import { IonButton } from "@ionic/angular/standalone";
+import { IonButton, IonIcon } from "@ionic/angular/standalone";
+import { addIcons } from "ionicons";
+import { sparklesOutline } from "ionicons/icons";
 import {
   Api,
   apiError,
@@ -26,6 +28,8 @@ import {
   PageHeader,
 } from "../shared/ui";
 import { Bulletin } from "./bulletins";
+import { CostComparisonChart } from "./cost-comparison-chart";
+import { DailyCost, managementPeriodError, waitDuration, waitLeaders, WarehouseWait, WeeklySupplement } from "../core/cost-chart";
 interface SourceRecords<T> {
   records: T[];
   count: number;
@@ -72,6 +76,8 @@ interface OperationalSources extends SourceRecords<OperationalSource> {
 }
 interface IndividualCost {worker:string;registration:string;name:string;equivalent_days:string;production_attributed:string;supplement:string;total_payable:string;display:{production_attributed:string;supplement:string;total_payable:string};cost_warehouses:{id:string;name:string}[];activity_warehouses:{id:string;name:string}[];}
 interface Costs {
+  daily_series?: DailyCost[];
+  weekly_supplement?: WeeklySupplement;
   individuals?: SourceRecords<IndividualCost>;
   presence?: {planned:number;present:number;used:number;coverage:number};
   reconciliation?: {individual_display_total:string|null;collective_display_total:string|null;difference:string|null;legacy_bulletins_without_allocations:number};
@@ -107,6 +113,7 @@ interface Costs {
   source_records?: SourceRecords<FinancialSource> | null;
 }
 interface Operations {
+  gate_wait_by_warehouse?: WarehouseWait[] | null;
   origin: string;
   period: { date_from: string; date_to: string };
   summary?: RecordData;
@@ -134,7 +141,7 @@ interface Scenario {
 const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, FeedbackState];
 @Component({
   standalone: true,
-  imports: [...imports, RouterLink, MetricCard, BarChart, FilterBlock, EmptyState],
+  imports: [...imports, RouterLink, IonIcon, MetricCard, BarChart, FilterBlock, EmptyState, CostComparisonChart],
   template: `<div class="page">
     <app-page-header
       title="Gestão por local e período"
@@ -147,8 +154,8 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
       [formGroup]="filters"
       (ngSubmit)="load()"
     >
-      <label>De<input type="date" formControlName="date_from" /></label
-      ><label>Até<input type="date" formControlName="date_to" /></label
+      <label>De<input type="date" formControlName="date_from" required [attr.aria-invalid]="filterError() ? true : null" [attr.aria-describedby]="filterError() ? 'management-period-error' : null" /></label
+      ><label>Até<input type="date" formControlName="date_to" required [attr.aria-invalid]="filterError() ? true : null" [attr.aria-describedby]="filterError() ? 'management-period-error' : null" /></label
       ><label
         >Local<select formControlName="warehouse">
           <option value="">Todos os locais</option>
@@ -166,6 +173,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
         >Aplicar período</ion-button
       >
     </form>
+    @if (filterError()) {<p id="management-period-error" app-feedback tone="error">{{filterError()}}</p>}
     @if (
       costs()?.origin === "demo_sintetico" ||
       operations()?.origin === "demo_sintetico"
@@ -180,6 +188,29 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
     }
     @if (busy()) {
       <app-loading-state label="Consultando indicadores…" />
+    }
+    @if (!busy() || costs() || operations()) {
+      <section class="section" aria-label="Custos e gargalos">
+        @if (appliedFilters(); as applied) {<p class="muted">{{origin(applied.origin)}} · {{date(applied.date_from)}} a {{date(applied.date_to)}} · {{appliedWarehouseName()}}</p>}
+        @if (costsError()) {<div app-feedback tone="error">Comparativo financeiro indisponível: {{costsError()}} Reaplique o período para tentar novamente.</div>}
+        @if (costs()?.daily_series; as series) {<app-cost-comparison-chart [series]="series"/>}
+        <div class="metric-grid section bottleneck-grid">
+          <app-metric-card label="Maior espera após portaria" [value]="waitHighlightValue()" [hint]="waitHighlightHint()"/>
+          <app-metric-card label="Maior complemento do piso" [value]="supplementHighlightValue()" [hint]="supplementHighlightHint()" tone="warning"/>
+        </div>
+        @if (operationsError()) {<div app-feedback tone="error">Espera indisponível: {{operationsError()}} Reaplique o período para tentar novamente.</div>}
+        @if (costs() || operations()) {
+          <section class="panel section management-analysis" aria-labelledby="management-analysis-title">
+            <h2 id="management-analysis-title"><ion-icon name="sparkles-outline" aria-hidden="true"/>Análise automática</h2>
+            <p>{{localAnalysis()}}</p>
+            @if (aiBusy()) {<p role="status">Consultando a IA com os indicadores deste recorte…</p>}
+            @if (aiAnswer(); as answer) {<div class="section"><h3>Análise da IA</h3><p class="ai-answer">{{answer.answer}}</p><p class="field-help">{{origin(answer.context.origin)}} · {{date(answer.context.period.date_from)}} a {{date(answer.context.period.date_to)}}. Consulta somente de leitura.</p></div>}
+            @if (aiError()) {<p app-feedback tone="error">{{aiError()}} A análise automática acima continua disponível.</p>}
+            @if (aiAvailable() && !aiBusy() && aiError()) {<ion-button fill="outline" (click)="generateInsight()">Tentar análise da IA novamente</ion-button>}
+            @if (aiNotice()) {<p class="field-help">{{aiNotice()}}</p>}
+          </section>
+        }
+      </section>
     }
     @if (operations(); as o) {
       <section class="section">
@@ -701,8 +732,10 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
       complemento zero não prova dimensionamento adequado.
     </p>
   </div>`,
+  styles: [`.bottleneck-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .management-analysis { border-left-color:var(--blue); } .management-analysis h2 { display:flex; align-items:center; gap:10px; font-size:20px; } .management-analysis ion-icon { color:var(--blue); flex-shrink:0; } .ai-answer { white-space:pre-wrap; } @media(max-width:600px) { .bottleneck-grid { grid-template-columns:1fr; } }`],
 })
-export class Management implements OnInit {
+export class Management implements OnInit, OnDestroy {
+  constructor() { addIcons({ sparklesOutline }); }
   names(values:{name:string}[]){return values.map(v=>v.name).join(', ')||'Sem registro';}
   print(){window.print();}
   exportIndividuals(){const c=this.costs();if(!c?.individuals)return;exportCsv(`pessoas-${c.period.date_from}-${c.period.date_to}.csv`,[['Matrícula','Nome','Diárias equivalentes','Produção atribuída','Complemento','Total apurado','Armazéns do custo','Locais de atividade'],...c.individuals.records.map(p=>[p.registration,p.name,p.equivalent_days,p.display.production_attributed,p.display.supplement,p.display.total_payable,this.names(p.cost_warehouses),this.names(p.activity_warehouses)])]);}
@@ -710,8 +743,8 @@ export class Management implements OnInit {
   catalog = inject(Catalog);
   private fb = inject(FormBuilder);
   filters = this.fb.nonNullable.group({
-    date_from: [today().slice(0, 8) + "01"],
-    date_to: [today()],
+    date_from: [today().slice(0, 8) + "01", Validators.required],
+    date_to: [today(), Validators.required],
     warehouse: [""],
     origin: ["operacional_registrado"],
   });
@@ -725,6 +758,18 @@ export class Management implements OnInit {
   bulletins = signal<Bulletin[]>([]);
   error = signal("");
   busy = signal(false);
+  filterError = signal("");
+  costsError = signal("");
+  operationsError = signal("");
+  appliedFilters = signal<{date_from:string;date_to:string;warehouse:string;origin:string} | null>(null);
+  aiAnswer = signal<{answer:string;context:{origin:string;period:{date_from:string;date_to:string}}} | null>(null);
+  aiBusy = signal(false);
+  aiAvailable = signal(false);
+  aiError = signal("");
+  aiNotice = signal("");
+  private requestVersion = 0;
+  private insightVersion = 0;
+  private requestController?: AbortController;
   money = money;
   decimal = decimal;
   dt = dateTime;
@@ -737,6 +782,44 @@ export class Management implements OnInit {
           maximumFractionDigits: 2,
         }).format(Number(value));
   origin = originLabel;
+  appliedWarehouseName() { const id=this.appliedFilters()?.warehouse; return id ? this.catalog.warehouses().find(w=>w.id===id)?.name ?? "Local selecionado" : "Todos os locais"; }
+  private waitWinners() { return waitLeaders(this.operations()?.gate_wait_by_warehouse); }
+  private supplementWinners() { const week=this.costs()?.weekly_supplement; return week?.groups.filter(row=>week.leaders.includes(row.warehouse)) ?? []; }
+  waitHighlightValue() { const rows=this.waitWinners(); return rows.length ? waitDuration(rows[0].average_minutes!) : !this.operations() && this.busy() && !this.operationsError() ? "Consultando…" : "Não disponível"; }
+  waitHighlightHint() {
+    const rows=this.waitWinners();
+    if(!rows.length) return this.operationsError() ? "Falha ao consultar a operação." : !this.operations() && this.busy() ? "Consultando a operação…" : "Sem espera válida atribuída ao primeiro destino neste recorte.";
+    return `${rows.length>1 ? "Empate: " : ""}${rows.map(row=>`${row.warehouse_name} (${row.valid_records} ${row.valid_records===1 ? "observação válida" : "observações válidas"}; ${row.excluded_records} ${row.excluded_records===1 ? "excluída" : "excluídas"})`).join(", ")}. Portaria → primeiro armazém; cargas com saída no período.`;
+  }
+  supplementHighlightValue() {
+    const week=this.costs()?.weekly_supplement;
+    if(!week?.closed_bulletins) return !this.costs() && this.busy() && !this.costsError() ? "Consultando…" : "Não disponível";
+    const rows=this.supplementWinners();
+    return rows.length ? money(rows[0].supplement) : "Sem complemento";
+  }
+  supplementHighlightHint() {
+    const week=this.costs()?.weekly_supplement;
+    if(!week) return this.costsError() ? "Falha ao consultar os boletins." : this.busy() ? "Consultando os boletins…" : "Complemento semanal indisponível.";
+    const period=`${this.date(week.period.date_from)} a ${this.date(week.period.date_to)}`;
+    if(!week.closed_bulletins) return `${period} · Sem boletins fechados na janela.`;
+    const rows=this.supplementWinners();
+    const coverage=(count:number)=>`${count} ${count===1 ? "boletim fechado" : "boletins fechados"}`;
+    return `${period} · ${rows.length ? `${rows.length>1 ? "Empate: " : ""}${rows.map(row=>`${row.warehouse_name} (${coverage(row.bulletin_count)})`).join(", ")}` : `${coverage(week.closed_bulletins)} sem complemento.`} Complemento não comprova ociosidade.`;
+  }
+  localAnalysis() {
+    const statements:string[]=[];
+    const c=this.costs();
+    if(c?.summary.bulletin_count) statements.push(`${c.summary.bulletin_count===1 ? "O boletim fechado apura" : `Os ${c.summary.bulletin_count} boletins fechados apuram`} ${money(c.summary.production)} de produção e ${money(c.summary.total_payable)} a pagar, com ${money(c.summary.supplement)} de complemento.`);
+    else statements.push(this.costsError() ? "A apuração financeira não pôde ser consultada." : !c && this.busy() ? "A consulta dos boletins fechados está em andamento." : "Não há boletins fechados que sustentem uma comparação financeira neste recorte.");
+    const waits=this.waitWinners();
+    if(waits.length) statements.push(`${waits.map(row=>row.warehouse_name).join(" e ")} ${waits.length>1 ? "compartilham a maior" : "tem a maior"} espera média após portaria: ${waitDuration(waits[0].average_minutes!)}. Verifique os recebimentos e os horários registrados antes de atribuir uma causa.`);
+    else statements.push(this.operationsError() ? "A consulta de esperas falhou; o destaque operacional está indisponível." : !this.operations() && this.busy() ? "A consulta de esperas está em andamento." : "Não há espera válida por primeiro destino disponível neste recorte.");
+    const week=c?.weekly_supplement, supplements=this.supplementWinners();
+    if(week?.closed_bulletins && supplements.length) statements.push(`Entre ${this.date(week.period.date_from)} e ${this.date(week.period.date_to)}, ${supplements.map(row=>row.warehouse_name).join(" e ")} ${supplements.length>1 ? "compartilham o maior" : "tem o maior"} complemento: ${money(supplements[0].supplement)}.`);
+    statements.push("Complemento do piso não comprova ociosidade. Dias e horários ausentes limitam a análise.");
+    return statements.join(" ");
+  }
+  ngOnDestroy() { this.requestVersion++; this.insightVersion++; this.requestController?.abort(); }
   supplementHint(value: string | null) {
     return value === null
       ? "Participação no total não disponível"
@@ -813,6 +896,9 @@ export class Management implements OnInit {
           departures: "Saídas da portaria",
           valid_total_stay_records: "Permanências totais medidas",
           valid_gate_wait_records: "Esperas após portaria medidas",
+          excluded_gate_wait_records: "Esperas após portaria excluídas",
+          unattributed_gate_wait_records: "Saídas sem primeiro armazém identificado",
+          gate_wait_definition: "Critério da espera após portaria",
           excluded_warehouse_stays: "Visitas sem marcos suficientes",
           event_time_basis: "Data de referência dos eventos",
           coverage: "Cobertura",
@@ -941,44 +1027,84 @@ export class Management implements OnInit {
     );
   }
   async load() {
+    const values = this.filters.getRawValue();
+    const validation = managementPeriodError(values.date_from, values.date_to);
+    this.filterError.set(validation);
+    if (validation) { this.filters.markAllAsTouched(); return; }
+    const version = ++this.requestVersion;
+    ++this.insightVersion;
+    this.requestController?.abort();
+    this.requestController = new AbortController();
+    const signal = this.requestController.signal;
     this.busy.set(true);
     this.error.set("");
+    this.costsError.set("");
+    this.operationsError.set("");
+    this.costs.set(null);
+    this.operations.set(null);
+    this.bulletins.set([]);
+    this.appliedFilters.set(values);
+    this.aiAnswer.set(null);
+    this.aiBusy.set(false);
+    this.aiError.set("");
+    this.aiNotice.set("");
+    this.aiAvailable.set(false);
     this.scenario.set(null);
     try {
       const q = new URLSearchParams();
-      Object.entries(this.filters.getRawValue()).forEach(([k, v]) => {
+      Object.entries(values).forEach(([k, v]) => {
         if (v) q.set(k, v);
       });
-      const results = await Promise.allSettled([
-        this.api.get<Costs>(`analytics/labor-costs/?${q}`),
-        this.api.get<Operations>(`analytics/operations/?${q}`),
+      await Promise.allSettled([
+        this.api.get<Costs>(`analytics/labor-costs/?${q}`, signal).then(data => {
+          if (version === this.requestVersion) this.costs.set(data);
+        }).catch(e => { if (version === this.requestVersion) this.costsError.set(apiError(e)); }),
+        this.api.get<Operations>(`analytics/operations/?${q}`, signal).then(data => {
+          if (version === this.requestVersion) this.operations.set(data);
+        }).catch(e => { if (version === this.requestVersion) this.operationsError.set(apiError(e)); }),
         this.api.get<{ results: Bulletin[] }>(
-          `bulletins/?${q}&status=CLOSED&page_size=100`,
-        ),
+          `bulletins/?${q}&status=CLOSED&page_size=100`, signal,
+        ).then(data => { if (version === this.requestVersion) this.bulletins.set(data.results); }),
       ]);
-      if (results[0].status === "fulfilled") this.costs.set(results[0].value);
-      else {
-        this.costs.set(null);
-        this.error.set(apiError(results[0].reason));
-      }
-      if (results[1].status === "fulfilled")
-        this.operations.set(results[1].value);
-      else {
-        this.operations.set(null);
-        this.error.update((v) =>
-          [
-            v,
-            apiError(results[1].status === "rejected" ? results[1].reason : ""),
-          ]
-            .filter(Boolean)
-            .join(" · "),
-        );
-      }
-      if (results[2].status === "fulfilled")
-        this.bulletins.set(results[2].value.results);
-      else this.bulletins.set([]);
     } finally {
-      this.busy.set(false);
+      if (version === this.requestVersion) {
+        this.busy.set(false);
+        void this.prepareInsight(version);
+      }
+    }
+  }
+  private async prepareInsight(version: number) {
+    if (!this.api.can("management")) { this.aiNotice.set("Análise da IA disponível para Gestão e Administração."); return; }
+    try {
+      const result = await this.api.get<{capabilities:{assistant:{available:boolean}}}>("integrations/capabilities/", this.requestController?.signal);
+      if (version !== this.requestVersion) return;
+      this.aiAvailable.set(result.capabilities.assistant.available);
+      if (!this.aiAvailable()) { this.aiNotice.set("IA externa desabilitada ou sem configuração. A síntese usa os indicadores consultados."); return; }
+      // A fresh server context must not silently replace a failed/partial dashboard.
+      if (this.costsError() || this.operationsError()) { this.aiNotice.set("A IA aguarda a consulta completa dos indicadores. Reaplique o período após a falha."); return; }
+      if (!this.costs()?.summary.bulletin_count && !this.waitWinners().length) { this.aiNotice.set("A IA aguarda boletins fechados ou esperas medidas neste recorte."); return; }
+      void this.generateInsight();
+    } catch {
+      if (version === this.requestVersion) this.aiNotice.set("Não foi possível verificar a disponibilidade da IA. Reaplique o período para tentar novamente.");
+    }
+  }
+  async generateInsight() {
+    const applied = this.appliedFilters();
+    if (!applied || !this.aiAvailable() || !this.api.can("management") || this.aiBusy()) return;
+    const version = ++this.insightVersion;
+    this.aiBusy.set(true);
+    this.aiError.set("");
+    this.aiNotice.set("");
+    try {
+      const answer = await this.api.post<{answer:string;context:{origin:string;period:{date_from:string;date_to:string}}}>("integrations/assistant/", {
+        date_from:applied.date_from, date_to:applied.date_to, origin:applied.origin, ...(applied.warehouse ? {warehouse:applied.warehouse} : {}),
+        question:"Analise os gargalos deste recorte: maior espera após portaria por primeiro armazém e maior complemento na janela semanal fornecida. Informe empates, quantidade de observações e lacunas; sugira quais registros conferir, sem afirmar ociosidade ou economia. Responda em até dois parágrafos curtos.",
+      });
+      if (version === this.insightVersion) this.aiAnswer.set(answer);
+    } catch (e) {
+      if (version === this.insightVersion) this.aiError.set(`Análise da IA indisponível: ${apiError(e)}`);
+    } finally {
+      if (version === this.insightVersion) this.aiBusy.set(false);
     }
   }
   scenarioValue(k: string, v: unknown) {
