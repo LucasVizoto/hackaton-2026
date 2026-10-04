@@ -161,20 +161,25 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 }
 @Component({
   standalone: true,
-  imports: [RouterLink, IonButton, PageHeader, LoadingState, FeedbackState, ScheduleCalendar, Notifications, PurchaseOrders],
+  imports: [RouterLink, IonButton, PageHeader, FeedbackState, ScheduleCalendar, Notifications, PurchaseOrders],
   template: `<div class="page">
     <app-page-header [title]="title" [subtitle]="subtitle">
       @if(api.user()?.role==='supplier'){<ion-button routerLink="/agenda/novo">Agendar entrega</ion-button>}
       @if(api.can('gatehouse')){<ion-button routerLink="/portaria/avisos" fill="outline">Avisar chegada com foto</ion-button>}
     </app-page-header>
     @if(api.can('purchasing','management')){<app-purchase-orders />}
+    <div class="agenda-aux">
     @if(api.can('warehouse','purchasing','gatehouse','management')){<app-notifications />}
-    <details class="help-box"><summary>Como funciona a agenda?</summary><ul><li>Cada horário recebe até dois caminhões. Carga batida ocupa o horário inteiro.</li><li>Somente Fornecedor agenda. A disponibilidade considera toda a unidade.</li><li>A Portaria registra entrada e saída; o Armazém registra cada etapa da descarga.</li><li>A descarga exige aprovação de Compras e confirmação dos destinos. Divergências podem ser encaminhadas a Compras.</li></ul></details>
-    @if(api.user()?.role==='supplier'){<p class="notice">Você visualiza os recebimentos do seu cadastro. A disponibilidade considera a ocupação global da unidade.</p>}
+    <details class="help-box"><summary>Como funciona a agenda?</summary><ul><li>Cada horário tem vagas para até dois caminhões. Carga batida ocupa o horário inteiro.</li><li>Somente Fornecedor agenda. As vagas livres valem para a unidade inteira e não mudam com os filtros.</li><li>A Portaria registra entrada e saída; o Armazém registra cada etapa da descarga.</li><li>A descarga exige aprovação de Compras e confirmação dos destinos. Divergências podem ser encaminhadas a Compras.</li><li>Na visão Dia, “Imprimir dia” gera o relatório completo do dia na origem escolhida, sem rejeitados, cancelados e não recebidos. Os filtros de situação e armazém valem só para a tela e para a planilha.</li>@if(api.user()?.role==='supplier'){<li>Você vê apenas as entregas do seu cadastro.</li>}</ul></details>
+    </div>
     @if(error()){<div app-feedback tone="error">{{error()}}</div>}
-    @if(busy()&&!rows().length){<app-loading-state label="Carregando agenda…" />}
     <app-schedule-calendar [appointments]="rows()" [warehouses]="warehouses()" [mode]="mode" [busy]="busy()" [canSchedule]="api.user()?.role==='supplier'" (rangeChange)="onRange($event)" />
   </div>`,
+  styles: [`
+    .agenda-aux { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; margin-bottom: 16px; }
+    .agenda-aux > * { flex: 1 1 280px; min-width: 0; }
+    .agenda-aux .help-box { margin: 0; padding-top: 0; }
+  `],
 })
 export class AppointmentList implements OnInit {
   api=inject(Api); private route=inject(ActivatedRoute); private request=0; private controller?:AbortController;

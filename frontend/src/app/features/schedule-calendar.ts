@@ -1,11 +1,11 @@
 import { Capacitor } from "@capacitor/core";
-import { Component, computed, inject, input, OnInit, output, signal } from "@angular/core";
+import { Component, computed, ElementRef, inject, input, OnInit, output, signal, viewChild } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
 import { RouterLink } from "@angular/router";
 import { Api, apiError, originLabel } from "../core/api";
 import { openReceivingReport, ReceivingReportRow } from "./receiving-report";
 import { exportCsv } from "../core/workflow";
-import { Status } from "../shared/ui";
+import { LoadingState } from "../shared/ui";
 
 export interface ScheduleVisit {
   warehouse: string;
@@ -90,13 +90,18 @@ function packaging(value: string) {
   );
 }
 function weekdayLabel(day: Date) {
-  return new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).format(day);
+  return capitalize(new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).format(day));
 }
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pendente", approved: "Aprovada", rejected: "Rejeitada", waiting: "Agendado", arrived: "No pátio",
+  in_progress: "Em descarga", completed: "Concluído", cancelled: "Cancelado", not_received: "Não recebido",
+};
 
 @Component({
   standalone: true,
   selector: "app-schedule-calendar",
-  imports: [NgTemplateOutlet, RouterLink, Status],
+  imports: [NgTemplateOutlet, RouterLink, LoadingState],
+  host: { "(document:click)": "closeMenu($event)", "(document:keydown.escape)": "closeMenu()" },
   template: `
     <section class="cal" [attr.aria-busy]="busy()">
       <div class="cal-bar">
@@ -108,8 +113,8 @@ function weekdayLabel(day: Date) {
           <button type="button" class="icon-button" (click)="step(1)" [attr.aria-label]="stepLabel(1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
           </button>
-          <h2 class="cal-heading" aria-live="polite">{{ heading() }}</h2>
         </div>
+        <h2 class="cal-heading" aria-live="polite">{{ heading() }}</h2>
         <div class="cal-views" role="tablist" aria-label="Período exibido">
           @for (item of views; track item.id) {
             <button
@@ -124,51 +129,73 @@ function weekdayLabel(day: Date) {
           }
         </div>
         <div class="cal-side">
-          <button type="button" class="cal-print" (click)="refresh()" [disabled]="busy() || availabilityBusy()">Atualizar</button>
-          <button type="button" class="cal-print" (click)="export()" [disabled]="busy() || !visible().length">Exportar agenda</button>
-          @if(view()==='day'){<button type="button" class="cal-print" (click)="printDay()" [disabled]="busy() || printBusy() || !printable().length">{{printBusy()?'Preparando…':'Imprimir dia completo'}}</button>}
+          @if(view()==='day'){<button type="button" class="cal-print" (click)="printDay()" [disabled]="busy() || printBusy() || !printable().length">{{printBusy()?'Preparando…':'Imprimir dia'}}</button>}
+          <details class="cal-more" #more>
+            <summary class="icon-button" aria-label="Mais ações" title="Mais ações">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+            </summary>
+            <div class="cal-menu">
+              @if(view()==='day'){<button type="button" class="cal-menu-print" (click)="printDay(); more.open = false" [disabled]="busy() || printBusy() || !printable().length">Imprimir dia</button>}
+              <button type="button" (click)="refresh(); more.open = false" [disabled]="busy() || availabilityBusy()">Atualizar agenda</button>
+              <button type="button" (click)="export(); more.open = false" [disabled]="busy() || !visible().length">Exportar planilha (CSV)</button>
+            </div>
+          </details>
         </div>
-        <div class="cal-util">
-          <span>Ocupação global · {{ utilization().scope }}</span>
-          <div class="bar-track" aria-hidden="true"><span [style.width.%]="utilization().percent > 100 ? 100 : utilization().percent"></span></div>
-          <strong>{{ availabilityBusy() ? "Consultando…" : utilization().known ? utilization().percent + "% (" + utilization().used + "/" + utilization().capacity + " unidades)" : "Não disponível" }}</strong>
-        </div>
+      </div>
+      <div class="cal-util">
+        <span>Ocupação<span class="cal-util-scope"> {{ utilization().scope }}</span></span>
+        <div class="bar-track" aria-hidden="true"><span [style.width.%]="utilization().percent > 100 ? 100 : utilization().percent"></span></div>
+        @if (availabilityBusy()) {
+          <strong>Consultando…</strong>
+        } @else if (utilization().known) {
+          <strong>{{ utilization().percent }}%</strong><span>{{ utilization().used }} de {{ utilization().capacity }} vagas</span>
+        } @else {
+          <strong>Não disponível</strong>
+        }
       </div>
       <div class="cal-filters">
         <div class="cal-chips" role="group" [attr.aria-label]="mode() === 'compras' ? 'Filtrar por compras' : 'Filtrar por operação'">
           @for (chip of chips(); track chip.id) {
             <button type="button" class="cal-chip" [class.is-active]="status() === chip.id" [attr.aria-pressed]="status()===chip.id" (click)="status.set(chip.id)">
-              {{ chip.label }} ({{chipCount(chip.id)}})
+              @if (chip.id) {<span [class]="'cal-dot ' + chip.id" aria-hidden="true"></span>}{{ chip.label }} ({{chipCount(chip.id)}})
             </button>
           }
         </div>
-        @if(showDestinationFilter()){<label class="cal-moega">
-          Armazém
-          <select [value]="moega()" (change)="setMoega($event)">
-            <option value="">Todos os armazéns</option>
-            @for (warehouse of warehouses(); track warehouse.id) {
-              <option [value]="warehouse.id">{{ warehouse.name }}</option>
-            }
-            <option value="unassigned">A definir</option>
-          </select>
-        </label>}
-        <label class="cal-moega">
-          Origem
-          <select [value]="origin()" (change)="setOrigin($event)">
-            <option value="">Todas as origens</option>
-            <option value="operacional_registrado">Operação registrada</option>
-            <option value="demo_sintetico">Demonstração sintética</option>
-          </select>
-        </label>
+        @if (showDestinationFilter() || showOriginFilter()) {
+          <button type="button" class="cal-chip cal-filter-toggle" [class.is-set]="activeFilters()" [attr.aria-expanded]="filtersOpen()" aria-controls="cal-selects" (click)="filtersOpen.set(!filtersOpen())">
+            Filtros{{ activeFilters() ? " (" + activeFilters() + ")" : "" }}
+          </button>
+          <div class="cal-selects" id="cal-selects" [class.is-open]="filtersOpen()">
+            @if(showDestinationFilter()){<label class="cal-select">
+              Armazém
+              <select [value]="moega()" (change)="setMoega($event)">
+                <option value="">Todos os armazéns</option>
+                @for (warehouse of warehouses(); track warehouse.id) {
+                  <option [value]="warehouse.id">{{ warehouse.name }}</option>
+                }
+                <option value="unassigned">A definir</option>
+              </select>
+            </label>}
+            @if(showOriginFilter()){<label class="cal-select">
+              Origem
+              <select [value]="origin()" (change)="setOrigin($event)">
+                <option value="">Todas as origens</option>
+                <option value="operacional_registrado">Operação registrada</option>
+                <option value="demo_sintetico">Demonstração sintética</option>
+              </select>
+            </label>}
+          </div>
+        }
       </div>
-      @if(view() === 'day'){<p class="field-help">A impressão inclui o dia completo e a origem escolhida, exceto rejeitados, cancelados e não recebidos. Filtros de situação e armazém afetam apenas a tela e a exportação CSV.</p>}
-      <p class="field-help">A disponibilidade é global, consultada na API, independentemente dos filtros. Uma vaga compartilhada não garante espaço para carga exclusiva.</p>
-      @if(availabilityError()){<p class="error" role="alert">Disponibilidade: {{availabilityError()}}</p>}
+      @if(availabilityError()){<p class="error" role="alert">Não foi possível consultar as vagas: {{availabilityError()}}</p>}
       @if (printError()) {
-        <p class="cal-empty" role="alert">{{ printError() }}</p>
+        <p class="error" role="alert">{{ printError() }}</p>
+      }
+      @if (!busy() && emptyMessage()) {
+        <p class="cal-empty" role="status">{{ emptyMessage() }}</p>
       }
       @if (busy() && !appointments().length) {
-        <p class="cal-empty" role="status">Carregando os horários deste período…</p>
+        <app-loading-state label="Carregando agenda…" />
       } @else if (view() === "month") {
         <div class="cal-month" role="grid" aria-label="Calendário mensal">
           @for (name of weekNames; track name) {
@@ -180,9 +207,7 @@ function weekdayLabel(day: Date) {
               class="cal-day"
               role="gridcell"
               [class.is-outside]="!day.inMonth"
-              [class.is-weekend]="day.weekend"
               [class.is-today]="day.today"
-              [disabled]="day.weekend"
               [attr.aria-label]="day.label + (day.count ? ', ' + day.count + ' caminhões' : ', sem caminhões')"
               (click)="openDay(day.iso)"
             >
@@ -260,14 +285,16 @@ function weekdayLabel(day: Date) {
       <ng-template #card let-item>
         <a [class]="'cal-card ' + tone(item)" [routerLink]="['/agenda', item.id]">
           <span class="cal-card-top">
-            <app-status [value]="tone(item)" />
+            <span class="cal-card-status"><span [class]="'cal-dot ' + tone(item)" aria-hidden="true"></span>{{ statusLabel(tone(item)) }}</span>
             @if (item.divergence_reported_at) {
               <span class="cal-flag">Divergência</span>
+            }
+            @if (item.origin === "demo_sintetico") {
+              <span class="cal-flag is-demo" title="Demonstração sintética">Demo</span>
             }
           </span>
           <strong class="cal-card-title">{{ item.supplier_name }}</strong>
           <span class="cal-card-meta">{{ item.vehicle_plate || "Placa não informada" }} · {{ pack(item.packaging) }}</span>
-          <span class="cal-card-meta">{{originLabel(item.origin || "")}}</span>
           @if (view() === "day") {
             <span class="cal-card-meta">NF {{ invoiceNumbers(item) }}</span>
           }
@@ -277,7 +304,7 @@ function weekdayLabel(day: Date) {
         @if (freeUnits(day, time) > 0 && !past(day)) {
           @if (canSchedule()) {
             <a class="cal-free is-link" routerLink="/agenda/novo" [queryParams]="{ date: day, time: time }">
-              + Agendar <small>{{ freeText(day, time) }}</small>
+              + Agendar <small>· {{ vacancies(freeUnits(day, time)) }}</small>
             </a>
           } @else {
             <span class="cal-free">{{ freeText(day, time) }}</span>
@@ -293,9 +320,11 @@ function weekdayLabel(day: Date) {
       :host { display: block; }
       .cal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
       .cal > *, .cal-bar > * { min-width: 0; }
-      .cal-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-      .cal-nav, .cal-chips, .cal-side { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-      .cal-heading { margin: 0 0 0 8px; font-size: 18px; }
+
+      /* Toolbar: navigation, period heading, view switch, actions. */
+      .cal-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+      .cal-nav, .cal-chips, .cal-side { display: flex; align-items: center; gap: 4px; }
+      .cal-heading { flex: 1 1 auto; margin: 0 0 0 4px; font-size: 18px; }
       .cal-nav svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .cal-views { display: inline-flex; gap: 4px; padding: 4px; background: var(--surface-subtle); border-radius: var(--radius-full); }
       .cal-views button, .cal-chip, .cal-today, .cal-print {
@@ -304,82 +333,141 @@ function weekdayLabel(day: Date) {
       }
       .cal-views button.is-active { background: var(--surface); box-shadow: 0 0 0 1px var(--line); color: var(--green); }
       .cal-today, .cal-print, .cal-chip { border-color: var(--control-line); background: var(--surface); }
-      .cal-chip.is-active { background: var(--green); border-color: var(--green); color: var(--brand-contrast); }
-      .cal-chip-count { opacity: 0.75; font-weight: 500; margin-left: 2px; }
       .cal-print:disabled { opacity: 0.6; cursor: not-allowed; }
-      .cal-select { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
-      .cal-select select { min-width: 180px; }
-      .cal-util { margin: 0; color: var(--muted); font-size: 14px; }
+      .cal-more { position: relative; border: 0; padding: 0; margin: 0; }
+      .cal-more > summary { list-style: none; padding: 0; color: var(--muted); }
+      .cal-more > summary::-webkit-details-marker { display: none; }
+      .cal-more svg { width: 20px; height: 20px; fill: currentColor; }
+      .cal-menu {
+        position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; display: grid; min-width: 230px; padding: 6px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: var(--shadow-overlay);
+      }
+      .cal-menu button {
+        min-height: 44px; padding: 8px 12px; border: 0; border-radius: var(--radius-control); background: transparent;
+        color: var(--text); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer;
+      }
+      .cal-menu button:hover:not(:disabled) { background: var(--surface-hover); }
+      .cal-menu button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .cal-menu-print { display: none; }
+
+      /* Occupancy: one compact line. */
+      .cal-util { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+      .cal-util .bar-track { flex: 0 1 200px; min-width: 60px; }
       .cal-util strong { color: var(--text); }
+
+      /* Filters: the status chips double as the color legend. */
+      .cal-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+      .cal-chips { flex-wrap: wrap; gap: 8px; }
+      .cal-chip.is-active { background: var(--green); border-color: var(--green); color: var(--brand-contrast); }
+      .cal-filter-toggle { display: none; }
+      .cal-selects { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+      .cal-select { flex-direction: row; align-items: center; gap: 8px; }
+      .cal-select select { min-width: 180px; }
+      .cal-dot { display: inline-block; flex-shrink: 0; width: 8px; height: 8px; margin-right: 6px; border-radius: var(--radius-full); background: var(--muted); box-shadow: 0 0 0 2px var(--surface); vertical-align: 1px; }
+      .cal-dot.arrived, .cal-dot.in_progress { background: var(--blue); }
+      .cal-dot.completed, .cal-dot.approved { background: var(--success); }
+      .cal-dot.pending { background: var(--warning); }
+      .cal-dot.rejected, .cal-dot.cancelled, .cal-dot.not_received { background: var(--danger); }
+
       .cal-empty { margin: 0; color: var(--muted); font-size: 14px; }
       .cal-empty-box { display: grid; justify-items: start; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); }
       .cal-empty-box p { margin: 0; }
+
+      /* Week and day grid. */
       .cal-scroll { overflow: auto; }
       .cal-table { min-width: 720px; table-layout: fixed; }
-      .cal-table th, .cal-table td { white-space: normal; vertical-align: top; padding: 10px; }
-      .cal-table thead th:first-child, .cal-table th[scope="row"] { width: 92px; }
+      .cal-table th, .cal-table td { white-space: normal; vertical-align: top; padding: 8px; }
+      .cal-table thead th:first-child, .cal-table th[scope="row"] { width: 84px; }
       .cal-table th[scope="row"] { background: var(--surface-subtle); }
       .cal-table th[scope="row"] strong { display: block; font-size: 15px; }
       .cal-row-free { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
-      .cal-table thead th { text-align: left; text-transform: capitalize; }
+      .cal-table thead th { text-align: left; }
       .cal-table thead th strong, .cal-table thead th small { display: block; }
       .cal-table thead th small { font-weight: 500; color: var(--muted); margin-top: 2px; }
       .cal-table .is-today { background: var(--brand-soft); }
+
+      /* Appointment card: status line, supplier, plate. The left border repeats the status color. */
       .cal-card {
         display: grid; gap: 2px; margin-bottom: 6px; padding: 8px 10px; border-radius: var(--radius-control);
         border: 1px solid var(--line); border-left-width: 4px; background: var(--surface); color: var(--text); text-decoration: none;
       }
       .cal-card:hover { background: var(--surface-hover); }
-      .cal-card-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 2px; }
+      .cal-card-top { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+      .cal-card-status { display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--muted); }
       .cal-card-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .cal-card-meta { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .cal-card.waiting { border-left-color: var(--blue); }
+      .cal-card.waiting { border-left-color: var(--muted); }
       .cal-card.pending { border-left-color: var(--warning); }
       .cal-card.approved, .cal-card.completed { border-left-color: var(--success); }
-      .cal-card.arrived, .cal-card.in_progress { border-left-color: var(--green); background: var(--info-soft); }
-      .cal-card.rejected, .cal-card.cancelled, .cal-card.not_received { border-left-color: var(--danger); opacity: 0.75; }
-      .cal-flag { border-radius: var(--radius-full); padding: 2px 8px; font-size: 11px; font-weight: 700; background: var(--danger-soft); color: var(--danger); }
-      .cal-free { display: block; color: var(--muted); font-size: 12px; font-weight: 600; padding: 6px 2px; }
+      .cal-card.arrived, .cal-card.in_progress { border-left-color: var(--blue); background: var(--info-soft); }
+      .cal-card.rejected, .cal-card.cancelled, .cal-card.not_received { border-left-color: var(--danger); opacity: 0.7; }
+      .cal-card.rejected .cal-card-title, .cal-card.cancelled .cal-card-title, .cal-card.not_received .cal-card-title { text-decoration: line-through; }
+      .cal-flag { border-radius: var(--radius-full); padding: 1px 7px; font-size: 11px; font-weight: 700; background: var(--danger-soft); color: var(--danger); }
+      .cal-flag.is-demo { background: var(--warning-soft); color: var(--warning); }
+
+      /* Free slots. */
+      .cal-free { display: block; color: var(--muted); font-size: 12px; font-weight: 500; padding: 6px 2px; }
       .cal-free.is-link {
-        color: var(--green); text-decoration: none; border: 1px dashed var(--control-line); border-radius: var(--radius-control);
-        padding: 8px 10px; min-height: 44px; display: grid; align-content: center;
+        display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 6px 10px; color: var(--green); font-size: 13px; font-weight: 600;
+        text-decoration: none; border: 1px dashed var(--line); border-radius: var(--radius-control);
       }
-      .cal-free.is-link:hover { background: var(--brand-soft); border-style: solid; }
-      .cal-free small { color: var(--muted); font-weight: 500; }
+      .cal-free.is-link:hover, .cal-free.is-link:focus-visible { background: var(--brand-soft); border: 1px solid var(--green); }
+      .cal-free small { color: var(--muted); font-size: 12px; font-weight: 500; }
       .cal-dash { display: block; color: var(--muted); font-size: 12px; padding: 6px 2px; }
+
+      /* Month: Monday to Friday only. */
       .cal-list { display: none; }
-      .cal-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+      .cal-month { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
       .cal-weekday { color: var(--muted); font-size: 12px; font-weight: 700; padding: 0 6px; }
       .cal-day {
         display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-height: 104px; padding: 8px;
         border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface);
         color: var(--text); text-align: left; font: inherit; cursor: pointer;
       }
-      .cal-day:hover:not(:disabled) { background: var(--surface-hover); }
-      .cal-day:disabled { cursor: default; }
+      .cal-day:hover { background: var(--surface-hover); }
       .cal-day.is-outside { opacity: 0.5; }
-      .cal-day.is-weekend { background: var(--surface-subtle); }
       .cal-day.is-today { box-shadow: inset 0 0 0 2px var(--green); }
       .cal-day-number { font-weight: 700; font-size: 13px; }
       .cal-day-count { font-size: 12px; font-weight: 700; color: var(--green); }
-      .cal-mini { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: var(--radius-full); padding: 2px 6px; font-size: 11px; font-weight: 600; background: var(--surface-subtle); }
-      .cal-mini.cancelled, .cal-mini.not_received, .cal-mini.rejected { text-decoration: line-through; color: var(--muted); }
+      .cal-mini {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 6px; padding: 2px 6px; font-size: 11px; font-weight: 600;
+        background: var(--surface-subtle); border-left: 3px solid var(--muted);
+      }
+      .cal-mini.arrived, .cal-mini.in_progress { border-left-color: var(--blue); }
+      .cal-mini.completed, .cal-mini.approved { border-left-color: var(--success); }
+      .cal-mini.pending { border-left-color: var(--warning); }
+      .cal-mini.cancelled, .cal-mini.not_received, .cal-mini.rejected { border-left-color: var(--danger); text-decoration: line-through; color: var(--muted); }
+
       @media (max-width: 767px) {
-        .cal-heading { flex-basis: 100%; margin: 4px 0 0; font-size: 16px; }
-        .cal-views { width: 100%; }
+        .cal { gap: 10px; }
+        .cal-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nav side" "heading heading" "views views"; gap: 8px; }
+        .cal-nav { grid-area: nav; }
+        .cal-side { grid-area: side; }
+        .cal-heading { grid-area: heading; margin: 0; font-size: 16px; }
+        .cal-views { grid-area: views; width: 100%; }
         .cal-views button { flex: 1; }
-        .cal-chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 4px; }
+        .cal-side .cal-print { display: none; }
+        .cal-menu-print { display: block; }
+        .cal-util { font-size: 13px; }
+        .cal-util-scope { display: none; }
+        .cal-util .bar-track { flex: 1 1 auto; }
+        .cal-filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+        .cal-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
         .cal-chip { white-space: nowrap; }
-        .cal-select { width: 100%; }
-        .cal-select select { flex: 1; min-width: 0; }
+        .cal-filter-toggle { display: inline-block; align-self: start; }
+        .cal-filter-toggle.is-set { border-color: var(--green); color: var(--green); }
+        .cal-selects { display: none; grid-column: 1 / -1; }
+        .cal-selects.is-open { display: grid; gap: 8px; }
+        .cal-select { justify-content: space-between; }
+        .cal-select select { flex: 1; min-width: 0; max-width: 240px; }
         .cal-scroll { display: none; }
         .cal-list { display: grid; gap: 16px; }
         .cal-list-day { border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); padding: 12px; }
         .cal-list-day.is-today { border-color: var(--green); }
-        .cal-list-day h3 { margin: 0 0 8px; font-size: 15px; text-transform: capitalize; }
+        .cal-list-day h3 { margin: 0 0 8px; font-size: 15px; }
         .cal-list-slot { display: grid; grid-template-columns: 44px 1fr; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
         .cal-list-time { font-weight: 700; padding-top: 6px; }
-        .cal-day { min-height: 64px; padding: 4px; }
+        .cal-day { min-height: 64px; padding: 6px; }
         .cal-mini { display: none; }
         .cal-day-count { font-size: 11px; }
       }
@@ -409,7 +497,10 @@ export class ScheduleCalendar implements OnInit {
     { id: "month" as const, label: "Mês" },
   ];
   readonly slots = SLOTS;
-  readonly weekNames = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  readonly weekNames = ["Seg", "Ter", "Qua", "Qui", "Sex"];
+  filtersOpen = signal(false);
+  private menu = viewChild<ElementRef<HTMLDetailsElement>>("more");
+  readonly activeFilters = computed(() => (this.moega() ? 1 : 0) + (this.origin() ? 1 : 0));
   readonly chips = computed(() =>
     this.mode() === "compras"
       ? [
@@ -428,7 +519,10 @@ export class ScheduleCalendar implements OnInit {
   );
   // Destination columns only matter to the warehouse; suppliers never see other loads.
   readonly showDestinationFilter = computed(() => this.api.can("warehouse") && this.warehouses().length > 0);
-  readonly showOriginFilter = computed(() => true);
+  // Origin only matters when synthetic demo data is around; real operators should not have to think about it.
+  readonly showOriginFilter = computed(
+    () => this.api.can("management") || !!this.origin() || this.appointments().some((item) => item.origin === "demo_sintetico"),
+  );
   readonly visible = computed(() =>
     this.appointments().filter((item) => this.matchesStatus(item) && this.matchesMoega(item)),
   );
@@ -480,15 +574,14 @@ export class ScheduleCalendar implements OnInit {
   readonly monthDays = computed(() => {
     const anchor = this.anchor();
     const start = startOfWeek(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
-    return Array.from({ length: 42 }, (_, index) => {
-      const day = addDays(start, index);
+    // No receiving on weekends, so the month grid only shows Monday to Friday.
+    return Array.from({ length: 42 }, (_, index) => addDays(start, index)).filter((day) => !isWeekend(iso(day))).map((day) => {
       const dayIso = iso(day);
       const items = this.visible().filter((item) => this.itemDate(item) === dayIso);
       return {
         iso: dayIso,
         number: day.getDate(),
         inMonth: day.getMonth() === anchor.getMonth(),
-        weekend: isWeekend(dayIso),
         today: dayIso === iso(startOfDay(new Date())),
         items: items.slice(0, 2),
         count: items.length,
@@ -500,7 +593,7 @@ export class ScheduleCalendar implements OnInit {
     const dates=this.capacityDates(), states=this.availability(), known=dates.every(day=>!!states[day]);
     const capacity=dates.reduce((sum,day)=>sum+(states[day]?.calendar_open ? states[day].global_capacity*states[day].slots.length : 0),0);
     const used=dates.reduce((sum,day)=>sum+(states[day]?.slots.reduce((units,slot)=>units+slot.occupied_units,0)??0),0);
-    return {scope:this.view()==='day'?'Dia':this.view()==='week'?'Semana':'Mês',used,capacity,known,percent:capacity?Math.round(used/capacity*100):0};
+    return {scope:this.view()==='day'?'do dia':this.view()==='week'?'da semana':'do mês',used,capacity,known,percent:capacity?Math.round(used/capacity*100):0};
   });
   readonly heading = computed(() => {
     const anchor = this.anchor();
@@ -603,13 +696,24 @@ export class ScheduleCalendar implements OnInit {
   open(day: string, time: string) {
     return this.availability()[day]?.calendar_open === true && this.availability()[day]?.slots.some(slot=>slot.time.slice(0,5)===time&&slot.eligible) === true;
   }
-  availabilityLabel(day:string,time:string){const state=this.availability()[day];if(this.availabilityBusy())return 'Consultando…';if(!state)return 'Disponibilidade não consultada';if(!state.calendar_open)return 'Calendário fechado';const slot=state.slots.find(slot=>slot.time.slice(0,5)===time);return slot?.eligible ? `${slot.available_units} unidade(s) global(is) disponível(is)` : 'Sem vaga global';}
+  availabilityLabel(day:string,time:string){const state=this.availability()[day];if(this.availabilityBusy())return 'Consultando…';if(!state)return '—';if(!state.calendar_open)return 'Fechado';const slot=state.slots.find(slot=>slot.time.slice(0,5)===time);return slot?.eligible ? this.vacancies(slot.available_units) : 'Sem vaga';}
+  closeMenu(event?: Event) {
+    const menu = this.menu()?.nativeElement;
+    if (menu?.open && !(event && menu.contains(event.target as Node))) menu.open = false;
+  }
+  statusLabel(value:string){return STATUS_LABELS[value] ?? value;}
+  vacancies(units:number){return units===1 ? '1 vaga' : `${units} vagas`;}
+  readonly emptyMessage = computed(() => {
+    if (this.visible().length || (this.view() === "day" && isWeekend(this.anchorIso()))) return "";
+    const period = this.view() === "day" ? "neste dia" : this.view() === "week" ? "nesta semana" : "neste mês";
+    if (this.canSchedule()) return `Você não tem entregas ${period}. Toque em um horário livre para agendar.`;
+    return this.appointments().length ? `Nenhum caminhão ${period} com os filtros escolhidos.` : `Nenhum caminhão agendado ${period}.`;
+  });
   invoiceNumbers(item:ScheduleItem){return item.invoices?.map(invoice=>invoice.number).join(', ')||item.invoice_number||'não informada';}
   export(){exportCsv('agenda.csv',[['Data','Hora','Fornecedor','Veículo','Notas fiscais','Situação','Destinos','Origem'],...this.visible().map(item=>[this.itemDate(item),this.itemTime(item),item.supplier_name,item.vehicle_plate,this.invoiceNumbers(item),item.operation_status,this.visitLabel(item),originLabel(item.origin??'')])]);}
   refresh(){this.publish();}
-  originLabel=originLabel;
   freeUnits(day:string,time:string){if(!this.open(day,time))return 0;return this.availability()[day]?.slots.find(slot=>slot.time.slice(0,5)===time)?.available_units??0;}
-  freeText(day:string,time:string){return this.availabilityLabel(day,time);}
+  freeText(day:string,time:string){const units=this.freeUnits(day,time);return units>0 ? `${this.vacancies(units)} livre${units===1?'':'s'}` : this.availabilityLabel(day,time);}
   past(day:string){return day<iso(startOfDay(new Date()));}
   held(day:string,time:string){return (this.availability()[day]?.slots.find(slot=>slot.time.slice(0,5)===time)?.held_units??0)>0;}
   dayItems(day:string,time:string){return this.visible().filter(item=>this.itemDate(item)===day&&this.itemTime(item)===time);}
