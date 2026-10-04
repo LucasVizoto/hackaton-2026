@@ -256,9 +256,9 @@ class NotificationsV2(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        require_role(self.request.user, "warehouse", "purchasing", "gatehouse")
+        require_role(self.request.user, "warehouse", "purchasing", "gatehouse", "management")
         query = InternalNotification.objects.select_related("appointment")
-        if user_role(self.request.user) != "admin":
+        if user_role(self.request.user) not in {"admin", "management"}:
             query = query.filter(recipient_role=user_role(self.request.user))
         if self.request.query_params.get("unread") == "true":
             query = query.filter(acknowledged_at__isnull=True)
@@ -266,6 +266,7 @@ class NotificationsV2(mixins.ListModelMixin, viewsets.GenericViewSet):
 
     @action(detail=True, methods=["post"])
     def acknowledge(self, request, pk=None):
+        require_role(request.user, "warehouse", "purchasing", "gatehouse")
         with transaction.atomic():
             item = get_object_or_404(self.get_queryset().select_for_update(), pk=pk)
             if not item.acknowledged_at:

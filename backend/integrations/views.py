@@ -240,6 +240,19 @@ class OCRView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "assistant"
 
+    def get(self, request):
+        require_role(request.user, "management", "warehouse", "purchasing")
+        query = DocumentSuggestion.objects.select_related("created_by").order_by("-created_at", "-id")
+        pager = PageNumberPagination()
+        items = pager.paginate_queryset(query, request, view=self)
+        return pager.get_paginated_response([
+            {"id": str(item.pk), "original_name": item.original_name, "media_type": item.media_type,
+             "status": item.status, "suggestion": item.suggestion, "created_at": item.created_at,
+             "created_by_name": item.created_by.username,
+             "original_path": f"integrations/ocr/{item.pk}/original/"}
+            for item in items
+        ])
+
     def post(self, request):
         require_role(request.user, "supplier", "warehouse", "purchasing")
         try:
@@ -273,6 +286,6 @@ class OCRView(APIView):
 class OCROriginalView(APIView):
     def get(self, request, pk):
         item = get_object_or_404(DocumentSuggestion, pk=pk)
-        if request.user.pk != item.created_by_id and user_role(request.user) not in {"purchasing", "warehouse", "admin"}:
+        if request.user.pk != item.created_by_id and user_role(request.user) not in {"purchasing", "warehouse", "management", "admin"}:
             raise PermissionDenied("Original restrito ao autor e à conferência.")
         return FileResponse(item.file.open("rb"), as_attachment=True, filename=item.original_name, content_type=item.media_type)

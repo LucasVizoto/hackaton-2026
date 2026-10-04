@@ -128,6 +128,7 @@ export interface InvoiceData {
     unit_value: string | null;
   }[];
 }
+interface ReceiptSignature {id:string;signer_name:string;declaration?:string;signed_at:string;appointment_revision:number;current_revision:boolean;manifest_sha256:string;}
 function appointmentDate(value?: string) {
   if (!value) return "Data não informada";
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -165,8 +166,8 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
       @if(api.user()?.role==='supplier'){<ion-button routerLink="/agenda/novo">Agendar entrega</ion-button>}
       @if(api.can('gatehouse')){<ion-button routerLink="/portaria/avisos" fill="outline">Avisar chegada com foto</ion-button>}
     </app-page-header>
-    @if(api.can('purchasing')){<app-purchase-orders />}
-    @if(api.can('warehouse','purchasing','gatehouse')){<app-notifications />}
+    @if(api.can('purchasing','management')){<app-purchase-orders />}
+    @if(api.can('warehouse','purchasing','gatehouse','management')){<app-notifications />}
     <details class="help-box"><summary>Como funciona a agenda?</summary><ul><li>Cada horário recebe até dois caminhões. Carga batida ocupa o horário inteiro.</li><li>Somente Fornecedor agenda. A disponibilidade considera toda a unidade.</li><li>A Portaria registra entrada e saída; o Armazém registra cada etapa da descarga.</li><li>A descarga exige aprovação de Compras e confirmação dos destinos. Divergências podem ser encaminhadas a Compras.</li></ul></details>
     @if(api.user()?.role==='supplier'){<p class="notice">Você visualiza os recebimentos do seu cadastro. A disponibilidade considera a ocupação global da unidade.</p>}
     @if(error()){<div app-feedback tone="error">{{error()}}</div>}
@@ -586,6 +587,11 @@ export class AppointmentList implements OnInit {
         </p>
       </section>
       @if(item.exceptions?.length){<section class="panel"><h2>Exceções registradas</h2>@for(exception of item.exceptions;track exception.id){<p><strong>{{exceptionLabel(exception.kind)}}</strong> · {{dt(exception.occurred_at)}}</p><p>{{exception.description}}</p>}</section>}
+      <details class="panel"><summary>Assinaturas de conferência</summary>
+        @if(signaturesError()){<p class="error">{{signaturesError()}}</p>}
+        @for(signature of signatures();track signature.id){<section class="section"><strong>{{signature.signer_name}}</strong><p>{{dt(signature.signed_at)}} · Revisão {{signature.appointment_revision}} · {{signature.current_revision?'Versão atual':'Versão anterior'}}</p><p>{{signature.declaration}}</p><p class="field-help">Identificador do documento: {{signature.manifest_sha256}}</p></section>}
+        @if(!signatures().length && !signaturesError()){<p>Sem assinatura registrada.</p>}
+      </details>
       <details class="panel history-panel">
         <summary><h2>Histórico de decisões</h2></summary>
         @if (item.events.length) {
@@ -614,6 +620,8 @@ export class AppointmentList implements OnInit {
   </div>`,
 })
 export class AppointmentDetail implements OnInit {
+  signatures = signal<ReceiptSignature[]>([]);
+  signaturesError = signal('');
   decimal = decimal;
   api = inject(Api);
   catalog = inject(Catalog);
@@ -702,6 +710,9 @@ export class AppointmentDetail implements OnInit {
       const item=this.a()!;
       const invoices=item.invoices?.length ? item.invoices : item.invoice ? [await this.api.get<InvoiceData>(`invoices/${item.invoice}/`)] : [];
       this.invoices.set(invoices);this.invoiceData.set(invoices[0]??null);
+      this.signatures.set([]);this.signaturesError.set('');
+      try { this.signatures.set((await this.api.get<{results:ReceiptSignature[]}>(`appointments/${item.id}/signatures/`)).results); }
+      catch(e) { this.signaturesError.set(apiError(e)); }
     } catch (e) {
       this.error.set(apiError(e));
     } finally {

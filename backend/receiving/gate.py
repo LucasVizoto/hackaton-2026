@@ -36,7 +36,7 @@ def _arrival_queryset(user):
         return queryset.filter(created_by=user)
     if role == "purchasing":
         return queryset.filter(decision="rejected")
-    if role in {"warehouse", "admin"}:
+    if role in {"warehouse", "management", "admin"}:
         return queryset
     return queryset.none()
 
@@ -80,10 +80,10 @@ class GateArrivalListView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):
-        require_role(request.user, "portaria", "warehouse", "purchasing")
+        require_role(request.user, "portaria", "warehouse", "purchasing", "management")
         queryset = _arrival_queryset(request.user)
         if request.query_params.get("summary") == "1":
-            require_role(request.user, "warehouse", "purchasing")
+            require_role(request.user, "warehouse", "purchasing", "management")
             return Response({"unread": _unread(request.user, queryset)})
         decision = request.query_params.get("decision")
         listed = queryset
@@ -159,7 +159,7 @@ class GateArrivalSeenView(APIView):
 
 class GateArrivalFileView(APIView):
     def get(self, request, pk):
-        require_role(request.user, "portaria", "warehouse", "purchasing")
+        require_role(request.user, "portaria", "warehouse", "purchasing", "management")
         arrival = get_object_or_404(_arrival_queryset(request.user), id=pk)
         response = FileResponse(
             arrival.file.open("rb"),

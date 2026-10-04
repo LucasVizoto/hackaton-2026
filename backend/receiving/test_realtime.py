@@ -91,6 +91,37 @@ class GateRealtimeTests(TransactionTestCase):
                 await socket.disconnect()
         async_to_sync(check)()
 
+    @override_settings(CHANNEL_LAYERS={"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}})
+    def test_management_receives_all_arrivals_without_mutating_decisions(self):
+        from config.asgi import application
+        tokens = []
+        for name in ("gestao_demo", "management-realtime-other"):
+            user = User.objects.create_user(name)
+            UserProfile.objects.create(user=user, role="management")
+            tokens.append(Token.objects.create(user=user).key)
+
+        async def check():
+            from channels.layers import get_channel_layer
+            sockets = []
+            try:
+                for key in tokens:
+                    socket = WebsocketCommunicator(application, f"/ws/gate/?token={key}", headers=[(b"origin", b"http://localhost")])
+                    self.assertTrue((await socket.connect())[0])
+                    sockets.append(socket)
+                for event in ("created", "authorized", "rejected"):
+                    await get_channel_layer().group_send("gate-warehouse", {
+                        "type": "gate.event", "payload": {"event": event, "arrival": {"id": str(self.arrival.pk)}},
+                    })
+                    for socket in sockets:
+                        self.assertEqual((await socket.receive_json_from())["event"], event)
+            finally:
+                for socket in sockets:
+                    await socket.disconnect()
+        async_to_sync(check)()
+        self.arrival.refresh_from_db()
+        self.assertEqual(self.arrival.decision, "pending")
+        self.assertIsNone(self.arrival.seen_at)
+
     def test_redis_delivers_from_a_separate_process(self):
         url = os.environ.get("TEST_REDIS_URL")
         if not url:

@@ -19,6 +19,7 @@ from labor.models import (DailyBulletin, BulletinParticipant, BulletinRevision, 
                           LaborActivity, LaborActivityRevision, LaborRuleOccurrence, ProductionRecord)
 from labor.serializers_v2 import BulletinInputV2, BulletinPreviewInputV2, ActivityInput, OccurrenceInput, ProductionInput
 from labor.constants import FLOOR
+from labor.bulletin import snapshot_summary
 from labor.services import check_revision, reopen_bulletin, replace_contents, service_rates, values
 from labor.views import BulletinListView, BulletinDetailView, RatesView
 
@@ -46,6 +47,12 @@ class RatesViewV2(RatesView):
 
 
 class BulletinListV2(BulletinListView):
+    def get(self, request):
+        response = super().get(request)
+        for item in response.data['results']:
+            item['calculation'] = {**item['calculation'], 'resumo': snapshot_summary(item['calculation'])}
+        return response
+
     def post(self, request):
         require_role(request.user, 'warehouse')
         serializer = BulletinInputV2(data=request.data)
@@ -62,6 +69,12 @@ class BulletinListV2(BulletinListView):
 
 
 class BulletinDetailV2(BulletinDetailView):
+    def get(self, request, pk):
+        response = super().get(request, pk)
+        calculation = response.data['calculation']
+        response.data['calculation'] = {**calculation, 'resumo': snapshot_summary(calculation)}
+        return response
+
     @transaction.atomic
     def patch(self, request, pk):
         require_role(request.user, 'warehouse')

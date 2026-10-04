@@ -165,6 +165,35 @@ class GateArrivalTests(TestCase):
         self.assertEqual(response["Content-Security-Policy"], "sandbox; default-src 'none'")
         self.assertEqual(b"".join(response.streaming_content), TINY_PNG)
 
+    def test_management_reads_all_operators_without_seen_or_decision_privileges(self):
+        self.client.force_authenticate(self.gate)
+        first = self.create_arrival().data["id"]
+        other = User.objects.create_user("gate-other")
+        UserProfile.objects.create(user=other, role="gatehouse")
+        self.client.force_authenticate(other)
+        second = self.create_arrival().data["id"]
+        GateArrival.objects.filter(pk=second).update(decision="rejected")
+        for username in ("gestao_demo", "another-manager"):
+            manager = User.objects.create_user(username)
+            UserProfile.objects.create(user=manager, role="management")
+            self.client.force_authenticate(manager)
+            for version in ("v1", "v2"):
+                base = f"/api/{version}/gate-arrivals/"
+                response = self.client.get(base)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual({r["id"] for r in response.data["results"]}, {first, second})
+                self.assertEqual(self.client.get(base + "?summary=1").status_code, 200)
+                self.assertEqual([r["id"] for r in self.client.get(base + "?decision=rejected").data["results"]], [second])
+                photo = self.client.get(base + first + "/file/")
+                self.assertEqual(photo.status_code, 200)
+                self.assertEqual(b"".join(photo.streaming_content), TINY_PNG)
+                self.assertEqual(self.client.post(base + first + "/seen/", {}).status_code, 403)
+                self.assertEqual(self.client.post(base + first + "/decision/", {"decision": "authorized"}).status_code, 403)
+                self.assertEqual(self.create_arrival(version).status_code, 403)
+        self.assertEqual(GateArrival.objects.count(), 2)
+        self.assertFalse(GateArrival.objects.filter(seen_at__isnull=False).exists())
+        self.assertEqual(GateArrival.objects.get(pk=first).decision, "pending")
+
     def test_pagination_counts_all_unread_and_seen_is_idempotent(self):
         GateArrival.objects.bulk_create([
             GateArrival(vehicle_plate="ABC1D23", tractor_plate="XYZ9E87",

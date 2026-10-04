@@ -389,7 +389,7 @@ class AvailabilityView(APIView):
             free = 0 if blocked or state["has_batida"] else max(0, 2 - state["occupied_units"])
             holds = (
                 list(slot.holds.filter(active=True))
-                if slot and user_role(request.user) in {"warehouse", "admin"}
+                if slot and user_role(request.user) in {"warehouse", "management", "admin"}
                 else []
             )
             result.append(

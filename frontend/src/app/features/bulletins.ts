@@ -45,6 +45,7 @@ interface Participant {
   fraction: string;
 }
 export interface Calculation {
+  resumo?: {producaoTotal:string;diariasEquivalentes:string;valorPorDiariaApurado:string|null;totalAPagar:string;complemento:string;valorFinalPorDiariaCompleta:string|null};
   individual_allocations?: IndividualAllocation[];
   provisional?: boolean;
   status?: string;
@@ -436,7 +437,7 @@ export class BulletinList implements OnInit {
               Até 20 pessoas. Cada pessoa pertence financeiramente a um único boletim por dia, mesmo quando atua em vários armazéns.
             </p>
           </div>
-          @if (!closed() && !legacy()) {
+          @if (!closed() && !legacy() && api.can("warehouse")) {
             <ion-button
               type="button"
               fill="outline"
@@ -493,7 +494,7 @@ export class BulletinList implements OnInit {
                       </select>
                     </td>
                     <td>
-                      @if (!closed() && !legacy()) {
+                      @if (!closed() && !legacy() && api.can("warehouse")) {
                         <button
                           class="remove"
                           type="button"
@@ -527,7 +528,7 @@ export class BulletinList implements OnInit {
               {{pendingCalculation()?"Existe uma regra pendente. Os valores são estimativas e não autorizam pagamento ou fechamento.":"Total a pagar = maior valor entre produção e piso coletivo."}}
             </p>
           </div>
-          @if (!closed() && !legacy()) {
+          @if (!closed() && !legacy() && api.can("warehouse")) {
             <ion-button
               type="button"
               fill="outline"
@@ -553,6 +554,8 @@ export class BulletinList implements OnInit {
               <div><dt>Pessoas distintas</dt><dd>{{ decimal(c.people_count) }}</dd></div>
               <div><dt>Diárias equivalentes</dt><dd>{{ decimal(c.equivalent_days) }}</dd></div>
               <div><dt>Piso por diária</dt><dd>{{ money(c.floor_per_day) }}</dd></div>
+              <div><dt>Produção por diária equivalente</dt><dd>{{ money(c.production_per_equivalent_day) }}</dd></div>
+              @if(c.resumo){<div><dt>Valor final por diária completa</dt><dd>{{ money(c.resumo.valorFinalPorDiariaCompleta) }}</dd></div>}
             </dl>
           </div>
           <details>
@@ -741,7 +744,7 @@ export class BulletinEditor implements OnInit {
     this.form.controls.warehouse.disable({ emitEvent: false });
     this.form.controls.reference_date.disable({ emitEvent: false });
     this.form.controls.origin.disable({ emitEvent: false });
-    if (b.status === "CLOSED" || this.legacy()) this.form.disable({ emitEvent: false });
+    if (b.status === "CLOSED" || this.legacy() || !this.api.can("warehouse")) this.form.disable({ emitEvent: false });
     this.calculation.set(b.calculation);
     this.allocations.set(b.individual_allocations??[]);
     void this.loadTargets();

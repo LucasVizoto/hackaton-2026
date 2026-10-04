@@ -37,7 +37,7 @@ export const routes: Routes = [
   },
   {
     path: "compras",
-    canActivate: [auth, roles("purchasing")],
+    canActivate: [auth, roles("purchasing", "management")],
     loadComponent: () =>
       import("./features/receiving").then((m) => m.AppointmentList),
     data: { mode: "compras" },
@@ -51,7 +51,7 @@ export const routes: Routes = [
   },
   {
     path: "nao-recebimentos/novo",
-    canActivate: [auth],
+    canActivate: [auth, roles("warehouse")],
     loadComponent: () =>
       import("./features/receiving").then((m) => m.NonReceiptCreate),
   },
@@ -92,10 +92,10 @@ export const routes: Routes = [
       import("./features/management").then((m) => m.DataQuality),
   },
   { path: "portaria/avisos", canActivate: [auth, roles("gatehouse")], loadComponent: () => import("./features/gate").then(m => m.GateDesk) },
-  { path: "portaria/chegadas", canActivate: [auth, roles("gatehouse")], loadComponent: () => import("./features/gate").then(m => m.SentArrivals) },
-  { path: "chegadas", canActivate: [auth, roles("warehouse")], loadComponent: () => import("./features/gate").then(m => m.ArrivalInbox) },
-  { path: "revisoes", canActivate: [auth, roles("purchasing")], loadComponent: () => import("./features/gate").then(m => m.ArrivalReview) },
-  { path: "portaria", canActivate: [auth, roles("gatehouse")], loadComponent: () => import("./features/receiving").then(m => m.AppointmentList), data: {mode: "portaria"} },
+  { path: "portaria/chegadas", canActivate: [auth, roles("gatehouse", "management")], loadComponent: () => import("./features/gate").then(m => m.SentArrivals) },
+  { path: "chegadas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/gate").then(m => m.ArrivalInbox) },
+  { path: "revisoes", canActivate: [auth, roles("purchasing", "management")], loadComponent: () => import("./features/gate").then(m => m.ArrivalReview) },
+  { path: "portaria", canActivate: [auth, roles("gatehouse", "management")], loadComponent: () => import("./features/receiving").then(m => m.AppointmentList), data: {mode: "portaria"} },
   { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "integracoes", canActivate: [auth, roles("warehouse", "purchasing", "management")], loadComponent: () => import("./features/integrations").then(m => m.IntegrationsPage) },

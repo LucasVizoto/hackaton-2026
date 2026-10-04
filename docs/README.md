@@ -15,6 +15,8 @@ A conciliação com `origin/main` preserva também o aviso avulso da Portaria co
 
 Apoio atual: [API](v2/api.md), [indicadores](v2/indicadores.md), [integrações e configuração](v2/integracoes.md), [roteiro de oito minutos](v2/roteiro_8_minutos.md), [plano implementado](implementacao-v2.md), [estado de validação](validacao.md). Instalação e importação permanecem documentadas em [como rodar](como_rodar.md) e [importação privada](importacao.md).
 
+Contrato e permissões: [Boletim dos ensacadores e consulta da Gestão](v2/boletim-ensacadores.md), com exemplo Python, resumo da API, precisão monetária e validação.
+
 Planejamento futuro: [PRD da pré-folha e conciliação dos chapas](prd-folha-chapas.md), com regras, fluxo, etapas e decisões pendentes de validação com o RH.
 
 Os diagramas novos foram escritos em XML draw.io; SVG/PNG são produzidos pelo [gerador do mesmo grafo](fontes/gerar_diagramas_v2.py). O Desktop/CLI não estava disponível. Não se afirma publicação GitHub, teste de APK v2 ou execução de integração externa sem evidência específica no relatório de validação.

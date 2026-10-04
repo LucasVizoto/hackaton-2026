@@ -8,6 +8,7 @@ from rest_framework.exceptions import ValidationError
 from catalog.models import Worker
 from labor.calculation import calculate, calculate_v2, allocate_individuals, DAILY_SERVICE_PRICES
 from labor.constants import FLOOR, LABELS, PRICES, RATE_TABLE
+from labor.bulletin import snapshot_summary
 from labor.models import (
     BulletinLine,
     BulletinParticipant,
@@ -56,6 +57,8 @@ def values(bulletin):
         calculate_v2(lines, people, bulletin.floor_per_day, daily_services, sources)
         if bulletin.financial_version == "boletim-v2" else calculate(lines, people, bulletin.floor_per_day)
     )
+    if bulletin.financial_version == "boletim-v2":
+        calculation = {**calculation, "resumo": snapshot_summary(calculation)}
     allocations = [dict(worker=str(item.worker_id), fraction=str(item.fraction), exact=item.exact,
                         display=item.display, policy_version=item.policy_version)
                    for item in bulletin.allocations.filter(active=True)] if bulletin.status == "CLOSED" else (
