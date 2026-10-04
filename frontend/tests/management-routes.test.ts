@@ -19,7 +19,7 @@ test("management can consult all modules but cannot enter creation routes or gai
     for (const username of ["gestao_demo", "outro_gestor"]) {
       api.user.set({ id: 12, username, role: "management", supplier_id: null });
       for (const path of ["agenda", "compras", "portaria", "portaria/chegadas", "chegadas", "revisoes",
-        "nao-recebimentos", "boletins", "boletins/:id", "pessoas", "pessoas/:id", "escala", "gestao"]) {
+        "nao-recebimentos", "boletins", "boletins/:id", "pessoas", "pessoas/:id", "equipamentos", "escala", "gestao"]) {
         const route = routes.find(route => route.path === path)!;
         for (const guard of route.canActivate ?? []) {
           assert.equal(runInInjectionContext(injector, () => (guard as CanActivateFn)(null!, null!)), true, path);

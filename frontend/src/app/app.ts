@@ -24,6 +24,7 @@ const MODULES: NavigationItem[] = [
   { route: "/escala", label: "Equipe", icon: "people-outline", roles: ["warehouse", "management"], tabs: [
     { route: "/escala", label: "Escala" },
     { route: "/pessoas", label: "Pessoas" },
+    { route: "/equipamentos", label: "Equipamentos" },
     { route: "/boletins", label: "Boletins" },
   ] },
   { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"], tabs: [

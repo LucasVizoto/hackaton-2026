@@ -91,8 +91,9 @@ export const routes: Routes = [
   { path: "chegadas", canActivate: [auth, roles("gatehouse", "warehouse", "purchasing", "management")], loadComponent: () => import("./features/gate").then(m => m.Arrivals) },
   { path: "revisoes", redirectTo: () => inject(Router).createUrlTree(["/chegadas"], { queryParams: { decisao: "rejected" } }) },
   { path: "portaria", canActivate: [auth, roles("gatehouse", "management")], loadComponent: () => import("./features/receiving").then(m => m.AppointmentList), data: {mode: "portaria"} },
-  { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
+  { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people-list").then(m => m.PeopleList) },
   { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
+  { path: "equipamentos", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/equipment-catalog").then(m => m.EquipmentCatalog) },
   { path: "escala", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/staff-roster").then(m => m.StaffRoster) },
   // O acerto da quinzena é uma visão de Boletins; o endereço antigo continua funcionando.
   { path: "acerto", redirectTo: () => inject(Router).createUrlTree(["/boletins"], { queryParams: { visao: "quinzena" } }) },
