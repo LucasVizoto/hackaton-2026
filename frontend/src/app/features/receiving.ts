@@ -19,7 +19,7 @@ import { AvailableAction, allowed, exportCsv } from "../core/workflow";
 import { SlotPicker } from "../shared/slot-picker";
 import { PurchaseOrders } from "./purchase-orders";
 import { AppointmentEdit } from "./appointment-edit";
-import { ScheduleCalendar, ScheduleRange } from "./schedule-calendar";
+import { GateArrivalItem, ScheduleCalendar, ScheduleRange } from "./schedule-calendar";
 import { Notifications } from "../shared/notifications";
 import { ReceiptCheck, ReceiptLine } from "./receipt-check";
 import { ReceiptSignatures } from "../shared/receipt-signatures";
@@ -173,7 +173,7 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
     <details class="help-box"><summary>Como funciona a agenda?</summary><ul><li>Cada horário tem vagas para até dois caminhões. Carga batida ocupa o horário inteiro.</li><li>Somente Fornecedor agenda. As vagas livres valem para a unidade inteira e não mudam com os filtros.</li><li>A Portaria registra entrada e saída; o Armazém registra cada etapa da descarga.</li><li>A descarga exige aprovação de Compras e confirmação dos destinos. Divergências podem ser encaminhadas a Compras.</li><li>Na visão Dia, “Imprimir dia” gera o relatório completo do dia na origem escolhida, sem rejeitados, cancelados e não recebidos. Os filtros de situação e armazém valem só para a tela e para a planilha.</li>@if(api.user()?.role==='supplier'){<li>Você vê apenas as entregas do seu cadastro.</li>}</ul></details>
     </div>
     @if(error()){<div app-feedback tone="error">{{error()}}</div>}
-    <app-schedule-calendar [appointments]="rows()" [warehouses]="warehouses()" [mode]="mode" [busy]="busy()" [canSchedule]="api.user()?.role==='supplier'" (rangeChange)="onRange($event)" />
+    <app-schedule-calendar [appointments]="rows()" [warehouses]="warehouses()" [mode]="mode" [busy]="busy()" [arrivals]="arrivals()" [canSchedule]="api.user()?.role==='supplier'" (rangeChange)="onRange($event)" />
   </div>`,
   styles: [`
     .agenda-aux { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; margin-bottom: 16px; }
@@ -183,7 +183,7 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
 })
 export class AppointmentList implements OnInit {
   api=inject(Api); private route=inject(ActivatedRoute); private request=0; private controller?:AbortController;
-  rows=signal<Appointment[]>([]); warehouses=signal<{id:string;name:string;code?:string}[]>([]); busy=signal(false); error=signal('');
+  rows=signal<Appointment[]>([]); arrivals=signal<GateArrivalItem[]>([]); warehouses=signal<{id:string;name:string;code?:string}[]>([]); busy=signal(false); error=signal('');
   title='Agenda de recebimento'; subtitle='Consulte reservas e validações no calendário diário, semanal ou mensal.';
   mode:'agenda'|'compras'|'operacao'|'portaria'='agenda';
   ngOnInit(){
@@ -196,10 +196,19 @@ export class AppointmentList implements OnInit {
   }
   private async loadWarehouses(){try{const rows:{id:string;name:string;code?:string}[]=[];let page=1;while(true){const result=await this.api.get<Page<{id:string;name:string;code?:string}>>(`catalog/warehouses/?page=${page}`);rows.push(...result.results);if(!result.next)break;page++;}this.warehouses.set(rows);}catch(e){this.error.set(apiError(e));}}
   async onRange(query:ScheduleRange){
-    this.controller?.abort();const controller=this.controller=new AbortController(),request=++this.request;this.rows.set([]);this.busy.set(true);this.error.set('');
+    this.controller?.abort();const controller=this.controller=new AbortController(),request=++this.request;this.rows.set([]);this.arrivals.set([]);this.busy.set(true);this.error.set('');
+    void this.loadArrivals(query,controller,request);
     try{const rows:Appointment[]=[];let page=1;while(request===this.request){const params=new URLSearchParams({page:String(page),page_size:'100',date_from:query.from,date_to:query.to});if(query.origin)params.set('origin',query.origin);const result=await this.api.get<Page<Appointment>>(`appointments/?${params}`,controller.signal);rows.push(...result.results);if(!result.next)break;page++;}if(request===this.request)this.rows.set(rows);}
     catch(e){if(request===this.request&&!controller.signal.aborted)this.error.set(apiError(e));}
     finally{if(request===this.request)this.busy.set(false);}
+  }
+  // Chegadas da portaria ainda não têm vínculo com agendamento; a agenda as mostra à parte para não sumirem.
+  private async loadArrivals(query:ScheduleRange,controller:AbortController,request:number){
+    if(!this.api.can('warehouse','purchasing','management'))return;
+    // Pendentes entram sempre: a agenda só tem dias úteis e um caminhão do fim de semana sumiria.
+    try{const [inRange,pending]=await Promise.all([this.api.getAll<GateArrivalItem>(`gate-arrivals/?date_from=${query.from}&date_to=${query.to}`,controller.signal),this.api.getAll<GateArrivalItem>('gate-arrivals/?decision=pending',controller.signal)]);
+      if(request===this.request)this.arrivals.set([...new Map([...inRange,...pending].map(row=>[row.id,row])).values()]);}
+    catch(e){if(request===this.request&&!controller.signal.aborted)this.error.set(`Não foi possível consultar as chegadas da portaria: ${apiError(e)}`);}
   }
   ngOnDestroy(){this.request++;this.controller?.abort();}
 }

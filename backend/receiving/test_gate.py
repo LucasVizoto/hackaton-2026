@@ -220,6 +220,20 @@ class GateArrivalTests(TestCase):
         self.assertEqual(GateArrival.objects.get(id=seen.data["id"]).seen_by, self.warehouse)
         self.assertEqual(self.client.get("/api/v2/gate-arrivals/?summary=1").data["unread"], 50)
 
+    def test_agenda_filters_arrivals_by_local_date(self):
+        old, today = GateArrival.objects.bulk_create([
+            GateArrival(vehicle_plate=plate, tractor_plate=plate, driver_name="Sintético",
+                        invoice_number="1", file="synthetic.png", created_by=self.gate)
+            for plate in ("OLD1A23", "NEW1A23")
+        ])
+        # 02:00 UTC ainda é o dia anterior em São Paulo.
+        GateArrival.objects.filter(pk=old.pk).update(created_at="2026-10-02T02:00:00Z")
+        GateArrival.objects.filter(pk=today.pk).update(created_at="2026-10-02T15:00:00Z")
+        self.client.force_authenticate(self.warehouse)
+        listing = self.client.get("/api/v2/gate-arrivals/?date_from=2026-10-02&date_to=2026-10-02")
+        self.assertEqual([row["vehicle_plate"] for row in listing.data["results"]], ["NEW1A23"])
+        self.assertEqual(self.client.get("/api/v2/gate-arrivals/?date_from=2026-13-01").status_code, 400)
+
     def test_accept_authorizes_and_reject_goes_to_purchasing(self):
         self.login(self.gate)
         created = self.create_arrival("v1", driver_name="João da Silva")

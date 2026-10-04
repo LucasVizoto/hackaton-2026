@@ -12,6 +12,7 @@ export interface Arrival {
   decided_at: string | null;
   seen_at: string | null;
   created_by_name: string;
+  appointment?: string | null;
 }
 
 export interface GateMessage {

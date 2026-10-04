@@ -116,6 +116,18 @@ class DashboardTests(TestCase):
         other = self.client.get("/api/v2/analytics/operations/", {**self.filters, "warehouse": str(self.other_warehouse.pk)}).data
         self.assertEqual(other["gate_wait_by_warehouse"], [])
 
+    def test_median_resists_one_typo_and_filter_applies_to_overall_wait(self):
+        for first in (10, 12, 170):
+            self.departure(first=first)
+        data = self.client.get("/api/v2/analytics/operations/", self.filters).data
+        self.assertEqual(data["average_gate_wait_minutes"], (10 + 12 + 170) / 3)
+        self.assertEqual(data["median_gate_wait_minutes"], 12)
+        self.assertEqual(data["median_total_stay_minutes"], 180)
+        other = self.client.get("/api/v2/analytics/operations/", {**self.filters, "warehouse": str(self.other_warehouse.pk)}).data
+        self.assertIsNone(other["average_gate_wait_minutes"])
+        self.assertIsNone(other["median_gate_wait_minutes"])
+        self.assertEqual(other["coverage"]["excluded_gate_wait_records"], 0)
+
     def test_invalid_and_missing_waits_never_use_later_visits(self):
         self.departure(first=0)
         self.departure(first=None)

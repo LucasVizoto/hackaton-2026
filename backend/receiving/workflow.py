@@ -1,6 +1,7 @@
 """Versioned receiving workflow. All mutations are locked and recorded, including retries."""
 import hashlib
 import json
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
@@ -228,6 +229,27 @@ def _resource_values(data):
     return workers, equipment
 
 
+CLOCK_TOLERANCE = timedelta(minutes=5)
+
+
+def current_time():
+    """Relógio do servidor para validar marcos informados; isolado para os testes fixarem a data."""
+    return timezone.now()
+
+
+def not_in_future(at):
+    if at > current_time() + CLOCK_TOLERANCE:
+        raise ValidationError({"occurred_at": "Horário no futuro. Registre o horário em que o fato aconteceu."})
+
+
+def gate_entry_on_slot_date(ap, at):
+    # Sem esta regra, um dia digitado errado vira horas de "espera" e domina a média.
+    if timezone.localdate(at) != ap.slot.date:
+        raise ValidationError({"occurred_at": f"A entrada na portaria deve ser na data da reserva "
+                                              f"({ap.slot.date:%d/%m/%Y}). Se o caminhão veio em outro dia, "
+                                              f"reagende antes de registrar."})
+
+
 def _gate(ap, user, data, entering):
     require_role(user, "gatehouse")
     at = data.get("occurred_at") or timezone.now()
@@ -236,7 +258,9 @@ def _gate(ap, user, data, entering):
         if data.get("occurred_at") and getattr(ap, field) != at:
             raise legacy.DomainConflict("Marco já registrado; use correção com justificativa.")
         return
+    not_in_future(at)
     if entering:
+        gate_entry_on_slot_date(ap, at)
         if ap.operation_status != "waiting":
             raise legacy.DomainConflict("Recebimento não está aguardando chegada.")
         driver_name = " ".join(data.get("driver_name", ap.driver_name).split())
@@ -265,6 +289,7 @@ def _visit(ap, user, data, entering):
         if data.get("occurred_at") and getattr(visit, field) != at:
             raise legacy.DomainConflict("Marco já registrado; use correção com justificativa.")
         return
+    not_in_future(at)
     available = next(x for x in visit_actions(visit, user) if x["code"] == ("check-in" if entering else "check-out"))
     if not available["allowed"]:
         raise legacy.DomainConflict(available["reason"])
@@ -325,6 +350,9 @@ def _correct(ap, user, data):
     old = getattr(obj, field)
     if not old:
         raise ValidationError("Correção exige um marco previamente registrado; não crie horários ausentes.")
+    not_in_future(data["occurred_at"])
+    if field == "gate_checked_in_at":
+        gate_entry_on_slot_date(ap, data["occurred_at"])
     setattr(obj, field, data["occurred_at"])
     if not gate:
         setattr(obj, "started_at" if field == "checked_in_at" else "finished_at", data["occurred_at"])

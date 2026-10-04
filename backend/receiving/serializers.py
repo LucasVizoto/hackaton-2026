@@ -278,6 +278,7 @@ class GateArrivalSerializer(serializers.ModelSerializer):
             "decided_at",
             "seen_at",
             "created_by_name",
+            "appointment",
         ]
 
 

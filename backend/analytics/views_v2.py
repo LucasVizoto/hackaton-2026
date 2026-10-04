@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal, localcontext
+from statistics import median as _median
 
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -14,6 +15,11 @@ from labor.calculation import money_display
 from receiving.models import Appointment, WarehouseVisit
 
 
+def median(values):
+    # Um único horário digitado errado domina a média; a mediana mostra a espera típica.
+    return _median(values) if values else None
+
+
 class OperationsV2View(OperationsView):
     def get(self, request):
         response = super().get(request)
@@ -21,7 +27,9 @@ class OperationsV2View(OperationsView):
         filters = read_filters(request)
         data.update({
             "average_gate_wait_minutes": None,
+            "median_gate_wait_minutes": None,
             "average_total_stay_minutes": None,
+            "median_total_stay_minutes": None,
             "departed_loads": None,
             "warehouse_stays": [],
             "gate_wait_by_warehouse": None,
@@ -50,13 +58,14 @@ class OperationsV2View(OperationsView):
                 gate_names[wid] = first_visit.warehouse.name
                 first_entry = first_visit.checked_in_at
                 valid = entered and first_entry and entered <= first_entry <= left
+                # The selected destination never inherits another warehouse's wait, nem na média geral.
+                if filters.get("warehouse") and str(filters["warehouse"]) != wid:
+                    continue
                 if valid:
                     wait = (first_entry - entered).total_seconds() / 60
                     waits.append(wait)
-                    # The selected destination never inherits another warehouse's wait.
-                    if not filters.get("warehouse") or str(filters["warehouse"]) == wid:
-                        gate_waits[wid].append(wait)
-                elif not filters.get("warehouse") or str(filters["warehouse"]) == wid:
+                    gate_waits[wid].append(wait)
+                else:
                     gate_exclusions[wid] += 1
             else:
                 unattributed += 1
@@ -77,7 +86,9 @@ class OperationsV2View(OperationsView):
                 missing += 1
         data.update({
             "average_gate_wait_minutes": mean(waits),
+            "median_gate_wait_minutes": median(waits),
             "average_total_stay_minutes": mean(stays),
+            "median_total_stay_minutes": median(stays),
             "departed_loads": len(departures),
             "gate_wait_by_warehouse": [
                 {"warehouse": wid, "warehouse_name": gate_names[wid],
@@ -94,7 +105,7 @@ class OperationsV2View(OperationsView):
         data["coverage"].update({
             "departures": len(departures), "valid_total_stay_records": len(stays),
             "valid_gate_wait_records": len(waits), "excluded_warehouse_stays": missing,
-            "excluded_gate_wait_records": len(departures) - len(waits),
+            "excluded_gate_wait_records": sum(gate_exclusions.values()),
             "unattributed_gate_wait_records": unattributed,
             "gate_wait_definition": "Portaria até entrada no primeiro armazém; cargas com saída da unidade no período. Atribuição apenas ao primeiro destino.",
             "event_time_basis": "Saída da portaria e saída de cada visita no período selecionado",

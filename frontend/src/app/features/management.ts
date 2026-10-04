@@ -235,7 +235,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
           <app-metric-card
             label="Espera média"
             [value]="metric('average_wait_minutes', 'min')"
-            hint="Da chegada ao início da descarga"
+            hint="Cargas concluídas no período: chegada ao início da descarga"
           />
           <app-metric-card
             label="Descarga média"
@@ -249,7 +249,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
             hint="Média das cargas com recursos confirmados"
           />
         </div>
-        <div class="metric-grid section"><app-metric-card label="Espera após a portaria" [value]="metric('average_gate_wait_minutes','min')" hint="Entrada na unidade até primeira entrada em armazém" /><app-metric-card label="Permanência total" [value]="metric('average_total_stay_minutes','min')" hint="Entrada até saída da unidade; exige os dois registros" /><app-metric-card label="Saídas da unidade" [value]="metric('departed_loads')" hint="Descarga concluída não equivale a saída da portaria" /></div>
+        <div class="metric-grid section"><app-metric-card label="Espera após a portaria" [value]="metric('average_gate_wait_minutes','min')" [hint]="medianHint('median_gate_wait_minutes', 'Cargas com saída no período: portaria até o 1º armazém')" /><app-metric-card label="Permanência total" [value]="metric('average_total_stay_minutes','min')" [hint]="medianHint('median_total_stay_minutes', 'Entrada até saída da unidade')" /><app-metric-card label="Saídas da unidade" [value]="metric('departed_loads')" hint="Descarga concluída não equivale a saída da portaria" /></div>
         <div class="chart-grid section">
           <app-bar-chart
             title="Cargas por data"
@@ -832,6 +832,10 @@ export class Management implements OnInit, OnDestroy {
     return value === null
       ? "Não disponível"
       : `${this.show(value)}${unit ? " " + unit : ""}`;
+  }
+  medianHint(key: string, definition: string) {
+    // A média sozinha é dominada por um horário digitado errado; a mediana mostra a espera típica.
+    return operationalMetric(this.operations(), key) === null ? definition : `Mediana ${this.metric(key, "min")}. ${definition}`;
   }
   dateChart() {
     return chartItems(this.operations()?.["loads_by_date"], "date", chartDateLabel);

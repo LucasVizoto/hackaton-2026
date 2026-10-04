@@ -5,7 +5,7 @@ from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.pagination import PageNumberPagination
@@ -14,7 +14,8 @@ from rest_framework.views import APIView
 
 from core.permissions import require_role, user_role
 
-from .models import GateArrival
+from . import services, workflow
+from .models import Appointment, GateArrival
 from .realtime import notify_arrival
 from .serializers import GateArrivalSerializer
 
@@ -91,6 +92,11 @@ class GateArrivalListView(APIView):
             if decision not in {"pending", "authorized", "rejected"}:
                 raise ValidationError({"decision": "Filtro de decisão inválido."})
             listed = queryset.filter(decision=decision)
+        # A agenda mostra as chegadas do período visível; a data é a local, a mesma do calendário.
+        for param, lookup in (("date_from", "created_at__date__gte"), ("date_to", "created_at__date__lte")):
+            if request.query_params.get(param):
+                value = serializers.DateField().run_validation(request.query_params[param])
+                listed = listed.filter(**{lookup: value})
         paginator = GateArrivalPagination()
         arrivals = paginator.paginate_queryset(listed.order_by("-created_at", "-id"), request, view=self)
         response = paginator.get_paginated_response(GateArrivalSerializer(arrivals, many=True).data)
@@ -133,6 +139,10 @@ class GateArrivalDecisionView(APIView):
             raise ValidationError({"decision": "Informe se a chegada foi aceita ou recusada."})
         if arrival.decision != "pending":
             raise ValidationError({"decision": "Esta chegada já foi decidida."})
+        if request.data.get("appointment"):
+            if choice != "authorized":
+                raise ValidationError({"appointment": "Só uma chegada aceita é vinculada a uma reserva."})
+            arrival.appointment = _register_entry(arrival, request.user, request.data["appointment"])
         now = timezone.now()
         arrival.decision = choice
         arrival.decided_at = now
@@ -140,9 +150,66 @@ class GateArrivalDecisionView(APIView):
         if arrival.seen_at is None:
             arrival.seen_at = now
             arrival.seen_by = request.user
-        arrival.save(update_fields=["decision", "decided_at", "decided_by", "seen_at", "seen_by"])
+        arrival.save(update_fields=["decision", "decided_at", "decided_by", "seen_at", "seen_by", "appointment"])
         notify_arrival(arrival, choice)
         return Response(GateArrivalSerializer(arrival).data)
+
+
+def _plate_key(value):
+    return re.sub(r"[^0-9A-Z]", "", str(value or "").upper())
+
+
+def _invoice_numbers(appointment):
+    numbers = [link.invoice.number for link in appointment.invoice_links.all()]
+    if appointment.invoice_id:
+        numbers.append(appointment.invoice.number)
+    return list(dict.fromkeys(numbers))
+
+
+def _candidates(arrival):
+    """Reservas do dia da chegada ainda aguardando o caminhão; a portaria só registra entrada na data reservada."""
+    day = timezone.localdate(arrival.created_at)
+    return (
+        Appointment.objects.select_related("slot", "supplier", "invoice")
+        .prefetch_related("invoice_links__invoice")
+        .filter(slot__date=day, operation_status="waiting", gate_arrival__isnull=True)
+        .exclude(purchase_status="rejected")
+        .order_by("slot__time", "supplier__name")
+    )
+
+
+def _register_entry(arrival, user, appointment_id):
+    serializers.UUIDField().run_validation(appointment_id)
+    appointment = _candidates(arrival).filter(pk=appointment_id).first()
+    if appointment is None:
+        raise ValidationError({"appointment": "Reserva indisponível: precisa ser do dia da chegada e ainda aguardar o caminhão."})
+    data = {"occurred_at": arrival.created_at, "driver_name": arrival.driver_name}
+    if appointment.workflow_version == 2:
+        # O marco é da Portaria: quem registrou o aviso é o autor da entrada, no horário do aviso.
+        return workflow.perform(arrival.created_by, appointment.pk, "gate-check-in", data)
+    workflow.gate_entry_on_slot_date(appointment, arrival.created_at)
+    return services.arrive(user, appointment.pk, {"occurred_at": arrival.created_at})
+
+
+class GateArrivalCandidatesView(APIView):
+    def get(self, request, pk):
+        require_role(request.user, "warehouse")
+        arrival = get_object_or_404(_arrival_queryset(request.user), id=pk)
+        plate, number = _plate_key(arrival.vehicle_plate), arrival.invoice_number.lstrip("0")
+        rows = []
+        for appointment in _candidates(arrival):
+            invoices = _invoice_numbers(appointment)
+            rows.append({
+                "id": str(appointment.pk),
+                "time": appointment.slot.time,
+                "supplier_name": appointment.supplier.name,
+                "vehicle_plate": appointment.vehicle_plate,
+                "invoice_numbers": invoices,
+                "matches": _plate_key(appointment.vehicle_plate) == plate
+                or any(value.lstrip("0") == number for value in invoices),
+            })
+        rows.sort(key=lambda row: not row["matches"])
+        return Response({"results": rows})
 
 
 class GateArrivalSeenView(APIView):
