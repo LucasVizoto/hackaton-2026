@@ -26,6 +26,7 @@ import {
   PageHeader,
 } from "../shared/ui";
 import { Bulletin } from "./bulletins";
+import { BalanceFilters, StaffingBalance } from "./staffing-balance";
 interface SourceRecords<T> {
   records: T[];
   count: number;
@@ -134,7 +135,7 @@ interface Scenario {
 const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, FeedbackState];
 @Component({
   standalone: true,
-  imports: [...imports, RouterLink, MetricCard, BarChart, FilterBlock, EmptyState],
+  imports: [...imports, RouterLink, MetricCard, BarChart, FilterBlock, EmptyState, StaffingBalance],
   template: `<div class="page">
     <app-page-header
       title="Gestão por local e período"
@@ -181,6 +182,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
     @if (busy()) {
       <app-loading-state label="Consultando indicadores…" />
     }
+    <app-staffing-balance [filters]="balanceFilters()" />
     @if (operations(); as o) {
       <section class="section">
         <h2>Operação e recursos</h2>
@@ -720,6 +722,7 @@ export class Management implements OnInit {
     equivalent_days: ["10.5", [Validators.required, Validators.min(0)]],
   });
   costs = signal<Costs | null>(null);
+  balanceFilters = signal<BalanceFilters | null>(null);
   operations = signal<Operations | null>(null);
   scenario = signal<Scenario | null>(null);
   bulletins = signal<Bulletin[]>([]);
@@ -944,6 +947,8 @@ export class Management implements OnInit {
     this.busy.set(true);
     this.error.set("");
     this.scenario.set(null);
+    const { date_from, date_to, origin } = this.filters.getRawValue();
+    this.balanceFilters.set({ date_from, date_to, origin });
     try {
       const q = new URLSearchParams();
       Object.entries(this.filters.getRawValue()).forEach(([k, v]) => {

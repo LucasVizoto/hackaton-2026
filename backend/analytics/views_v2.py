@@ -7,8 +7,9 @@ from rest_framework import serializers
 from rest_framework.response import Response
 
 from analytics.views import (
-    LaborCostsView, OperationsView, StaffingScenarioView, bounds, mean, read_filters,
+    LaborCostsView, OperationsView, StaffingScenarioView, bounds, cost_shares, mean, read_filters,
 )
+from django.db.models import Q
 from labor.calculation import money_display
 from receiving.models import Appointment, WarehouseVisit
 
@@ -97,8 +98,16 @@ def individual_costs(request):
         reference_date__range=(filters["date_from"], filters["date_to"]),
     ).select_related("warehouse")
     if filters.get("warehouse"):
-        bulletins = bulletins.filter(warehouse_id=filters["warehouse"])
+        bulletins = bulletins.filter(
+            Q(warehouse_id=filters["warehouse"]) | Q(warehouse__isnull=True, lines__warehouse_id=filters["warehouse"])
+        ).distinct()
     return _individual_costs_for_bulletins(list(bulletins), filters)
+
+
+def bulletin_cost_owners(bulletin):
+    if bulletin.warehouse_id:
+        return [(str(bulletin.warehouse_id), bulletin.warehouse.name)]
+    return [(share.warehouse_id, share.warehouse_name) for share in cost_shares([bulletin])]
 
 
 def _individual_costs_for_bulletins(bulletins, filters):
@@ -136,7 +145,8 @@ def _individual_costs_for_bulletins(bulletins, filters):
             for key, source in (("production_attributed", "production"), ("supplement", "supplement"), ("total_payable", "total_payable")):
                 group[key] += Decimal(allocation.exact[source])
                 group["display"][key] += Decimal(allocation.display[source])
-            group["cost_warehouses"][str(allocation.bulletin.warehouse_id)] = allocation.bulletin.warehouse.name
+            for wid, name in bulletin_cost_owners(allocation.bulletin):
+                group["cost_warehouses"][wid] = name
             group["activity_warehouses"].update(activity_locations[allocation.worker_day_id])
         nominal = sum((allocation.total_payable for allocation in allocations), Decimal(0))
     rows = []

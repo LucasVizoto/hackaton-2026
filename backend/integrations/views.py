@@ -236,6 +236,83 @@ class WeatherView(APIView):
                          "note": "Previsão informativa; não bloqueia nem reagenda recebimentos."})
 
 
+class HgWeatherView(APIView):
+    """Forecast for the Cocapec yard in Espírito Santo do Pinhal, SP.
+
+    The public HGBrasil forecast stops before the next bookable day, so this
+    route asks Open-Meteo for the daily series that includes that date. A
+    provider failure stays on this route and the booking form remains usable.
+    """
+
+    def get(self, request):
+        require_role(request.user, "supplier", "warehouse", "purchasing", "management")
+        selected = request.query_params.get("date", "")
+        if not _iso_date(selected):
+            raise ValidationError("Data da previsão inválida.")
+        latitude, longitude = _delivery_coordinates()
+        try:
+            data = json_request("https://api.open-meteo.com/v1/forecast?" + urlencode({
+                "latitude": latitude, "longitude": longitude,
+                "daily": "weather_code,precipitation_sum,precipitation_probability_max",
+                "timezone": "America/Sao_Paulo", "start_date": selected, "end_date": selected,
+            }), timeout=8)
+            payload = _forecast_from_open_meteo(data, selected)
+        except ProviderUnavailable as error:
+            status = 429 if error.code == "http_429" else 503
+            return Response({"detail": "Previsão do tempo indisponível."}, status=status)
+        return Response(payload)
+
+
+def _iso_date(value):
+    if len(value) != 10 or value[4] != "-" or value[7] != "-":
+        return False
+    year, month, day = value.split("-")
+    return year.isdigit() and month.isdigit() and day.isdigit()
+
+
+def _delivery_coordinates():
+    try:
+        latitude, longitude = float(settings.WEATHER_LATITUDE), float(settings.WEATHER_LONGITUDE)
+    except (TypeError, ValueError):
+        return -22.1908, -46.7478
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        return -22.1908, -46.7478
+    return latitude, longitude
+
+
+_RAIN_CODES = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99}
+
+
+def _forecast_from_open_meteo(data, selected):
+    daily = data.get("daily") if isinstance(data, dict) else None
+    if not isinstance(daily, dict):
+        raise ProviderUnavailable("invalid_weather_response")
+    times, codes, rain, probability = (daily.get(key) for key in (
+        "time", "weather_code", "precipitation_sum", "precipitation_probability_max"))
+    rows = (times, codes, rain, probability)
+    if not isinstance(times, list) or not times or any(not isinstance(items, list) or len(items) != len(times) for items in rows):
+        raise ProviderUnavailable("invalid_weather_response")
+    forecast = []
+    for iso, code, amount, chance in zip(times, codes, rain, probability):
+        if iso != selected or not _iso_date(iso):
+            continue
+        year, month, day = iso.split("-")
+        wet = code in _RAIN_CODES or (isinstance(amount, (int, float)) and amount > 0) or (isinstance(chance, (int, float)) and chance >= 40)
+        forecast.append({
+            "date": f"{day}/{month}",
+            "full_date": f"{day}/{month}/{year}",
+            "description": "Chuva" if wet else "Tempo limpo",
+            "condition": "rain" if wet else "clear_day",
+            "rain": amount if isinstance(amount, (int, float)) else 0,
+            "rain_probability": chance if isinstance(chance, (int, float)) else 0,
+        })
+    if not forecast:
+        raise ProviderUnavailable("invalid_weather_response")
+    return {"by": "open-meteo", "results": {
+        "city": "Espírito Santo do Pinhal, SP", "city_name": "Espírito Santo do Pinhal", "forecast": forecast,
+    }}
+
+
 class OCRView(APIView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "assistant"
