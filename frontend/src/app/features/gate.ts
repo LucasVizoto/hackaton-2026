@@ -1,5 +1,5 @@
 import { Component, effect, inject, input, OnInit, output, signal, untracked } from "@angular/core";
-import { RouterLink } from "@angular/router";
+import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { IonButton, IonModal, IonSpinner } from "@ionic/angular/standalone";
 import { Capacitor } from "@capacitor/core";
@@ -339,105 +339,25 @@ export class GateDesk {
 
 }
 
+type ArrivalFilter = "pending" | "authorized" | "rejected" | "";
+type ArrivalBoard = "warehouse" | "portaria" | "review";
+const ARRIVAL_FILTERS: ArrivalFilter[] = ["pending", "authorized", "rejected", ""];
+
 @Component({
   standalone: true,
   imports: [RouterLink, IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
-    <app-page-header title="Chegadas na portaria" [subtitle]="api.can('warehouse') ? 'Aceite libera a entrada na portaria. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto.' : 'Consulta de todos os avisos de chegada. A abertura da foto não altera a ciência do Armazém.'"><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
-    <p class="notice">Um aviso com foto não cria agendamento nem registra entrada ou saída automaticamente. <a routerLink="/operacao">Consultar recebimentos</a></p>
-    @if (error()) {
-      <div app-feedback tone="error" class="error">{{ error() }}</div>
+    <app-page-header title="Chegadas" [subtitle]="subtitle()"><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar</ion-button></app-page-header>
+    @if (board !== "review") {
+      <div class="actions">
+        @for (option of filters; track option.value) {
+          <ion-button size="small" [fill]="filter() === option.value ? 'solid' : 'outline'" (click)="choose(option.value)">{{ option.label }}</ion-button>
+        }
+      </div>
     }
-    @if (!rows().length && !error()) {
-      <p class="notice">Nenhuma chegada informada.</p>
+    @if (board === "warehouse") {
+      <p class="notice">Um aviso com foto não cria agendamento nem registra entrada ou saída automaticamente. <a routerLink="/agenda">Consultar recebimentos</a></p>
     }
-    <section class="panel">
-      <app-arrival-list [rows]="rows()" board="warehouse" (updated)="replace($event)" />
-      <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} avisos</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
-    </section>
-  </div>`,
-})
-export class ArrivalInbox implements OnInit {
-  api = inject(Api);
-  private live = inject(GateLive);
-  rows = signal<Arrival[]>([]);
-  error = signal("");
-  busy=signal(false);page=1;count=signal(0);hasNext=signal(false);
-  constructor() {
-    effect(() => {
-      if (this.live.refreshed()) untracked(() => void this.load());
-    });
-    effect(() => {
-      const message = this.live.last();
-      if (!message) return;
-      untracked(() => this.rows.update((rows) => applyArrival(rows, message, "warehouse")));
-    });
-  }
-  ngOnInit() {
-    void this.load();
-  }
-  replace(arrival: Arrival) {
-    this.rows.update((rows) => applyArrival(rows, { event: arrival.decision === "pending" ? "created" : arrival.decision, arrival }, "warehouse"));
-  }
-  async load(page=this.page){this.busy.set(true);this.error.set('');try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
-}
-
-@Component({
-  standalone: true,
-  imports: [IonButton, PageHeader, FeedbackState, ArrivalList],
-  template: `<div class="page">
-    <app-page-header title="Chegadas recusadas" subtitle="Consulta das recusas registradas pelo Armazém. Esta tela não altera decisões de entrada."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar ocorrências</ion-button></app-page-header>
-    @if (error()) {
-      <div app-feedback tone="error" class="error">{{ error() }}</div>
-    }
-    @if (notice()) {
-      <p class="notice">{{ notice() }}</p>
-    }
-    @if (!rows().length && !error()) {
-      <p class="notice">Nenhuma chegada recusada.</p>
-    }
-    <section class="panel">
-      <app-arrival-list [rows]="rows()" board="review" />
-      <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} ocorrências</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
-    </section>
-  </div>`,
-})
-export class ArrivalReview implements OnInit {
-  private api = inject(Api);
-  private live = inject(GateLive);
-  rows = signal<Arrival[]>([]);
-  error = signal("");
-  notice = signal("");
-  busy=signal(false);page=1;count=signal(0);hasNext=signal(false);
-  constructor() {
-    effect(() => {
-      if (this.live.refreshed()) untracked(() => void this.load());
-    });
-    effect(() => {
-      const message = this.live.last();
-      if (!message || message.event !== "rejected") return;
-      untracked(() => {
-        this.rows.update((rows) => applyArrival(rows, message, "review"));
-        this.notice.set(`Recusa de ${message.arrival.driver_name} registrada pelo Armazém. Nota disponível para consulta.`);
-      });
-    });
-  }
-  ngOnInit() {
-    void this.load();
-  }
-  async load(page=this.page){this.busy.set(true);this.error.set('');try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?decision=rejected&page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
-}
-
-@Component({
-  standalone: true,
-  imports: [IonButton, PageHeader, FeedbackState, ArrivalList],
-  template: `<div class="page">
-    <app-page-header [title]="api.user()?.role === 'management' ? 'Avisos de chegada' : 'Chegadas enviadas'" [subtitle]="api.user()?.role === 'management' ? 'Consulta dos avisos de todos os operadores da Portaria.' : 'Avisos com foto enviados por você. O filtro inicial mostra só o que ainda aguarda o armazém.'"><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar</ion-button></app-page-header>
-    <div class="actions">
-      @for (option of filters; track option.value) {
-        <ion-button size="small" [fill]="filter() === option.value ? 'solid' : 'outline'" (click)="choose(option.value)">{{ option.label }}</ion-button>
-      }
-    </div>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
@@ -448,21 +368,24 @@ export class ArrivalReview implements OnInit {
       <p class="notice">{{ emptyLabel() }}</p>
     }
     <section class="panel">
-      <app-arrival-list [rows]="rows()" board="portaria" />
+      <app-arrival-list [rows]="rows()" [board]="board" (updated)="replace($event)" />
       <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} chegadas</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
     </section>
   </div>`,
 })
-export class SentArrivals implements OnInit {
+export class Arrivals implements OnInit {
   api = inject(Api);
   private live = inject(GateLive);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   readonly filters = [
     { value: "pending" as const, label: "Aguardando" },
     { value: "authorized" as const, label: "Pode passar" },
     { value: "rejected" as const, label: "Recusada" },
     { value: "" as const, label: "Todas" },
   ];
-  filter = signal<"pending" | "authorized" | "rejected" | "">("pending");
+  readonly board: ArrivalBoard = this.api.can("purchasing") && !this.api.can("warehouse", "management") ? "review" : this.api.can("gatehouse") && !this.api.can("warehouse", "management") ? "portaria" : "warehouse";
+  filter = signal<ArrivalFilter>(this.initialFilter());
   rows = signal<Arrival[]>([]);
   error = signal("");
   notice = signal("");
@@ -476,31 +399,53 @@ export class SentArrivals implements OnInit {
     });
     effect(() => {
       const message = this.live.last();
-      if (!message || message.event === "created") return;
-      untracked(() => {
-        const driver = message.arrival.driver_name;
-        this.notice.set(
-          message.event === "authorized"
-            ? `${driver} pode passar.`
-            : `Chegada de ${driver} recusada pelo Armazém. Nota disponível para consulta de Compras.`,
-        );
-        void this.load(this.page);
-      });
+      if (!message) return;
+      untracked(() => this.receive(message));
     });
   }
   ngOnInit() {
     void this.load();
   }
-  choose(value: "pending" | "authorized" | "rejected" | "") {
-    this.filter.set(value);
-    this.notice.set("");
-    void this.load(1);
+  subtitle() {
+    if (this.board === "review") return "Recusas registradas pelo Armazém, para consulta da nota. Esta tela não altera decisões de entrada.";
+    if (this.board === "portaria") return "Avisos com foto enviados por você. O filtro inicial mostra só o que ainda aguarda o armazém.";
+    return this.api.can("warehouse") ? "Aceite libera a entrada na portaria. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto." : "Consulta de todos os avisos de chegada. A abertura da foto não altera a ciência do Armazém.";
   }
   emptyLabel() {
     if (this.filter() === "pending") return "Nenhuma chegada aguardando.";
     if (this.filter() === "authorized") return "Nenhuma chegada liberada.";
     if (this.filter() === "rejected") return "Nenhuma chegada recusada.";
-    return "Nenhuma chegada enviada.";
+    return "Nenhuma chegada informada.";
+  }
+  choose(value: ArrivalFilter) {
+    this.filter.set(value);
+    this.notice.set("");
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { decisao: value || null }, queryParamsHandling: "merge", replaceUrl: true });
+    void this.load(1);
+  }
+  replace(arrival: Arrival) {
+    this.rows.update((rows) => applyArrival(rows, { event: arrival.decision === "pending" ? "created" : arrival.decision, arrival }, "warehouse"));
+  }
+  private receive(message: GateMessage) {
+    if (this.board === "portaria") {
+      if (message.event === "created") return;
+      const driver = message.arrival.driver_name;
+      this.notice.set(message.event === "authorized" ? `${driver} pode passar.` : `Chegada de ${driver} recusada pelo Armazém. Nota disponível para consulta de Compras.`);
+      void this.load(this.page);
+      return;
+    }
+    if (this.board === "review") {
+      if (message.event !== "rejected") return;
+      this.notice.set(`Recusa de ${message.arrival.driver_name} registrada pelo Armazém. Nota disponível para consulta.`);
+    }
+    const filter = this.filter();
+    this.rows.update((rows) => filter && message.arrival.decision !== filter && !rows.some((row) => row.id === message.arrival.id) ? rows : applyArrival(rows, message, this.board));
+  }
+  private initialFilter(): ArrivalFilter {
+    if (this.board === "review") return "rejected";
+    const requested = this.route.snapshot.queryParamMap.get("decisao");
+    if (requested !== null && (ARRIVAL_FILTERS as string[]).includes(requested)) return requested as ArrivalFilter;
+    return this.board === "portaria" ? "pending" : "";
   }
   async load(page = this.page) {
     this.busy.set(true);

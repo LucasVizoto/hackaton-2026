@@ -14,7 +14,6 @@ import {
 import { Catalog } from "../core/catalog";
 import { chartDateLabel, chartItems, operationalMetric } from "../core/chart-data";
 import { exportCsv } from "../core/workflow";
-import { qualityLabel, qualityValue, knownQualityField } from "../core/quality-presentation";
 import { decimal } from "../core/presentation";
 import {
   BarChart,
@@ -1008,126 +1007,6 @@ export class Management implements OnInit {
           this.scenarioForm.getRawValue(),
         ),
       );
-    } catch (e) {
-      this.error.set(apiError(e));
-    } finally {
-      this.busy.set(false);
-    }
-  }
-}
-@Component({
-  standalone: true,
-  imports,
-  template: `<div class="page">
-    <app-page-header
-      title="Origem e cobertura dos dados"
-      subtitle="A ausência de registro permanece ausência; não é convertida em zero."
-    >
-      <ion-button fill="outline" (click)="load()" [disabled]="busy()"
-        >Atualizar</ion-button
-      >
-    </app-page-header>
-    <div class="notice">
-      O histórico fornecido contém documentos e movimentações, sem identificador
-      confiável de caminhão operacional e sem série de boletins por armazém.
-      Tempos só são calculados dos eventos registrados na aplicação.
-    </div>
-    @if (error()) {
-      <div app-feedback tone="error" class="error">{{ error() }}</div>
-    }
-    @if (busy()) {
-      <app-loading-state label="Consultando importações…" />
-    }
-    @if (data(); as d) {
-      @for (e of entries(d); track e[0]) {
-        <section class="panel">
-          <h2>{{ label(e[0]) }}</h2>
-          @if (isRows(e[1])) {
-            <div class="table-wrap" tabindex="0" role="region" [attr.aria-label]="label(e[0])">
-              <table>
-                <thead>
-                  <tr>
-                    @for (c of columns(e[1]); track c) {
-                      <th>{{ label(c) }}</th>
-                    }
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (r of rows(e[1]); track $index) {
-                    <tr>
-                      @for (c of columns(e[1]); track c) {
-                        <td class="wrap">{{ show(r[c], c) }}</td>
-                      }
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          } @else {
-            <p>{{ show(e[1], e[0]) }}</p>
-          }
-        </section>
-      }
-    }
-    <details class="panel"><summary>Detalhes técnicos da cobertura</summary><p>Resposta agregada da API, sem linhas originais. Campos adicionais permanecem disponíveis para diagnóstico.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{technical()}}</pre></details>
-    <section class="panel">
-      <h2>Limites conhecidos das fontes</h2>
-      <ul>
-        <li>
-          Peso repetido por pedido: sua semântica e unidade continuam pendentes;
-          não soma por linha.
-        </li>
-        <li>
-          Produto pode existir em vários depósitos. Enriquecimento deve
-          conservar as linhas originais e preservar registros sem
-          correspondência.
-        </li>
-        <li>
-          CSV de mão de obra incompleto: lacunas não são zero; nomes de abas e
-          datas requerem conferência.
-        </li>
-        <li>
-          O único boletim preenchido é referência matemática, não série de
-          pagamentos históricos.
-        </li>
-        <li>
-          Itens XML usam código do fornecedor; associação ao código interno
-          precisa conferência.
-        </li>
-      </ul>
-    </section>
-  </div>`,
-})
-export class DataQuality implements OnInit {
-  private api = inject(Api);
-  data = signal<RecordData | null>(null);
-  error = signal("");
-  busy = signal(false);
-  entries = (v: RecordData) => Object.entries(v).filter(([key]) => knownQualityField(key));
-  label = qualityLabel;
-  show = qualityValue;
-  technical = () => JSON.stringify(this.data(), null, 2);
-  isRows(v: unknown) {
-    return Array.isArray(v) && v.length > 0 && typeof v[0] === "object";
-  }
-  rows(v: unknown) {
-    return v as RecordData[];
-  }
-  columns(v: unknown) {
-    return this.isRows(v)
-      ? Object.keys((v as RecordData[])[0]).filter(
-          (k) => !k.endsWith("_id") && k !== "id" && knownQualityField(k),
-        )
-      : [];
-  }
-  ngOnInit() {
-    void this.load();
-  }
-  async load() {
-    this.busy.set(true);
-    this.error.set("");
-    try {
-      this.data.set(await this.api.get<RecordData>("data/quality/"));
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
