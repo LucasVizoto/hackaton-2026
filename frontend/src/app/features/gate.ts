@@ -1,7 +1,8 @@
 import { Component, effect, inject, input, OnInit, output, signal, untracked } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
-import { IonButton, IonSpinner } from "@ionic/angular/standalone";
+import { IonButton, IonModal, IonSpinner } from "@ionic/angular/standalone";
+import { Capacitor } from "@capacitor/core";
 import { Api, apiError, dateTime, Page } from "../core/api";
 import { Arrival, GateLive, GateMessage } from "../core/gate-live";
 import { readInvoiceImage } from "./invoice-code";
@@ -35,7 +36,7 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
 @Component({
   selector: "app-arrival-list",
   standalone: true,
-  imports: [IonButton],
+  imports: [IonButton, IonModal],
   template: `<div class="arrival-grid decisions">
     @for (item of rows(); track item.id) {
       <article class="arrival-card">
@@ -63,7 +64,7 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
             <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized')">Aceitar</ion-button>
             <ion-button size="small" color="danger" fill="outline" [disabled]="busyId() === item.id" (click)="decide(item, 'rejected')">Recusar</ion-button>
           }
-          <ion-button fill="outline" size="small" (click)="open(item)">Ver nota</ion-button>
+          <ion-button fill="outline" size="small" [disabled]="opening()" (click)="open(item)">Ver nota</ion-button>
         </div>
         @if (openId() === item.id && imageError()) {
           <p class="error">{{ imageError() }}</p>
@@ -73,7 +74,15 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
         }
       </article>
     }
-  </div>`,
+  </div>
+  <ion-modal [isOpen]="!!image()" (didDismiss)="closeImage()">
+    <ng-template>
+      <div class="photo-viewer">
+        <ion-button fill="outline" (click)="closeImage()">Fechar nota</ion-button>
+        <div class="photo-scroll"><img [src]="image()" alt="Foto da nota fiscal" /></div>
+      </div>
+    </ng-template>
+  </ion-modal>`,
   styles: [
     `
       .arrival-grid { display: grid; gap: 16px; }
@@ -94,6 +103,9 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
       .arrival-card .pass { color: var(--success); }
       .arrival-card .hold { color: var(--danger); }
       .arrival-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .photo-viewer { display: flex; flex-direction: column; height: 100%; padding: 12px; }
+      .photo-scroll { overflow: auto; flex: 1; }
+      .photo-scroll img { display: block; max-width: none; }
       @media (max-width: 960px) {
         .arrival-grid.decisions { grid-template-columns: 1fr; }
       }
@@ -106,6 +118,9 @@ export class ArrivalList {
   board = input<"warehouse" | "portaria" | "review">("portaria");
   updated = output<Arrival>();
   openId = signal("");
+  opening = signal(false);
+  image = signal("");
+  private generation = 0;
   imageError = signal("");
   seenIds = signal<ReadonlySet<string>>(new Set());
   decisionError = signal("");
@@ -137,24 +152,39 @@ export class ArrivalList {
     }
   }
   async open(item: Arrival) {
-    const tab = window.open("about:blank", "_blank");
+    if (this.opening()) return;
+    const generation = ++this.generation;
+    const tab = Capacitor.isNativePlatform() ? null : window.open("about:blank", "_blank");
+    this.opening.set(true);
     this.openId.set(item.id);
     this.imageError.set("");
     try {
       const blob = await this.api.blob(`gate-arrivals/${item.id}/file/`);
+      if (generation !== this.generation) { tab?.close(); return; }
       const url = URL.createObjectURL(blob);
-      if (tab && !tab.closed) tab.location.href = url;
-      else window.open(url, "_blank");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      if (tab && !tab.closed) {
+        tab.location.href = url;
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } else {
+        this.closeImage();
+        this.image.set(url);
+      }
       if (this.board() === "warehouse" && !item.seen_at && !this.seenIds().has(item.id)) {
         const seen = await this.api.post<Arrival>(`gate-arrivals/${item.id}/seen/`, {});
         if (seen.seen_at) this.seenIds.update(ids => new Set([...ids, item.id]));
       }
     } catch (e) {
-      tab?.close();
-      this.imageError.set(apiError(e));
+      if (tab?.location.href === "about:blank") tab.close();
+      if (generation === this.generation) this.imageError.set(apiError(e));
+    } finally {
+      if (generation === this.generation) this.opening.set(false);
     }
   }
+  closeImage() {
+    if (this.image()) URL.revokeObjectURL(this.image());
+    this.image.set("");
+  }
+  ngOnDestroy() { this.generation++; this.closeImage(); }
 }
 
 @Component({
