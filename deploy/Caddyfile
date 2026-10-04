@@ -10,6 +10,14 @@
 cocapec.lucasvizoto.com {
     encode gzip zstd
     log {
+        format filter {
+            wrap json
+            fields {
+                request>uri query {
+                    delete token
+                }
+            }
+        }
         output file /var/log/caddy/cocapec-access.log {
             roll_size 20MiB
             roll_keep 5
@@ -22,7 +30,8 @@ cocapec.lucasvizoto.com {
     handle @private {
         respond 404
     }
-    handle /api/* {
+    @backend path /api/* /ws/*
+    handle @backend {
         header Cache-Control "private, no-store"
         reverse_proxy 127.0.0.1:8000 {
             header_up X-Forwarded-For {client_ip}

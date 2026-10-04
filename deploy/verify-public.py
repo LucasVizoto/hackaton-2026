@@ -39,7 +39,7 @@ assert request('/api/v1/auth/login/', data={'username': 'gestao_demo', 'password
 tokens = {}
 for username, role in [
     ('fornecedor_demo', 'supplier'), ('fornecedor_b_demo', 'supplier'),
-    ('compras_demo', 'purchasing'), ('armazem_demo', 'warehouse'), ('gestao_demo', 'management'),
+    ('portaria_demo', 'gatehouse'), ('compras_demo', 'purchasing'), ('armazem_demo', 'warehouse'), ('gestao_demo', 'management'),
 ]:
     status, login, headers = request('/api/v1/auth/login/', data={'username': username, 'password': password})
     assert status == 200 and login['user']['role'] == role
@@ -47,6 +47,18 @@ for username, role in [
     tokens[username] = login['token']
     assert request('/api/v1/auth/me/', tokens[username])[1]['role'] == role
 supplier_a, supplier_b = tokens['fornecedor_demo'], tokens['fornecedor_b_demo']
+gate, warehouse = tokens['portaria_demo'], tokens['armazem_demo']
+assert request('/api/v2/gate-arrivals/')[0] == 401
+assert request('/api/v2/gate-arrivals/', supplier_a)[0] == 403
+assert request('/api/v2/gate-arrivals/', gate)[0] == 200
+assert request('/api/v2/gate-arrivals/?summary=1', gate)[0] == 403
+assert request('/api/v2/gate-arrivals/?summary=1', warehouse)[0] == 200
+for arrival in request('/api/v2/gate-arrivals/', warehouse)[1]['results']:
+    path = f"/api/v2/gate-arrivals/{arrival['id']}/file/"
+    assert request(path)[0] == 401
+    assert request(path, supplier_a)[0] == 403
+    status, photo, headers = request(path, warehouse)
+    assert status == 200 and photo and 'no-store' in headers.get('cache-control', '')
 invoice = request('/api/v1/invoices/', supplier_a)[1]['results'][0]
 assert request(f"/api/v1/invoices/{invoice['id']}/", supplier_b)[0] == 404
 download = f"/api/v1/attachments/{invoice['attachment_id']}/download/"
@@ -63,4 +75,4 @@ assert 'no-store' in headers.get('cache-control', '')
 status, _, headers = request('/api/v1/health/', extra={'Origin': 'https://localhost'})
 assert status == 200 and headers.get('access-control-allow-origin') == 'https://localhost'
 assert 'access-control-allow-origin' not in request('/api/v1/health/', extra={'Origin': 'https://untrusted.invalid'})[2]
-print('Public HTTPS acceptance PASS: five roles, isolation, private downloads, SPA, Android origin and cache headers.')
+print('Public HTTPS acceptance PASS: six roles, gate permissions, isolation, private downloads, SPA, Android origin and cache headers.')

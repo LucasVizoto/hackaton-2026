@@ -1,8 +1,12 @@
+import asyncio
+from contextlib import suppress
+
 from urllib.parse import parse_qs, unquote
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from rest_framework.authtoken.models import Token
+from redis.exceptions import RedisError
 
 from core.permissions import user_role
 
@@ -35,7 +39,22 @@ def user_from_key(key):
 
 
 class GateConsumer(AsyncJsonWebsocketConsumer):
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        except RedisError:
+            # Broker URLs and authentication material must not enter server logs.
+            with suppress(Exception):
+                await self.close(code=1013)
+        finally:
+            task = getattr(self, "heartbeat_task", None)
+            if task:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
     async def connect(self):
+        self.heartbeat_enabled = parse_qs(self.scope.get("query_string", b"").decode()).get("stream_version") == ["2"]
         user = await user_from_key(token_from_scope(self.scope))
         role = await database_sync_to_async(user_role)(user) if user else ""
         self.joined = []
@@ -48,13 +67,40 @@ class GateConsumer(AsyncJsonWebsocketConsumer):
         if not self.joined:
             await self.close()
             return
+        try:
+            await asyncio.wait_for(self.subscribe(), timeout=5)
+        except Exception:
+            await self.close(code=1013)
+            return
+        await self.accept()
+        self.heartbeat_task = asyncio.create_task(self.heartbeat())
+
+    async def subscribe(self):
         for group in self.joined:
             await self.channel_layer.group_add(group, self.channel_name)
-        await self.accept()
+
+    async def heartbeat(self):
+        try:
+            while True:
+                await asyncio.sleep(10)
+                # Refresh memberships after a Redis restart and probe the broker.
+                await asyncio.wait_for(self.subscribe(), timeout=5)
+                if self.heartbeat_enabled:
+                    await self.send_json({"event": "heartbeat"})
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            await self.close(code=1013)
 
     async def disconnect(self, code):
+        task = getattr(self, "heartbeat_task", None)
+        if task:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
         for group in getattr(self, "joined", []):
-            await self.channel_layer.group_discard(group, self.channel_name)
+            with suppress(Exception):
+                await asyncio.wait_for(self.channel_layer.group_discard(group, self.channel_name), timeout=2)
 
     async def gate_event(self, event):
         await self.send_json(event["payload"])

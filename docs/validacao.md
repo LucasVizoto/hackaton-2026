@@ -1,3 +1,19 @@
+# Ajustes de produção e tempo real — 03/10/2026
+
+Base: main `5f54856`, preservando os commits anteriores. Incorporados descoberta de câmera Android, inventário privado aditivo e verificações de Portaria; adicionados união de migrations, ASGI/Daphne, Redis, permissões de origem, decisão concorrente e recuperação de notificações. Nenhuma alteração foi aplicada em produção.
+
+**213 testes backend passaram em PostgreSQL**, em 77,810 s, incluindo emissão após commit, descarte em rollback, decisão persistida com broker indisponível, decisões concorrentes, autenticação/origens de WebSocket, entrega entre processos e conexão ociosa além do timeout bloqueante. **35 testes frontend passaram**, incluindo endereço nativo da API, cancelamento de conexão pendente no logout e ausência de tentativas duplicadas. Ruff, consistência de migrations, ESLint, build Angular, ShellCheck dos scripts modificados e adaptação/validação do Caddy em contêiner passaram. Os avisos CommonJS de OCR/pdfmake permanecem.
+
+As três cópias isoladas migraram sem diferenças inesperadas: base de produção (38 tabelas, 130.761 registros), merge anterior (57 tabelas, 130.854 registros) e árvore com decisões de Portaria (57 tabelas, 130.854 registros). A comparação preserva todas as colunas anteriores, exceto as transformações de máquina/retenções já previstas na integração anterior. A união nova não transforma dados. Evidências em `.private/production-audit/migration-results.json`.
+
+Jornada sintética no navegador/Android: aceite mostrado como “Pode passar”; recusa feita pelo Armazém no navegador recebida automaticamente no APK da Portaria; fila de Compras mostrou a mesma recusa. Com Redis parado, uma decisão foi persistida e a interface exibiu desconexão; após iniciar Redis, a conexão e a consulta ao estado persistido retornaram. O teste encontrou e corrigiu o timeout padrão de leitura do Redis, que encerrava sockets ociosos; o teste entre processos passou a cobrir heartbeat após dez segundos.
+
+Android: build `assembleDebug`, testes `testDebugUnitTest`, instalação e login/jornada no `emulator-5554` executados. O APK final preservou a decisão após reinstalação. Uma asserção textual Maestro de cartão falhou porque a hierarquia da WebView omitiu seu texto; a captura visual confirmou nome, status e encaminhamento. Não se declara aprovação dessa asserção. Aparelho físico, câmera física e iOS não foram executados.
+
+APK privado: `.private/production-audit/app-under-test.apk`, SHA-256 `3a04ad5e1f9bf3cea0946d3e9f4b0e5ecffa09111851cd545320796749e2d9fb`. Capturas: `web-redis-offline.png`, `web-recovered.png`, `android-rejected.png`. Uma criação sintética adicional via ferramenta foi bloqueada pela revisão automática; a recuperação foi conferida com os registros já existentes. Os arquivos de QA e credenciais não entram no Git.
+
+---
+
 # Integração Richardy — 03/10/2026
 
 Integração de `richardy/fix-armazem-recebimento` (`4449592`, incluindo `490d04d`) à main `b7a28f3`. As decisões confirmadas substituem as regras anteriores: somente Fornecedor agenda; máquina/implemento compartilha uma unidade; movimentação libera a vaga de origem; chave de NF é opcional e o número é obrigatório. A API v2, MultiNF, quatro marcos, Portaria fotográfica e apuração individual foram preservados.

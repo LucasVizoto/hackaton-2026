@@ -4,6 +4,13 @@ import os
 
 from .settings import *
 
+REDIS_URL = os.environ.get("REDIS_URL", "")
+if not REDIS_URL:
+    raise ImproperlyConfigured("REDIS_URL is required in production.")
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels_redis.core.RedisChannelLayer",
+    "CONFIG": {"hosts": [{"address": REDIS_URL, "socket_timeout": 10, "socket_connect_timeout": 2}], "prefix": "cocapec", "capacity": 100, "expiry": 60}}}
+WEBSOCKET_ALLOWED_ORIGINS = ["https://cocapec.lucasvizoto.com", "https://localhost"]
+
 DEBUG = False
 ALLOWED_HOSTS = ["cocapec.lucasvizoto.com", "localhost", "127.0.0.1"]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

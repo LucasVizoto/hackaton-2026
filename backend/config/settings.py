@@ -65,7 +65,15 @@ TEMPLATES = [
 ]
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
-CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+REDIS_URL = os.environ.get("REDIS_URL", "")
+CHANNEL_LAYERS = {"default": {
+    "BACKEND": "channels_redis.core.RedisChannelLayer",
+    "CONFIG": {"hosts": [{"address": REDIS_URL, "socket_timeout": 10, "socket_connect_timeout": 2}], "prefix": "cocapec", "capacity": 100, "expiry": 60},
+}} if REDIS_URL else {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+WEBSOCKET_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get(
+    "WEBSOCKET_ALLOWED_ORIGINS",
+    "http://localhost,https://localhost,http://localhost:4200,http://127.0.0.1:4200",
+).split(",") if origin.strip()]
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

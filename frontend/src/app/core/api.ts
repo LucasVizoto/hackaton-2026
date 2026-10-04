@@ -67,6 +67,16 @@ export class Api {
     const request = this.http.get<T>(`${this.base}/${path}`);
     return firstValueFrom(signal ? request.pipe(takeUntil(fromEvent(signal, "abort"))) : request);
   }
+  async websocketUrl(): Promise<string> {
+    await this.configure();
+    const url = new URL(this.base, globalThis.location.origin);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/ws/gate/";
+    url.search = "";
+    url.searchParams.set("token", this.token());
+    url.searchParams.set("stream_version", "2");
+    return url.toString();
+  }
   async post<T>(path: string, body: unknown) {
     await this.configure();
     return firstValueFrom(this.http.post<T>(`${this.base}/${path}`, body));

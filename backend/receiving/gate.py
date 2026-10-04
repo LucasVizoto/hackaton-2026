@@ -124,9 +124,10 @@ class GateArrivalListView(APIView):
 
 
 class GateArrivalDecisionView(APIView):
+    @transaction.atomic
     def post(self, request, pk):
         require_role(request.user, "warehouse")
-        arrival = get_object_or_404(GateArrival, id=pk)
+        arrival = get_object_or_404(GateArrival.objects.select_for_update(), id=pk)
         choice = request.data.get("decision")
         if choice not in {"authorized", "rejected"}:
             raise ValidationError({"decision": "Informe se a chegada foi aceita ou recusada."})

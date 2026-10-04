@@ -38,6 +38,7 @@ const MODULES: NavigationItem[] = [
         </aside>
         <main #mainContent class="main" id="main-content" tabindex="-1">
           <header class="topbar"><div class="topbar-context"><button type="button" class="icon-button tablet-menu" aria-label="Abrir módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /></button><span>{{ currentModule() }}</span><span class="context-divider" aria-hidden="true"></span><small>Recebimento Cocapec</small></div><div class="topbar-actions">@if (unreadArrivals()) { <a [routerLink]="alertRoute()" class="arrival-alert">{{ alertLabel() }}</a> }<span class="topbar-user">{{ roleLabel() }}</span><app-theme-toggle /><ion-button fill="clear" size="small" (click)="api.logout()"><ion-icon name="log-out-outline" aria-hidden="true" slot="start" />Sair</ion-button></div></header>
+          @if (live.status() === "disconnected") { <p class="notice" role="status">Atualização em tempo real desconectada. Reconectando; use Atualizar para consultar os registros.</p> }
           <router-outlet />
         </main>
         <nav class="pill-nav" aria-label="Módulos principais">@for (item of primaryItems(); track item.route) { <a [routerLink]="item.route" [class.active]="active(item.route)" [attr.aria-current]="active(item.route) ? 'page' : null" [attr.aria-label]="item.label"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.shortLabel || item.label }}</span></a> }@if (extraItems().length) { <button type="button" [class.active]="extraActive()" [attr.aria-expanded]="menuOpen()" aria-label="Mais módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /><span>Mais</span></button> }</nav>
@@ -48,7 +49,7 @@ const MODULES: NavigationItem[] = [
 })
 export class AppComponent {
   readonly api = inject(Api);
-  private live = inject(GateLive);
+  readonly live = inject(GateLive);
   private router = inject(Router);
   private destroy = inject(DestroyRef);
   @ViewChild("mainContent") private mainContent?: ElementRef<HTMLElement>;
@@ -77,12 +78,13 @@ export class AppComponent {
     effect(() => {
       const role = this.api.user()?.role;
       const message = this.live.last();
+      const refreshed = this.live.refreshed();
       if (role === "warehouse" || role === "admin" || role === "gatehouse" || role === "portaria" || role === "purchasing") {
         untracked(() => this.live.connect());
       } else {
         untracked(() => this.live.close());
       }
-      if (message && (role === "warehouse" || role === "admin" || role === "purchasing")) {
+      if ((message || refreshed) && (role === "warehouse" || role === "admin" || role === "purchasing")) {
         untracked(() => void this.loadArrivals());
       }
     });

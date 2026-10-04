@@ -24,39 +24,84 @@ export class GateLive {
   private api = inject(Api);
   private socket?: WebSocket;
   private stopped = true;
+  private connecting = false;
+  private generation = 0;
   private attempt = 0;
+  private retry?: ReturnType<typeof setTimeout>;
+  private watchdog?: ReturnType<typeof setTimeout>;
+  readonly status = signal<"idle" | "connecting" | "connected" | "disconnected">("idle");
+  readonly refreshed = signal(0);
   readonly last = signal<GateMessage | null>(null);
 
-  connect() {
+  async connect() {
+    if (this.connecting || this.retry || (this.socket && this.socket.readyState <= WebSocket.OPEN)) return;
+    if (!this.api.token() || typeof location === "undefined") return;
     this.stopped = false;
-    if (this.socket && this.socket.readyState <= WebSocket.OPEN) return;
-    const token = this.api.token();
-    if (!token || typeof location === "undefined") return;
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(`${protocol}//${location.host}/ws/gate/?token=${encodeURIComponent(token)}`);
-    this.socket = socket;
-    socket.onopen = () => {
-      this.attempt = 0;
-    };
-    socket.onmessage = (event) => {
-      try {
-        this.last.set(JSON.parse(String(event.data)) as GateMessage);
-      } catch {
-        /* Ignora um quadro que não seja o aviso de chegada. */
-      }
-    };
-    socket.onclose = () => {
-      if (this.socket === socket) this.socket = undefined;
-      if (this.stopped) return;
-      this.attempt += 1;
-      window.setTimeout(() => this.connect(), Math.min(10000, 1000 * this.attempt));
-    };
+    this.connecting = true;
+    const generation = this.generation;
+    if (this.attempt === 0) this.status.set("connecting");
+    try {
+      const url = await this.api.websocketUrl();
+      if (this.stopped || generation !== this.generation) return;
+      const socket = new WebSocket(url);
+      this.socket = socket;
+      socket.onopen = () => {
+        if (this.socket !== socket) return;
+        this.attempt = 0;
+        this.status.set("connected");
+        this.refreshed.update(value => value + 1);
+        this.armWatchdog(socket);
+      };
+      socket.onmessage = event => {
+        if (this.socket !== socket) return;
+        this.armWatchdog(socket);
+        try {
+          const message = JSON.parse(String(event.data));
+          if (message.event === "heartbeat") this.refreshed.update(value => value + 1);
+          if (["created", "authorized", "rejected"].includes(message.event) && message.arrival?.id) {
+            this.last.set(message as GateMessage);
+          }
+        } catch { /* Invalid frames never change the persisted view. */ }
+      };
+      socket.onerror = () => socket.close();
+      socket.onclose = () => {
+        if (this.socket !== socket) return;
+        this.socket = undefined;
+        clearTimeout(this.watchdog);
+        this.scheduleRetry();
+      };
+    } catch {
+      if (generation === this.generation && !this.stopped) this.scheduleRetry();
+    } finally {
+      if (generation === this.generation) this.connecting = false;
+    }
+  }
+
+  private armWatchdog(socket: WebSocket) {
+    clearTimeout(this.watchdog);
+    this.watchdog = setTimeout(() => socket.close(), 25000);
+  }
+
+  private scheduleRetry() {
+    if (this.stopped || this.retry) return;
+    this.status.set("disconnected");
+    this.retry = setTimeout(() => {
+      this.retry = undefined;
+      void this.connect();
+    }, Math.min(10000, 1000 * ++this.attempt));
   }
 
   close() {
     this.stopped = true;
-    this.socket?.close();
+    this.generation++;
+    this.connecting = false;
+    clearTimeout(this.retry);
+    clearTimeout(this.watchdog);
+    this.retry = undefined;
+    const socket = this.socket;
     this.socket = undefined;
+    socket?.close();
     this.last.set(null);
+    this.status.set("idle");
   }
 }

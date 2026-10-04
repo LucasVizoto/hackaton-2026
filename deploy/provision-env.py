@@ -43,6 +43,8 @@ if not env_path.exists():
         "password": values["DEMO_PASSWORD"],
     }, indent=2) + "\n", False)
 values = dict(line.split("=", 1) for line in env_path.read_text().splitlines() if "=" in line)
+if not values.get("REDIS_URL"):
+    private_file(env_path, env_path.read_text().rstrip() + "\nREDIS_URL=redis://127.0.0.1:6379/0\n")
 for role_name, password, database, createdb in [
     ("cocapec", values["DB_PASSWORD"], "cocapec", False),
     ("cocapec_validation", None, "cocapec_validation", True),

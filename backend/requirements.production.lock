@@ -3,6 +3,9 @@
 asgiref==3.12.1
     # via
     #   -r backend/requirements.lock
+    #   channels
+    #   channels-redis
+    #   daphne
     #   django
     #   django-cors-headers
 attrs==26.1.0
@@ -10,11 +13,49 @@ attrs==26.1.0
     #   -r backend/requirements.lock
     #   jsonschema
     #   referencing
+    #   service-identity
+    #   twisted
+autobahn==26.7.1
+    # via
+    #   -r backend/requirements.lock
+    #   daphne
+automat==25.4.16
+    # via
+    #   -r backend/requirements.lock
+    #   twisted
+cbor2==6.1.5
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
+cffi==2.1.1
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
+    #   cryptography
+channels==4.3.2
+    # via
+    #   -r backend/requirements.lock
+    #   channels-redis
+channels-redis==4.3.0
+    # via -r backend/requirements.lock
+constantly==23.10.4
+    # via
+    #   -r backend/requirements.lock
+    #   twisted
+cryptography==50.0.2
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
+    #   pyopenssl
+    #   service-identity
+daphne==4.2.3
+    # via -r backend/requirements.lock
 defusedxml==0.7.1
     # via -r backend/requirements.lock
 django==5.2.17
     # via
     #   -r backend/requirements.lock
+    #   channels
     #   django-cors-headers
     #   djangorestframework
     #   drf-spectacular
@@ -32,6 +73,20 @@ et-xmlfile==2.0.0
     #   openpyxl
 gunicorn==26.2.0
     # via -r backend/requirements.production.in
+hyperlink==21.0.0
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
+    #   twisted
+idna==3.20
+    # via
+    #   -r backend/requirements.lock
+    #   hyperlink
+    #   twisted
+incremental==24.11.0
+    # via
+    #   -r backend/requirements.lock
+    #   twisted
 inflection==0.5.1
     # via
     #   -r backend/requirements.lock
@@ -44,18 +99,39 @@ jsonschema-specifications==2025.9.1
     # via
     #   -r backend/requirements.lock
     #   jsonschema
+msgpack==1.2.3
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
+    #   channels-redis
 openpyxl==3.1.5
     # via -r backend/requirements.lock
+packaging==26.3
+    # via
+    #   -r backend/requirements.lock
+    #   incremental
 psycopg==3.3.6
     # via -r backend/requirements.lock
 psycopg-binary==3.3.6
     # via -r backend/requirements.lock
+pycparser==3.0
+    # via
+    #   -r backend/requirements.lock
+    #   cffi
+pyopenssl==26.4.0
+    # via
+    #   -r backend/requirements.lock
+    #   twisted
 python-dotenv==1.2.4
     # via -r backend/requirements.lock
 pyyaml==6.0.3
     # via
     #   -r backend/requirements.lock
     #   drf-spectacular
+redis==8.1.0
+    # via
+    #   -r backend/requirements.lock
+    #   channels-redis
 referencing==0.37.0
     # via
     #   -r backend/requirements.lock
@@ -68,13 +144,37 @@ rpds-py==2026.6.3
     #   referencing
 ruff==0.16.10
     # via -r backend/requirements.lock
+service-identity==26.1.0
+    # via
+    #   -r backend/requirements.lock
+    #   twisted
 sqlparse==0.6.0
     # via
     #   -r backend/requirements.lock
     #   django
+twisted==26.4.0
+    # via
+    #   -r backend/requirements.lock
+    #   daphne
+txaio==26.6.1
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
+typing-extensions==4.16.0
+    # via
+    #   -r backend/requirements.lock
+    #   twisted
 tzdata==2026.5
     # via -r backend/requirements.lock
+ujson==6.0.0
+    # via
+    #   -r backend/requirements.lock
+    #   autobahn
 uritemplate==4.2.0
     # via
     #   -r backend/requirements.lock
     #   drf-spectacular
+zope-interface==8.6
+    # via
+    #   -r backend/requirements.lock
+    #   twisted

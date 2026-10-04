@@ -1,5 +1,19 @@
 # Deploy Contabo
 
+## Atualização ASGI e Redis — 03/10/2026
+
+A integração posterior a `5f54856` prepara Daphne para HTTP e `/ws/gate/`, Redis para notificações entre processos e a migration `receiving/0010_merge_gate_and_shared_machine`. Publicar o código na main não ativa esses componentes no servidor.
+
+Antes de ativar uma release com estas mudanças, provisionar Redis em loopback e definir `REDIS_URL=redis://127.0.0.1:6379/0` no ambiente privado. O provisionamento acrescenta o programa Redis sem remover os programas ativos de API/web; a ativação executa o preflight antes de parar a API. Se Redis ou a configuração ASGI estiverem indisponíveis, a ativação é recusada. O Supervisor passa a acompanhar PostgreSQL, Redis, API e Caddy por nome, sem presumir três processos. Redis não armazena o histórico de negócio e não recebe acesso público.
+
+Produção exige Redis, sem fallback para memória. Para integração local: `docker compose up -d postgres redis`, `REDIS_URL=redis://127.0.0.1:56479/0` e a aplicação ASGI `config.asgi:application`. Testes isolados podem omitir `REDIS_URL`; `TEST_REDIS_URL` habilita o teste entre processos contra um Redis de QA. A configuração local aceita `WEBSOCKET_ALLOWED_ORIGINS`; produção restringe às origens HTTPS do domínio configurado e da WebView Android.
+
+O Caddy encaminha `/api/` e `/ws/`, removendo o parâmetro `token` dos registros de acesso conforme o [filtro de query documentado](https://caddyserver.com/docs/caddyfile/directives/log). Daphne usa acesso desativado; avisos da aplicação não incluem credenciais do broker ou tokens. O APK deriva WebSocket do endereço da API configurada, não do host da WebView.
+
+Aceite/recusa bloqueia o registro durante a transação. Notificações são emitidas após commit; indisponibilidade do broker não desfaz a decisão. O cliente mostra desconexão, reconecta e consulta novamente a API. Heartbeats renovam a associação aos grupos e recuperam registros eventualmente não notificados. O timeout de leitura do Redis é de 10 segundos, superior à espera bloqueante de 5 segundos do Channels. O quadro `{"event":"heartbeat"}` é enviado somente quando o cliente informa `stream_version=2` na conexão; clientes anteriores continuam recebendo apenas os eventos de chegada e decisão.
+
+O inventário privado inclui Portaria sem remover contas existentes ou alterar senhas, com substituição atômica e modo `0600`. A verificação HTTPS cobre seis perfis e permissões de fotos, usando o papel canônico `gatehouse` (o alias persistido `portaria` continua aceito). A declaração Android `IMAGE_CAPTURE` preserva a descoberta de aplicativos de câmera.
+
 Aplicação: https://cocapec.lucasvizoto.com. SSH usa o alias `contabo` e root por chave. PostgreSQL 17, Gunicorn e Caddy são controlados exclusivamente pelo Supervisor; systemd inicia o Supervisor no boot.
 
 ## Primeira instalação

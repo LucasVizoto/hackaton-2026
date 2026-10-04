@@ -2,6 +2,8 @@
 set -euo pipefail
 release=$(realpath "${1:?release directory required}")
 [[ "$release" == /srv/cocapec/releases/* ]]
+# Fail before stopping the live API if the new runtime is not ready.
+"$release/backend/.venv/bin/python" "$release/deploy/preflight-runtime.py"
 previous=""
 if [ -L /srv/cocapec/current ]; then previous=$(readlink -f /srv/cocapec/current); fi
 if [ -n "$previous" ]; then supervisorctl stop cocapec-api; fi
@@ -18,6 +20,7 @@ else
 fi
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" createcachetable
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" seed_demo
+python3 "$release/deploy/update-credentials.py"
 runuser -u cocapec -- env DJANGO_SETTINGS_MODULE=config.settings_production "$release/backend/.venv/bin/python" "$release/backend/manage.py" collectstatic --noinput
 if [ -n "$previous" ]; then "$release/backend/.venv/bin/python" "$release/deploy/verify-persistence.py" verify; fi
 if [ -n "$previous" ]; then printf '%s\n' "$previous" >/srv/cocapec/shared/previous-release; fi
@@ -44,10 +47,10 @@ if [ -n "$previous" ]; then
     supervisorctl start cocapec-api
     supervisorctl restart cocapec-web
 fi
-for attempt in $(seq 1 30); do
-    if supervisorctl status | awk '($2 != "RUNNING"){bad=1} END{exit(bad || NR != 3)}'; then break; fi
+for _ in $(seq 1 30); do
+    if bash "$release/deploy/check-services.sh"; then break; fi
     sleep 2
 done
 supervisorctl status
-supervisorctl status | awk '($2 != "RUNNING"){bad=1} END{exit(bad || NR != 3)}'
+bash "$release/deploy/check-services.sh"
 printf 'Release activated; run public verification before accepting deployment.\n'

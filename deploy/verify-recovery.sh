@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 test "$(id -u)" = 0
-for program in cocapec-api cocapec-web cocapec-postgres; do
+for program in cocapec-api cocapec-web cocapec-redis cocapec-postgres; do
     old_pid=$(supervisorctl pid "$program")
     test "$old_pid" -gt 1
     signal=TERM
     if [ "$program" = cocapec-postgres ]; then signal=INT; fi
     kill -s "$signal" "$old_pid"
     recovered=false
-    for attempt in $(seq 1 30); do
+    for _ in $(seq 1 30); do
         new_pid=$(supervisorctl pid "$program")
         if [ "$new_pid" -gt 1 ] && [ "$new_pid" != "$old_pid" ] && supervisorctl status "$program" | grep -q ' RUNNING '; then
             recovered=true

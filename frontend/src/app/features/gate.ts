@@ -334,6 +334,9 @@ export class ArrivalInbox implements OnInit {
   busy=signal(false);page=1;count=signal(0);hasNext=signal(false);
   constructor() {
     effect(() => {
+      if (this.live.refreshed()) untracked(() => void this.load());
+    });
+    effect(() => {
       const message = this.live.last();
       if (!message) return;
       untracked(() => this.rows.update((rows) => applyArrival(rows, message, "warehouse")));
@@ -376,6 +379,9 @@ export class ArrivalReview implements OnInit {
   notice = signal("");
   busy=signal(false);page=1;count=signal(0);hasNext=signal(false);
   constructor() {
+    effect(() => {
+      if (this.live.refreshed()) untracked(() => void this.load());
+    });
     effect(() => {
       const message = this.live.last();
       if (!message || message.event !== "rejected") return;
@@ -434,6 +440,9 @@ export class SentArrivals implements OnInit {
   count = signal(0);
   hasNext = signal(false);
   constructor() {
+    effect(() => {
+      if (this.live.refreshed()) untracked(() => void this.load());
+    });
     effect(() => {
       const message = this.live.last();
       if (!message || message.event === "created") return;

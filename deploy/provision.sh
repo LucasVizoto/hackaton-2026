@@ -4,15 +4,17 @@ test "$(id -u)" = 0
 export DEBIAN_FRONTEND=noninteractive
 systemctl mask --now caddy.service postgresql.service postgresql@17-main.service || true
 apt-get update
-apt-get install -y supervisor postgresql-17 postgresql-client-17 curl ca-certificates gnupg nftables rsync git xz-utils libcap2-bin
+apt-get install -y supervisor postgresql-17 postgresql-client-17 curl ca-certificates gnupg nftables rsync git xz-utils libcap2-bin redis-server
 curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt -o /etc/apt/sources.list.d/caddy-stable.list
 apt-get update
 apt-get install -y caddy
+systemctl mask --now redis-server.service || true
 id cocapec >/dev/null 2>&1 || useradd --system --home-dir /srv/cocapec --shell /usr/sbin/nologin cocapec
 install -d -m 755 /srv/cocapec /srv/cocapec/releases /opt/cocapec /opt/cocapec/downloads
 install -d -o cocapec -g cocapec -m 750 /srv/cocapec/.npm /srv/cocapec/.cache
 install -d -o cocapec -g cocapec -m 750 /srv/cocapec/shared /srv/cocapec/shared/media /srv/cocapec/shared/sources /srv/cocapec/shared/reports
+install -d -o cocapec -g cocapec -m 750 /srv/cocapec/shared/redis
 install -d -o root -g root -m 750 /var/log/cocapec
 install -d -o caddy -g caddy -m 750 /var/log/caddy /var/lib/caddy
 install -d -o caddy -g caddy -m 750 /run/cocapec-caddy
@@ -67,10 +69,17 @@ log_destination = 'stderr'
 log_line_prefix = '%m [%p] '
 EOF
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-awk '/^\[program:cocapec-api\]/{exit} {print}' "$script_dir/supervisor.conf" >/etc/supervisor/conf.d/cocapec.conf
+if [ -L /srv/cocapec/current ]; then
+    # Adding Redis must not remove or restart the running API/web programs.
+    if ! grep -q '^\[program:cocapec-redis\]' /etc/supervisor/conf.d/cocapec.conf; then
+        awk '/^\[program:cocapec-redis\]/{copy=1} /^\[program:cocapec-api\]/{copy=0} copy {print}' "$script_dir/supervisor.conf" >>/etc/supervisor/conf.d/cocapec.conf
+    fi
+else
+    awk '/^\[program:cocapec-api\]/{exit} {print}' "$script_dir/supervisor.conf" >/etc/supervisor/conf.d/cocapec.conf
+fi
 supervisorctl reread
 supervisorctl update
-for attempt in $(seq 1 30); do
+for _ in $(seq 1 30); do
     if runuser -u postgres -- pg_isready -q; then break; fi
     sleep 2
 done

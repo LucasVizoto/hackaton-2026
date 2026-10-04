@@ -1,4 +1,5 @@
 from importlib import import_module
+from unittest.mock import patch
 
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.middleware.security import SecurityMiddleware
@@ -6,7 +7,8 @@ from django.middleware.security import SecurityMiddleware
 
 class ProductionProxyTests(SimpleTestCase):
     def setUp(self):
-        self.config = import_module("config.settings_production")
+        with patch.dict("os.environ", {"REDIS_URL": "redis://127.0.0.1:56479/0"}):
+            self.config = import_module("config.settings_production")
 
     def test_separate_settings_keep_debug_off_and_exact_origins(self):
         self.assertFalse(self.config.DEBUG)
