@@ -3,7 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { Api, apiError } from "../core/api";
 import { AvailableSlot, revalidatedTime } from "../core/workflow";
 
-@Component({ selector: "app-slot-picker", standalone: true, imports: [FormsModule], changeDetection: ChangeDetectionStrategy.OnPush,
+@Component({ selector: "app-slot-picker", standalone: true, imports: [FormsModule], changeDetection: ChangeDetectionStrategy.OnPush, host: { style: "display: block; min-width: 0" },
   template: `<fieldset class="slot-picker"><legend>Horário</legend><div class="slot-options">@for(slot of slots();track slot.time){<label class="slot-option" [class.is-disabled]="!slot.eligible || loading()" [class.is-selected]="selected()===slot.time.slice(0,5)"><input type="radio" name="slot-time" [value]="slot.time.slice(0,5)" [checked]="selected()===slot.time.slice(0,5)" [disabled]="loading() || !ready() || !slot.eligible" (change)="choose(slot.time.slice(0,5))" /><strong>{{slot.time.slice(0,5)}}</strong><span>{{slot.eligible?'Disponível':slot.reason || 'Indisponível'}}</span></label>}</div></fieldset>
   @if (loading()) { <p class="field-help" role="status">Consultando disponibilidade…</p> }
   @if (error()) { <p class="error" role="alert">{{error()}}</p><button type="button" (click)="refresh()">Consultar novamente</button> }
