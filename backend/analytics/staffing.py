@@ -166,4 +166,3 @@ class StaffingBalanceView(APIView):
                 "Dia sem boletim aparece como sem dado, nunca como R$ 0.",
             ],
         })
-
