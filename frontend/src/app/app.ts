@@ -29,6 +29,7 @@ const MODULES: NavigationItem[] = [
   ] },
   { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"], tabs: [
     { route: "/gestao", label: "Indicadores" },
+    { route: "/gestao/logistica", label: "Logística e Entregas" },
     { route: "/chegadas", label: "Chegadas", roles: ["warehouse", "purchasing", "management"] },
     { route: "/nao-recebimentos", label: "Não recebimentos", roles: ["warehouse", "management"] },
   ] },

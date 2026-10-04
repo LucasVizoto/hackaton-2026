@@ -12,6 +12,7 @@ import {
   isoFromHgDate,
   RAIN_ALERT,
   SUN_LABEL,
+  WEATHER_UNAVAILABLE,
 } from "../src/app/core/hg-weather";
 
 const rainyDay = {
@@ -55,6 +56,8 @@ test("Open-Meteo day 5 stays rainy and a dry day shows the sun", () => {
   assert.equal(forecastIcon(days.get("2026-10-05") ?? null), "rain");
   assert.equal(forecastIcon(days.get("2026-10-06") ?? null), "sun");
   assert.equal(SUN_LABEL, "Sem previsão de chuva para esta data.");
+  assert.equal(forecastIcon(null), "unknown");
+  assert.match(WEATHER_UNAVAILABLE, /indisponível/);
 });
 
 test("treats rain, storm and a wet description as rainy", () => {
@@ -112,5 +115,28 @@ test("a failed day does not hide the forecast of another day", async () => {
   await weather.load("2026-10-05");
   await weather.load("2026-10-06");
   assert.equal(forecastIcon(weather.day("2026-10-05")), "rain");
-  assert.equal(forecastIcon(weather.day("2026-10-06")), "sun");
+  assert.equal(weather.day("2026-10-06"), null);
+  assert.equal(forecastIcon(weather.day("2026-10-06")), "unknown");
+  assert.equal(weather.source(), "unavailable");
+  assert.equal(weather.pending().size, 0);
+});
+
+test("an unavailable forecast stays absent and can be loaded after recovery", async () => {
+  let calls = 0;
+  const api = {get: async () => {
+    calls++;
+    if (calls === 1) return {results: {forecast: []}};
+    return {by: "open-meteo", results: {forecast: [rainyDay]}};
+  }};
+  const injector = createEnvironmentInjector([{provide: Api, useValue: api}], null!);
+  try {
+    const weather = runInInjectionContext(injector, () => new HgWeather());
+    await weather.load("2026-10-03");
+    assert.equal(weather.day("2026-10-03"), null);
+    assert.equal(weather.source(), "unavailable");
+    await weather.load("2026-10-03");
+    assert.equal(forecastIcon(weather.day("2026-10-03")), "rain");
+    assert.equal(weather.source(), "open-meteo");
+    assert.equal(calls, 2);
+  } finally {injector.destroy();}
 });

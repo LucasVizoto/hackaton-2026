@@ -7,6 +7,22 @@ import { HttpClient } from "@angular/common/http";
 import { Api } from "../src/app/core/api";
 import { routes } from "../src/app/routes";
 
+test("legacy settlement URL preserves the embedded fortnight view in bulletins", () => {
+  const tree = {};
+  let destination: unknown;
+  const injector = createEnvironmentInjector([
+    { provide: Router, useValue: { createUrlTree: (...args: unknown[]) => { destination = args; return tree; } } },
+  ], null!);
+  try {
+    const route = routes.find(route => route.path === "acerto")!;
+    assert.equal(typeof route.redirectTo, "function");
+    const redirect = route.redirectTo as (snapshot: never) => unknown;
+    assert.equal(runInInjectionContext(injector, () => redirect(null!)), tree);
+    assert.deepEqual(destination, [["/boletins"], { queryParams: { visao: "quinzena" } }]);
+    assert.ok(routes.find(route => route.path === "boletins")!.canActivate!.length > 0);
+  } finally { injector.destroy(); }
+});
+
 test("management can consult all modules but cannot enter creation routes or gain operational roles", () => {
   const redirected = {};
   const injector = createEnvironmentInjector([
@@ -19,7 +35,7 @@ test("management can consult all modules but cannot enter creation routes or gai
     for (const username of ["gestao_demo", "outro_gestor"]) {
       api.user.set({ id: 12, username, role: "management", supplier_id: null });
       for (const path of ["agenda", "compras", "portaria", "portaria/chegadas", "chegadas", "revisoes",
-        "nao-recebimentos", "boletins", "boletins/:id", "pessoas", "pessoas/:id", "equipamentos", "escala", "gestao"]) {
+        "nao-recebimentos", "boletins", "boletins/:id", "pessoas", "pessoas/:id", "equipamentos", "escala", "gestao", "gestao/logistica"]) {
         const route = routes.find(route => route.path === path)!;
         for (const guard of route.canActivate ?? []) {
           assert.equal(runInInjectionContext(injector, () => (guard as CanActivateFn)(null!, null!)), true, path);
@@ -32,6 +48,25 @@ test("management can consult all modules but cannot enter creation routes or gai
       assert.equal(api.can("warehouse", "purchasing", "gatehouse", "supplier"), false);
       assert.equal(api.can("management"), true);
     }
+  } finally { injector.destroy(); }
+});
+
+test("logistics allows internal readers and denies suppliers and gatehouse", () => {
+  const redirected = {};
+  const injector = createEnvironmentInjector([
+    { provide: Api, useClass: Api }, { provide: HttpClient, useValue: {} },
+    { provide: Router, useValue: { createUrlTree: () => redirected } },
+  ], null!);
+  try {
+    const api = runInInjectionContext(injector, () => injector.get(Api));
+    const route = routes.find(route => route.path === "gestao/logistica")!;
+    for (const role of ["management", "warehouse", "purchasing", "admin", "supplier", "gatehouse", "portaria"]) {
+      api.user.set({ id: 12, username: "leitor", role, supplier_id: null });
+      const results = route.canActivate!.map(guard => runInInjectionContext(injector, () => (guard as CanActivateFn)(null!, null!)));
+      assert.equal(results.every(result => result === true), ["management", "warehouse", "purchasing", "admin"].includes(role), role);
+    }
+    api.user.set(null);
+    assert.ok(route.canActivate!.some(guard => runInInjectionContext(injector, () => (guard as CanActivateFn)(null!, null!)) === redirected));
   } finally { injector.destroy(); }
 });
 

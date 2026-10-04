@@ -40,7 +40,7 @@ A lista é paginada em 50 itens e retorna `count`, `next`, `previous`, `results`
 | `POST appointments/:id/purchase-review/` | Compras: `decision`, referência/evidência de conferência, revisão |
 | `POST appointments/:id/forward-to-purchasing/` | Armazém antes da descarga: `reason`, `expected_revision`, `idempotency_key`; mantém reserva/chegada/etapas, reinicia ambas aprovações, audita e notifica Compras |
 | `POST appointments/:id/warehouse-review/` | Armazém: `warehouse_ids` em sequência, notas e revisão; exige Compras aprovada |
-| `POST appointments/:id/gate-check-in/` | Portaria: chegada à unidade; `occurred_at` opcional, revisão; independe de aprovação |
+| `POST appointments/:id/gate-check-in/` | Portaria: chegada à unidade; `occurred_at` opcional, revisão; `driver_name` opcional se já cadastrado, nome efetivo obrigatório até 160 caracteres; independe de aprovação |
 | `POST warehouse-visits/:id/check-in/` | Armazém: entrada no local; exige chegada, ambas aprovações e etapas anteriores concluídas |
 | `POST warehouse-visits/:id/check-out/` | Armazém: saída do local, revisão, horário e recursos confirmados; última etapa exige conferência documental resolvida |
 | `POST appointments/:id/gate-check-out/` | Portaria: saída da unidade; exige chegada e descarga concluída, cancelamento ou não recebimento |
@@ -92,6 +92,10 @@ Fração excepcional/saída antecipada/extra/diária especial pode ser registrad
 ## Indicadores e integrações opcionais
 
 `GET analytics/operations/`, `GET analytics/labor-costs/` e `POST analytics/staffing-scenario/` mantêm período/local/origem e acrescentam quatro marcos, pessoas, locais atendidos, responsável financeiro, presença e reconciliação. O cenário aceita mínimo de equipe e recursos informados, retorna `infeasible` ou `unverified`, sem executar redução ou prometer economia. Consulte [indicadores](indicadores.md).
+
+`GET analytics/logistics/` é uma consulta de Gestão/Compras/Armazém/admin, sem filtros, exclusivamente de `operacional_registrado`. Retorna `reference_date`, `timezone`, `generated_at`, `period` (sete dias incluindo hoje), `summary` (`received_today`, `driver_entries_today`, `trucks_in_queue`), `loads_by_date` (`date`, `count`) e `loads_by_warehouse` (`warehouse`, `warehouse_name`, `count`). `coverage` informa `driver_entries_without_name`, `completed_without_destination` e `destination_associations`. Totais não são limitados por paginação. Portaria/Fornecedor não acessam este endpoint.
+
+Na primeira entrada de recebimento v2, o comando usa `driver_name` informado ou o nome existente. Nome vazio ou acima de 160 caracteres retorna erro; espaços são normalizados e o nome efetivo é persistido no recebimento e no evento de entrada. Revisão, chave de idempotência e sequência temporal seguem os contratos anteriores; repetir a entrada não substitui o motorista já registrado. Saída continua sendo um comando próprio e não aumenta a contagem de entradas.
 
 `GET integrations/capabilities/` informa habilitação e configuração mínima, sem testar credenciais ou conectividade do provedor. Assistente, OCR, clima e envio externo dependem de habilitação/configuração e não foram verificados contra provedores nesta documentação. Assistente é somente leitura; OCR sugere, não aprova; clima informa, não bloqueia agenda; calendário é saída, sem alterar capacidade local. Falha/ausência de provedor não retorna sucesso simulado. Veja [configuração, fila, escopo de envio e limitações OAuth](integracoes.md).
 

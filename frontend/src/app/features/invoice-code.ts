@@ -117,22 +117,6 @@ export function linesFromPdfItems(items: readonly PdfTextItem[]): string {
     .join("\n");
 }
 
-async function recognizeImage(file: Blob): Promise<string> {
-  const imported = await import("tesseract.js");
-  const { createWorker } = imported.default ?? imported;
-  const worker = await createWorker("por").catch(() => createWorker("eng"));
-  try {
-    const result = await worker.recognize(file);
-    return String(result.data.text ?? "");
-  } finally {
-    await worker.terminate();
-  }
-}
-
-export async function readInvoiceImage(file: Blob): Promise<string> {
-  return invoiceCodeFromText(await recognizeImage(file));
-}
-
 async function loadPdf(data: Uint8Array) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   if (typeof document === "undefined") return pdfjs.getDocument({ data }).promise;
@@ -144,10 +128,11 @@ async function loadPdf(data: Uint8Array) {
   }).promise;
 }
 
-async function textLayer(pdf: Awaited<ReturnType<typeof loadPdf>>): Promise<string> {
-  const pages = Math.min(pdf.numPages, 3);
+async function textLayer(pdf: Awaited<ReturnType<typeof loadPdf>>, signal?: AbortSignal): Promise<string> {
+  const pages = pdf.numPages;
   const chunks: string[] = [];
   for (let index = 1; index <= pages; index += 1) {
+    signal?.throwIfAborted();
     const page = await pdf.getPage(index);
     const content = await page.getTextContent();
     const items = content.items.flatMap((item) => ("str" in item ? [item] : []));
@@ -156,26 +141,44 @@ async function textLayer(pdf: Awaited<ReturnType<typeof loadPdf>>): Promise<stri
   return chunks.join("\n");
 }
 
-async function ocrFirstPage(pdf: Awaited<ReturnType<typeof loadPdf>>): Promise<string> {
-  if (typeof document === "undefined") return "";
-  const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2 });
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(viewport.width);
-  canvas.height = Math.ceil(viewport.height);
-  await page.render({ canvas, viewport }).promise;
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  return blob ? recognizeImage(blob) : "";
+export function reliableInvoiceFromText(text: string): InvoiceReading | null {
+  const source = text.replace(/\u00a0/g, " ");
+  const fields = invoiceFieldsFromText(source);
+  // More than one key, malformed/partial keys or ambiguous numbers need visual review.
+  const keys = new Set([...source.matchAll(/[0-9]{44}|[0-9]{4}(?:[.\t ]+[0-9]{4}){10}/g)]
+    .map(match => match[0].replace(/[.\t ]/g, "")));
+  if (keys.size > 1 || printedInvoiceNumber(source) === null) return null;
+  if (keys.size && !fields.accessKey) return null;
+  if (/chave\s*de\s*acesso/i.test(source) && !fields.accessKey) return null;
+  if (fields.accessKey) {
+    let sum = 0;
+    for (let i = 42, weight = 2; i >= 0; i--, weight = weight === 9 ? 2 : weight + 1) sum += Number(fields.accessKey[i]) * weight;
+    const remainder = sum % 11;
+    if (Number(fields.accessKey[43]) !== (remainder < 2 ? 0 : 11 - remainder)) return null;
+    const fromKey = numberFromAccessKey(fields.accessKey);
+    if (fields.number && fields.number !== fromKey) return null;
+    return { number: fields.number || fromKey, accessKey: fields.accessKey };
+  }
+  // Generic Nº labels can belong to orders/protocols. Only NF-e/nNF labels suffice here.
+  if (!/\b(?:nf-?e|nnf)\b/i.test(source) || !fields.number) return null;
+  return fields;
 }
 
-export async function readInvoicePdf(file: Blob): Promise<InvoiceReading> {
+export async function readInvoicePdf(file: Blob, remote?: (file: Blob, signal?: AbortSignal) => Promise<InvoiceReading>, signal?: AbortSignal): Promise<InvoiceReading> {
+  signal?.throwIfAborted();
+  if (!file.size || file.size > 10 * 1024 * 1024) throw new Error("Envie um PDF de até 10 MB.");
   const data = new Uint8Array(await file.arrayBuffer());
+  signal?.throwIfAborted();
   const pdf = await loadPdf(data);
+  let embedded: InvoiceReading | null;
   try {
-    const embedded = invoiceDocumentFromText(await textLayer(pdf));
-    if (embedded.number || embedded.accessKey) return embedded;
-    return invoiceDocumentFromText(await ocrFirstPage(pdf));
+    embedded = reliableInvoiceFromText(await textLayer(pdf, signal));
   } finally {
     await pdf.destroy();
   }
+  signal?.throwIfAborted();
+  if (embedded) return embedded;
+  const result = remote ? await remote(file, signal) : { number: "", accessKey: "" };
+  signal?.throwIfAborted();
+  return { number: canonicalOcrNumber(result.number), accessKey: result.accessKey };
 }

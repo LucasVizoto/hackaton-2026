@@ -122,7 +122,8 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 100,
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "core.exceptions.exception_handler",
-    "DEFAULT_THROTTLE_RATES": {"login": "20/minute", "assistant": "10/hour"},
+    "DEFAULT_THROTTLE_RATES": {"login": "20/minute", "assistant": "10/hour",
+                               "invoice_reading": os.environ.get("OPENAI_INVOICE_READING_RATE", "10/minute")},
 }
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
@@ -132,6 +133,7 @@ OPTIONAL_INTEGRATIONS_ENABLED = os.environ.get("OPTIONAL_INTEGRATIONS_ENABLED", 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "")
 OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "")
+OPENAI_INVOICE_READING_ENABLED = os.environ.get("OPENAI_INVOICE_READING_ENABLED", "false").lower() == "true"
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))

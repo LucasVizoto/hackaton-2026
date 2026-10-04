@@ -22,6 +22,7 @@ from integrations.models import OutboundDelivery, ReadinessRevision, DocumentSug
 from integrations.outbound import dispatch_one, deliver_calendar, deliver_email
 from integrations.providers import ProviderUnavailable, configuration, json_request, openai_response
 from labor.tests import REFERENCE, labor_fixtures
+from labor.models import DailyBulletin
 from catalog.models import Supplier
 from receiving.models import Appointment, AppointmentInvoice, GlobalSlot, InternalNotification, Invoice, InvoiceItem, ReceiptLine, WarehouseVisit
 
@@ -67,6 +68,19 @@ class IntegrationTests(TestCase):
         self.assertIsNone(result.data["context"]["financial_summary"]["total_payable"])
         self.assertEqual(len(result.data["references"]), 2)
         self.assertNotIn("tools", provider.call_args.kwargs)
+        self.assertIn("weekly_supplement", result.data["context"])
+        self.assertIn("gate_wait_by_warehouse", result.data["context"])
+        self.assertIn("operational_coverage", result.data["context"])
+        self.assertEqual(result.data["context"]["weekly_supplement"]["period"], result.data["context"]["period"])
+
+    @override_settings(OPTIONAL_INTEGRATIONS_ENABLED=True, OPENAI_API_KEY="fake-test-key", OPENAI_MODEL="fake-model")
+    @patch("integrations.views.openai_response", side_effect=ProviderUnavailable("provider_connection_or_response"))
+    def test_assistant_failure_preserves_read_only_records(self, provider):
+        before = (DailyBulletin.objects.count(), Appointment.objects.count())
+        response = self.client.post("/api/v2/integrations/assistant/", {**self.filters, "question": "Identifique os gargalos"}, format="json")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(before, (DailyBulletin.objects.count(), Appointment.objects.count()))
+        provider.assert_called_once()
 
     def test_readiness_is_revisioned_and_does_not_change_capacity(self):
         self.client.force_authenticate(self.operator)

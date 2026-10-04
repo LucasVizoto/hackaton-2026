@@ -4,16 +4,19 @@ O sistema funciona com todas as integrações externas desligadas. `OPTIONAL_INT
 
 A assinatura de conferência é um registro local, disponível independentemente desses adaptadores. Armazém registra nome e declaração na revisão concluída de um recebimento v2. A página de Integrações consulta novamente as assinaturas após gravar; o detalhe do recebimento também mostra a consulta, conforme as permissões da API. O registro informa data, revisão atual/anterior, declaração e resumo do manifesto; identificador e hash ficam nos detalhes técnicos. Isso não constitui assinatura fiscal/criptográfica homologada nem valida retroativamente recebimentos legados.
 
-O OCR local do aviso fotográfico da Portaria é um recurso separado: usa Tesseract no cliente, preservado na conciliação com `main`, e não depende do adaptador `integrations/ocr/`. Ele sugere apenas o número da NF e exige conferência humana. A primeira utilização pode depender da obtenção dos recursos de execução/idioma; a existência do código não comprova funcionamento offline ou qualidade da leitura de uma foto real. Os testes do parser textual não equivalem à validação do motor OCR com câmera.
+A leitura de fotos da Portaria e de PDFs sem texto confiável usa o SDK OpenAI no backend, pela rota `integrations/invoice-reading/`. A extração local de XML e PDFs com texto coerente permanece disponível. `OPENAI_INVOICE_READING_ENABLED=false` é o padrão e controla esse recurso independentemente das demais integrações. Número e chave são sugestões para conferência humana; falhas permitem preenchimento manual e preservam o arquivo selecionado. Consulte [configuração, avaliação e ativação do OCR](ocr.md). A qualidade com documentos reais ainda exige homologação.
 
 ## Disponibilidade e responsabilidades
 
 `GET /api/v2/integrations/capabilities/` informa se o recurso está habilitado e possui a configuração mínima. Isso não verifica a validade de credenciais, disponibilidade de rede, saldo da conta ou autorização no provedor. Chamadas indisponíveis retornam erro, sem fabricar resultado.
 
+Em Gestão, **Análise automática** é uma síntese local dos agregados consultados. **Análise da IA** aparece somente após uma resposta do provedor, com período e origem. A chamada automática usa os filtros aplicados, incluindo local, e exige disponibilidade configurada, perfil Gestão/admin e indicadores consultados sem falhas. O contexto inclui complemento semanal, esperas por primeiro destino e cobertura. Falha externa mantém a síntese local e permite tentar novamente; respostas de filtros anteriores são descartadas. Sem dados apurados, o painel informa que a IA aguarda boletins ou esperas medidas. Nenhuma dessas análises altera ou executa pagamentos, boletins ou recebimentos.
+
 | Recurso | Contrato local | Limite |
 |---|---|---|
 | Assistente gerencial | `POST integrations/assistant/`; Gestão/admin; pergunta, período, origem e local opcionais | Consulta indicadores autorizados e compara com o período anterior. Não recebe ferramentas, SQL executável ou acesso para alterar agenda/pagamentos. |
 | OCR assistido | `POST integrations/ocr/`; fornecedor, Compras ou Armazém/admin; PDF, PNG ou JPEG até 10 MB | Retorna sugestão para conferência humana. Não cria/aprova NF nem altera itens automaticamente. |
+| Leitura de identificação da NF | `POST integrations/invoice-reading/`; Portaria, fornecedor, Compras, Armazém/admin; imagem ou PDF até 10 MB | Retorna número/chave estruturados, com validação determinística. Original é armazenado apenas no envio normal do fluxo. |
 | Clima | `GET integrations/weather/`; perfis internos da operação | Previsão informativa, sem bloqueio/reagendamento automático. Ausência, configuração inválida ou resposta incompleta são indisponibilidade. |
 | E-mail | Fila persistida processada por `integration_jobs` | Resumo gerencial e notificações internas somente para destinatários explicitamente configurados. |
 | Google Calendar | Fila persistida; publicação de reservas | Saída do aplicativo para um calendário configurado. Alterações externas não mudam reserva/capacidade local. |
@@ -31,6 +34,8 @@ OPTIONAL_INTEGRATIONS_ENABLED=false
 OPENAI_API_KEY=
 OPENAI_MODEL=
 OPENAI_VISION_MODEL=
+OPENAI_INVOICE_READING_ENABLED=false
+OPENAI_INVOICE_READING_RATE=10/minute
 
 EMAIL_HOST=
 EMAIL_PORT=587
@@ -59,6 +64,7 @@ WEATHER_LONGITUDE=
 |---|---|
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Assistente pela Responses API. É necessário escolher um modelo disponível na conta. |
 | `OPENAI_VISION_MODEL` | Modelo com suporte aos tipos de entrada usados pelo OCR. |
+| `OPENAI_INVOICE_READING_ENABLED`, `OPENAI_INVOICE_READING_RATE` | Leitura estruturada independente; limite próprio por usuário. Modelo inicial recomendado: `gpt-6-astra`. |
 | `EMAIL_*`, `DEFAULT_FROM_EMAIL` | SMTP do Django, com timeout de 30 segundos. `EMAIL_HOST_USER/PASSWORD` dependem da autenticação exigida pelo servidor. |
 | `DIGEST_EMAIL_RECIPIENTS` | Lista de e-mails separados por vírgula para resumos gerenciais. |
 | `NOTIFICATION_EMAIL_RECIPIENTS` | Objeto JSON com listas explícitas para `warehouse`, `purchasing` e/ou `gatehouse`. Nenhum destinatário é inferido de `User.email`. |

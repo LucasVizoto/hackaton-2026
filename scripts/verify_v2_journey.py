@@ -82,7 +82,8 @@ def main():
         invoices.append(call("supplier", "invoices/upload/", raw=content, content_type="multipart/form-data; boundary="+boundary))
     ap = call("supplier", "appointments/", {"invoice_ids": [item["id"] for item in invoices], "date": args.date,
         "time": "10:00", "packaging": "machine_implement", "vehicle_plate": "DEMO123", "articulated": True,
-        "tractor_plate": "TEST456", "carrier_name": "Transportadora sintética", "idempotency_key": str(uuid.uuid4())})
+        "tractor_plate": "TEST456", "carrier_name": "Transportadora sintética", "driver_name": "Motorista sintético",
+        "idempotency_key": str(uuid.uuid4())})
     apid = ap["id"]
 
     def refresh(role="warehouse"):
@@ -119,19 +120,23 @@ def main():
     for destination in destinations:
         call("warehouse", "labor-activities/", {"worker": worker["id"], "reference_date": args.date, "origin": "demo_sintetico",
             "warehouse": destination["id"], "appointment": apid, "activity_type": "MACHINE", "attendance_state": "PRESENT", "used": True})
-    bulletin = call("warehouse", "bulletins/", {"warehouse": destinations[0]["id"], "reference_date": args.date, "origin": "demo_sintetico",
-        "participants": [{"worker": worker["id"], "fraction": "1"}], "lines": [], "daily_services": [{"kind": "HALF", "quantity": "1"}]})
-    call("warehouse", "bulletins/", {"warehouse": destinations[1]["id"], "reference_date": args.date, "origin": "demo_sintetico",
+    bulletin = call("warehouse", "bulletins/", {"reference_date": args.date, "origin": "demo_sintetico",
+        "participants": [{"worker": worker["id"], "fraction": "1"}],
+        "lines": [{"warehouse": destinations[0]["id"], "category": "FERTILIZANTES", "unloading": "10"}]})
+    call("warehouse", "bulletins/", {"reference_date": args.date, "origin": "demo_sintetico",
         "participants": [{"worker": worker["id"], "fraction": "1"}], "lines": []}, expected=400)
     closed = call("warehouse", f"bulletins/{bulletin['id']}/close/", {"revision": bulletin["revision"]})
     assert len(closed["individual_allocations"]) == 1
-    assert Decimal(closed["calculation"]["production"]) == Decimal("45.0786")
+    assert closed["scope"] == "day" and closed["warehouse"] is None
+    assert Decimal(closed["calculation"]["production"]) == Decimal("3.2240")
     assert Decimal(closed["calculation"]["total_payable"]) == Decimal("90.1731")
     query = urlencode({"date_from": args.date, "date_to": args.date, "origin": "demo_sintetico"})
     costs = call("management", "analytics/labor-costs/?"+query)
     assert costs["reconciliation"]["difference"] == "0.00"
     assert costs["presence"]["used"] == 1
     assert len(costs["individuals"]["records"][0]["activity_warehouses"]) == 2
+    assert costs["daily_series"][0]["total_payable"] == costs["summary"]["total_payable"]
+    assert costs["weekly_supplement"]["closed_bulletins"] == 1
     result = {"status": "passed", "synthetic": True, "appointment": apid, "bulletin": bulletin["id"], "worker": worker["id"],
               "date": args.date, "invoice_count": 2, "warehouse_count": 2, "financial_memberships": 1,
               "calculation": closed["calculation"], "reconciliation": costs["reconciliation"], "appointment_state": refresh()}

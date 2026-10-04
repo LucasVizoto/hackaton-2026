@@ -1,15 +1,15 @@
 """Extended indicators: financial ownership and physical activity are different axes."""
 
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal, localcontext
 
 from rest_framework import serializers
 from rest_framework.response import Response
 
 from analytics.views import (
-    LaborCostsView, OperationsView, StaffingScenarioView, bounds, cost_shares, mean, read_filters,
+    LaborCostsView, OperationsView, StaffingScenarioView, bounds, cost_shares, financial_summary, mean, read_filters,
 )
-from django.db.models import Q
 from labor.calculation import money_display
 from receiving.models import Appointment, WarehouseVisit
 
@@ -24,6 +24,7 @@ class OperationsV2View(OperationsView):
             "average_total_stay_minutes": None,
             "departed_loads": None,
             "warehouse_stays": [],
+            "gate_wait_by_warehouse": None,
         })
         if filters["origin"] == "historico_importado":
             return response
@@ -33,17 +34,32 @@ class OperationsV2View(OperationsView):
             base = base.filter(visits__warehouse_id=filters["warehouse"]).distinct()
         departures = list(base.filter(
             gate_checked_out_at__gte=start, gate_checked_out_at__lt=end,
-        ).prefetch_related("visits"))
+        ).prefetch_related("visits__warehouse"))
         waits, stays = [], []
+        gate_waits = defaultdict(list)
+        gate_exclusions = defaultdict(int)
+        gate_names = {}
+        unattributed = 0
         for appointment in departures:
             entered, left = appointment.gate_checked_in_at, appointment.gate_checked_out_at
             if entered and left >= entered:
                 stays.append((left - entered).total_seconds() / 60)
-            first_visit = min((
-                visit.checked_in_at for visit in appointment.visits.all() if visit.checked_in_at
-            ), default=None)
-            if entered and first_visit and first_visit >= entered:
-                waits.append((first_visit - entered).total_seconds() / 60)
+            first_visit = next(iter(appointment.visits.all()), None)
+            if first_visit:
+                wid = str(first_visit.warehouse_id)
+                gate_names[wid] = first_visit.warehouse.name
+                first_entry = first_visit.checked_in_at
+                valid = entered and first_entry and entered <= first_entry <= left
+                if valid:
+                    wait = (first_entry - entered).total_seconds() / 60
+                    waits.append(wait)
+                    # The selected destination never inherits another warehouse's wait.
+                    if not filters.get("warehouse") or str(filters["warehouse"]) == wid:
+                        gate_waits[wid].append(wait)
+                elif not filters.get("warehouse") or str(filters["warehouse"]) == wid:
+                    gate_exclusions[wid] += 1
+            else:
+                unattributed += 1
         visits = WarehouseVisit.objects.filter(
             appointment__in=base, checked_out_at__gte=start, checked_out_at__lt=end,
         ).select_related("warehouse").order_by("warehouse__name", "id")
@@ -63,6 +79,12 @@ class OperationsV2View(OperationsView):
             "average_gate_wait_minutes": mean(waits),
             "average_total_stay_minutes": mean(stays),
             "departed_loads": len(departures),
+            "gate_wait_by_warehouse": [
+                {"warehouse": wid, "warehouse_name": gate_names[wid],
+                 "average_minutes": mean(gate_waits[wid]),
+                 "valid_records": len(gate_waits[wid]), "excluded_records": gate_exclusions[wid]}
+                for wid in sorted(set(gate_waits) | set(gate_exclusions), key=lambda wid: (gate_names[wid], wid))
+            ],
             "warehouse_stays": [
                 {"warehouse": wid, "warehouse_name": names[wid], "visits": len(values),
                  "average_minutes": mean(values)}
@@ -72,6 +94,9 @@ class OperationsV2View(OperationsView):
         data["coverage"].update({
             "departures": len(departures), "valid_total_stay_records": len(stays),
             "valid_gate_wait_records": len(waits), "excluded_warehouse_stays": missing,
+            "excluded_gate_wait_records": len(departures) - len(waits),
+            "unattributed_gate_wait_records": unattributed,
+            "gate_wait_definition": "Portaria até entrada no primeiro armazém; cargas com saída da unidade no período. Atribuição apenas ao primeiro destino.",
             "event_time_basis": "Saída da portaria e saída de cada visita no período selecionado",
         })
         data["warnings"].append(
@@ -82,26 +107,46 @@ class OperationsV2View(OperationsView):
 
 
 class LaborCostsV2View(LaborCostsView):
-    def get(self, request):
-        response = super().get(request)
-        response.data.update(individual_costs(request))
-        return response
+    def cost_details(self, request, bulletins, filters):
+        # Reuse the same snapshots as summary/evidence, even during a concurrent reopening.
+        return {**_individual_costs_for_bulletins(bulletins, filters), **financial_dashboard(bulletins, filters)}
 
 
-def individual_costs(request):
-    # Implemented alongside the versioned allocation contract. Never derive legacy nominal pay.
-    from labor.models import DailyBulletin
-
-    filters = read_filters(request)
-    bulletins = DailyBulletin.objects.filter(
-        status="CLOSED", origin=filters["origin"],
-        reference_date__range=(filters["date_from"], filters["date_to"]),
-    ).select_related("warehouse")
+def financial_dashboard(bulletins, filters):
+    """Full closed snapshots, independent of the bounded evidence/individual lists."""
+    by_date, weekly = defaultdict(list), defaultdict(list)
+    week_start = filters["date_to"] - timedelta(days=min(6, (filters["date_to"] - filters["date_from"]).days))
+    shares = cost_shares(bulletins)
     if filters.get("warehouse"):
-        bulletins = bulletins.filter(
-            Q(warehouse_id=filters["warehouse"]) | Q(warehouse__isnull=True, lines__warehouse_id=filters["warehouse"])
-        ).distinct()
-    return _individual_costs_for_bulletins(list(bulletins), filters)
+        shares = [share for share in shares if share.warehouse_id == str(filters["warehouse"])]
+    # A filtered chart must reconcile with the cost owner's share, not the full day.
+    for bulletin in shares if filters.get("warehouse") else bulletins:
+        by_date[bulletin.reference_date].append(bulletin)
+    for share in shares:
+        if share.reference_date >= week_start:
+            weekly[(share.warehouse_id, share.warehouse_name)].append(share)
+    series = []
+    for offset in range((filters["date_to"] - filters["date_from"]).days + 1):
+        day = filters["date_from"] + timedelta(days=offset)
+        summary = financial_summary(by_date[day])
+        series.append({"date": day.isoformat(), **{
+            key: summary[key] for key in ("production", "total_payable", "supplement", "bulletin_count")
+        }})
+    groups = []
+    for (wid, name), local in weekly.items():
+        summary = financial_summary(local)
+        groups.append({"warehouse": wid, "warehouse_name": name,
+                       "supplement": summary["supplement"], "bulletin_count": len(local),
+                       "covered_dates": sorted({b.reference_date.isoformat() for b in local})})
+    groups.sort(key=lambda row: (row["warehouse_name"], row["warehouse"]))
+    groups.sort(key=lambda row: Decimal(row["supplement"]), reverse=True)
+    maximum = Decimal(groups[0]["supplement"]) if groups else Decimal(0)
+    return {"daily_series": series, "weekly_supplement": {
+        "period": {"date_from": week_start.isoformat(), "date_to": filters["date_to"].isoformat()},
+        "groups": groups, "closed_bulletins": len({share.bulletin.pk for local in weekly.values() for share in local}),
+        "leaders": [row["warehouse"] for row in groups if maximum > 0 and Decimal(row["supplement"]) == maximum],
+        "note": "Complemento do piso não comprova ociosidade; lacunas de boletins não viram zero.",
+    }}
 
 
 def bulletin_cost_owners(bulletin):

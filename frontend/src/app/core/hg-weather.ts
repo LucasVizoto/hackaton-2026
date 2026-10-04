@@ -8,6 +8,7 @@ export const DELIVERY_WOEID = "431819";
 export const RAIN_ALERT =
   "Alerta: Possibilidade de chuva. Isso pode afetar o tempo de descarregamento e gerar reagendamentos.";
 export const SUN_LABEL = "Sem previsão de chuva para esta data.";
+export const WEATHER_UNAVAILABLE = "Previsão do tempo indisponível. O agendamento continua disponível.";
 
 export interface HgForecastDay {
   date: string;
@@ -43,12 +44,12 @@ export interface DayForecast {
   description: string;
   condition: string;
   rainProbability: number | null;
-  source: "hgbrasil" | "open-meteo" | "fallback";
+  source: "hgbrasil" | "open-meteo";
 }
 
-export function forecastIcon(day: DayForecast | null): "rain" | "sun" {
-  if (day?.source !== "fallback" && day?.rainy) return "rain";
-  return "sun";
+export function forecastIcon(day: DayForecast | null): "rain" | "sun" | "unknown" {
+  if (!day) return "unknown";
+  return day.rainy ? "rain" : "sun";
 }
 
 const RAIN_TERMS = /chuva|chuvisco|tempestade|trovoada|pancadas|garoa|granizo|storm|rain|hail|drizzle|shower/i;
@@ -109,36 +110,13 @@ export function indexForecast(response: HgWeatherResponse, source: DayForecast["
   return days;
 }
 
-export function mockHgWeather(isoDates: string[]): HgWeatherResponse {
-  return {
-    by: "fallback",
-    valid_key: false,
-    results: {
-      city: "Espírito Santo do Pinhal, SP",
-      city_name: "Espírito Santo do Pinhal",
-      forecast: isoDates.map((iso) => {
-        const [year, month, day] = iso.split("-");
-        return {
-          date: `${day}/${month}`,
-          full_date: `${day}/${month}/${year}`,
-          weekday: "",
-          description: "Tempo nublado",
-          condition: "cloud",
-          rain: 0,
-          rain_probability: 0,
-        };
-      }),
-    },
-  };
-}
-
 @Injectable({ providedIn: "root" })
 export class HgWeather {
   private api = inject(Api);
   private days = signal<ReadonlyMap<string, DayForecast>>(new Map());
   private inflight = new Map<string, Promise<void>>();
   readonly pending = signal<ReadonlySet<string>>(new Set());
-  readonly source = signal<"" | DayForecast["source"]>("");
+  readonly source = signal<"" | "unavailable" | DayForecast["source"]>("");
 
   day(iso: string): DayForecast | null {
     return this.days().get(iso) ?? null;
@@ -171,9 +149,7 @@ export class HgWeather {
       this.days.update((current) => new Map(current).set(iso, forecast));
       this.source.set(source);
     } catch {
-      const forecast = indexForecast(mockHgWeather([iso]), "fallback").get(iso);
-      if (forecast) this.days.update((current) => new Map(current).set(iso, forecast));
-      this.source.set("fallback");
+      this.source.set("unavailable");
     }
   }
 }

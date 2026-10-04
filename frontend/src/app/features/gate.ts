@@ -1,11 +1,12 @@
-import { Component, effect, inject, input, OnInit, output, signal, untracked } from "@angular/core";
+import { Component, effect, ElementRef, inject, input, OnInit, output, signal, untracked, viewChild } from "@angular/core";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { IonButton, IonModal, IonSpinner } from "@ionic/angular/standalone";
 import { Capacitor } from "@capacitor/core";
 import { Api, apiError, dateTime, Page } from "../core/api";
 import { Arrival, GateLive, GateMessage } from "../core/gate-live";
-import { readInvoiceImage } from "./invoice-code";
+import { InvoiceReader } from "../core/invoice-reader";
+import { InvoiceReadSession } from "./invoice-reading";
 import { FeedbackState, PageHeader } from "../shared/ui";
 
 function gateInvoiceNumber(value: string): string {
@@ -190,9 +191,9 @@ export class ArrivalList {
 @Component({
   standalone: true,
   imports: [RouterLink, ReactiveFormsModule, IonButton, IonSpinner, PageHeader, FeedbackState],
-  template: `<div class="page form-page">
-    <app-page-header title="Aviso de chegada com foto" subtitle="Envie placas, motorista e uma foto da nota ao armazém."><ion-button routerLink="/portaria" fill="outline">Recebimentos da Portaria</ion-button></app-page-header>
-    <p class="notice">Este aviso fica separado dos recebimentos. A entrada e a saída da unidade são registradas no recebimento correspondente.</p>
+  template: `<div class="page form-page invoice-form gate-form">
+    <app-page-header title="Aviso de chegada com foto"><a routerLink="/portaria">Recebimentos da Portaria</a></app-page-header>
+    <p class="field-help form-context">O aviso informa a chegada ao armazém. Entrada e saída são registradas no recebimento.</p>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
@@ -200,55 +201,67 @@ export class ArrivalList {
       <div app-feedback tone="success" class="notice">{{ notice() }}</div>
     }
     <form [formGroup]="form" (ngSubmit)="save()">
+      <fieldset [disabled]="busy()">
       <section class="panel">
         <h2>Chegada</h2>
+        <p class="field-help form-instructions">Todos os campos e a foto são obrigatórios.</p>
         <div class="form-grid">
-          <label>Placa<input formControlName="vehicle_plate" placeholder="Placa do veículo" autocomplete="off" /></label>
-          <label>Placa cavalo<input formControlName="tractor_plate" placeholder="Placa do cavalo" autocomplete="off" /></label>
-          <label class="wide">Motorista<input formControlName="driver_name" placeholder="Nome do motorista" autocomplete="name" /></label>
-          <div class="wide">
-            <span class="field-label">Nota fiscal</span>
+          <div class="form-field"><label for="arrival-plate">Placa do veículo</label><input id="arrival-plate" formControlName="vehicle_plate" required autocomplete="off" [attr.aria-invalid]="form.controls.vehicle_plate.touched && form.controls.vehicle_plate.invalid" aria-describedby="arrival-plate-error" /><span id="arrival-plate-error" class="field-help field-error">@if(form.controls.vehicle_plate.touched && form.controls.vehicle_plate.invalid){Informe a placa do veículo.}</span></div>
+          <div class="form-field"><label for="arrival-tractor">Placa do cavalo</label><input id="arrival-tractor" formControlName="tractor_plate" required autocomplete="off" [attr.aria-invalid]="form.controls.tractor_plate.touched && form.controls.tractor_plate.invalid" aria-describedby="arrival-tractor-error" /><span id="arrival-tractor-error" class="field-help field-error">@if(form.controls.tractor_plate.touched && form.controls.tractor_plate.invalid){Informe a placa do cavalo.}</span></div>
+          <div class="form-field wide"><label for="arrival-driver">Motorista</label><input id="arrival-driver" formControlName="driver_name" required autocomplete="name" [attr.aria-invalid]="form.controls.driver_name.touched && form.controls.driver_name.invalid" aria-describedby="arrival-driver-error" /><span id="arrival-driver-error" class="field-help field-error">@if(form.controls.driver_name.touched && form.controls.driver_name.invalid){Informe o nome do motorista com pelo menos 3 caracteres.}</span></div>
+        </div>
+        <div class="document-review">
+          <div class="document-source">
+            <h3>Foto da nota fiscal</h3>
             <div class="actions">
-              <ion-button type="button" fill="outline" [disabled]="busy() || reading()" (click)="cameraPick.click()">Tirar foto</ion-button>
-              <ion-button type="button" fill="outline" [disabled]="busy() || reading()" (click)="filePick.click()">Anexar dos arquivos</ion-button>
+              <ion-button type="button" fill="outline" [disabled]="busy()" (click)="cameraPick.click()">Tirar foto</ion-button>
+              <ion-button type="button" fill="outline" [disabled]="busy()" (click)="filePick.click()">Escolher imagem</ion-button>
             </div>
             <input #cameraPick hidden type="file" accept="image/*" capture="environment" (change)="onFile($event)" />
             <input #filePick hidden type="file" accept="image/*" (change)="onFile($event)" />
-            <span class="field-help">Use a câmera do celular ou escolha uma imagem de até 10 MB. A leitura sugere o número; confira na foto antes de enviar.</span>
+            <p class="field-help">Imagem de até 10 MB.</p>
             @if (preview()) {
-              <img class="note-preview" [src]="preview()" alt="Foto da nota fiscal anexada" />
-            }
-            @if (reading()) {
-              <p class="field-help">Lendo a nota fiscal…</p>
-              <ion-button type="button" fill="outline" (click)="enterManually()">Informar número manualmente</ion-button>
+              <figure class="document-preview"><img [src]="preview()" alt="Foto da nota fiscal anexada para conferência" /><figcaption>{{ file?.name }}</figcaption></figure>
+              <button class="remove" type="button" [disabled]="busy()" (click)="removePhoto()">Remover foto</button>
             }
           </div>
-          <label class="wide"
-            >Número da nota<input formControlName="invoice_number" [readonly]="reading()" (input)="numberEdited()" inputmode="numeric" autocomplete="off" /><span class="field-help">Informe o número da NF-e com 1 a 9 dígitos. Zeros à esquerda são permitidos; não informe a chave de 44 dígitos.</span></label>
-          <label class="checkbox wide"><input type="checkbox" formControlName="number_confirmed" />Conferi o número da nota na imagem.</label>
-          @if(suggestion()){<p class="field-help wide">Número sugerido pela leitura: {{suggestion()}}. Se a nota imprimir zeros à esquerda, inclua-os neste campo antes de enviar.</p>}
-          @if(form.controls.invoice_number.touched && form.controls.invoice_number.invalid){<p class="error wide">Use apenas o número da NF-e, de 1 a 9 dígitos. Zeros à esquerda são permitidos.</p>}
+          <div class="document-fields">
+            <h3>Conferência da nota</h3>
+            <div class="reading-state" role="status" aria-live="polite" aria-atomic="true">
+              @if(reading()){<p>Lendo o número na foto…</p>}
+              @else if(suggestion()){<p>Número sugerido. Confira todos os dígitos na foto.</p>}
+              @else if(readingNotice()){<p>{{ readingNotice() }}</p>}
+              @else if(!file){<p>Anexe a foto para conferir a nota.</p>}
+            </div>
+            <div role="alert" class="field-help field-error reading-error">{{ readingError() }}</div>
+            @if(reading()){<ion-button type="button" fill="outline" (click)="enterManually()">Informar número manualmente</ion-button>}
+            <div class="form-field">
+              <label for="arrival-number">Número da NF-e</label>
+              <input #invoiceNumber id="arrival-number" formControlName="invoice_number" required [readonly]="reading()" (input)="numberEdited()" inputmode="numeric" autocomplete="off" [attr.aria-invalid]="form.controls.invoice_number.touched && form.controls.invoice_number.invalid" aria-describedby="arrival-number-help arrival-number-error" />
+              <span id="arrival-number-help" class="field-help">De 1 a 9 dígitos, incluindo zeros à esquerda. Não use a chave de acesso.</span>
+              <span id="arrival-number-error" class="field-help field-error">@if(form.controls.invoice_number.touched && form.controls.invoice_number.invalid){Informe um número de 1 a 9 dígitos, diferente de zero.}</span>
+            </div>
+            <label class="check"><input type="checkbox" formControlName="number_confirmed" required />Conferi o número da NF-e na foto.</label>
+          </div>
         </div>
       </section>
       <div class="actions">
-        <ion-button type="submit" [disabled]="busy() || reading() || form.invalid || !file">
+        <ion-button type="submit" aria-describedby="arrival-submit-help" [disabled]="busy() || reading() || form.invalid || !file">
           @if (busy()) {
             <ion-spinner name="dots" />
           }
           Avisar o armazém
         </ion-button>
       </div>
+      <p class="field-help submit-help" id="arrival-submit-help">{{ submitHelp() }}</p>
+      </fieldset>
     </form>
   </div>`,
-  styles: [
-    `
-      .field-label { display: block; margin-bottom: 8px; }
-      .note-preview { display: block; margin-top: 12px; max-width: 100%; max-height: 280px; border-radius: 12px; }
-    `,
-  ],
 })
 export class GateDesk {
   private api = inject(Api);
+  private reader = inject(InvoiceReader);
+  private readSession = new InvoiceReadSession();
   private live = inject(GateLive);
   private fb = inject(FormBuilder);
   busy = signal(false);
@@ -256,14 +269,17 @@ export class GateDesk {
   error = signal("");
   notice = signal("");
   preview = signal("");
+  readingError = signal("");
+  readingNotice = signal("");
+  private invoiceNumber = viewChild.required<ElementRef<HTMLInputElement>>("invoiceNumber");
   file: File | null = null;
-  suggestion=signal('');private fileGeneration=0;
+  suggestion=signal('');
   form = this.fb.nonNullable.group({
     vehicle_plate: ["", Validators.required],
     tractor_plate: ["", Validators.required],
     driver_name: ["", [Validators.required, Validators.minLength(3)]],
     invoice_number: ["", [Validators.required, Validators.pattern(/^(?!0+$)[0-9]{1,9}$/)]],
-    number_confirmed: [false, Validators.requiredTrue],
+    number_confirmed: [{value:false,disabled:true}, Validators.requiredTrue],
   });
   constructor() {
     effect(() => {
@@ -290,22 +306,25 @@ export class GateDesk {
       return;
     }
     if (this.preview()) URL.revokeObjectURL(this.preview());
-    const generation=++this.fileGeneration;
+    const attempt = this.readSession.start();
     this.file = next;
     this.form.controls.invoice_number.reset();this.form.controls.number_confirmed.setValue(false);this.suggestion.set('');
+    this.form.controls.number_confirmed.disable({emitEvent:false});
     this.preview.set(URL.createObjectURL(next));
     this.error.set("");
     this.notice.set("");
+    this.readingError.set("");
+    this.readingNotice.set("");
     this.reading.set(true);
     try {
-      const code = await readInvoiceImage(next);
-      if(generation!==this.fileGeneration)return;
-      if (code){this.form.controls.invoice_number.setValue(code);this.suggestion.set(code);}
-      else this.error.set("Não encontrei o número da nota na imagem. Informe o número da NF-e.");
-    } catch {
-      if(generation===this.fileGeneration)this.error.set("Não foi possível ler a imagem. Informe o número da nota.");
+      const code = (await this.reader.readImage(next, attempt.signal)).number;
+      if(!attempt.isCurrent())return;
+      if (code){this.form.controls.invoice_number.setValue(code);this.form.controls.number_confirmed.setValue(false);this.suggestion.set(code);}
+      else this.readingError.set("Número não identificado. Informe o número da NF-e e confira na foto.");
+    } catch (e) {
+      if(attempt.isCurrent())this.readingError.set(apiError(e));
     } finally {
-      if(generation===this.fileGeneration)this.reading.set(false);
+      if(attempt.isCurrent()){this.reading.set(false);this.form.controls.number_confirmed.enable({emitEvent:false});}
     }
   }
   async save() {
@@ -324,18 +343,22 @@ export class GateDesk {
       await this.api.post("gate-arrivals/", body);
       this.notice.set("Chegada informada ao armazém.");
       this.form.reset();this.suggestion.set('');
+      this.form.controls.number_confirmed.disable({emitEvent:false});
       this.file = null;
       if (this.preview()) URL.revokeObjectURL(this.preview());
       this.preview.set("");
+      this.readingError.set("");this.readingNotice.set("");
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
       this.busy.set(false);
     }
   }
-  numberEdited(){this.form.controls.number_confirmed.setValue(false);}
-  enterManually(){this.fileGeneration++;this.reading.set(false);this.suggestion.set('');this.form.controls.number_confirmed.setValue(false);this.notice.set('Informe o número impresso na nota e confirme a conferência da imagem.');}
-  ngOnDestroy(){this.fileGeneration++;if(this.preview())URL.revokeObjectURL(this.preview());}
+  numberEdited(){this.readSession.cancel();this.reading.set(false);this.suggestion.set('');this.readingError.set('');this.readingNotice.set('Confira o número digitado na foto antes de enviar.');this.form.controls.number_confirmed.setValue(false);if(this.file)this.form.controls.number_confirmed.enable({emitEvent:false});}
+  enterManually(){this.numberEdited();this.invoiceNumber().nativeElement.focus();}
+  removePhoto(){this.readSession.cancel();this.reading.set(false);if(this.preview())URL.revokeObjectURL(this.preview());this.preview.set('');this.file=null;this.suggestion.set('');this.readingError.set('');this.readingNotice.set('');this.form.controls.invoice_number.reset();this.form.controls.number_confirmed.setValue(false);this.form.controls.number_confirmed.disable({emitEvent:false});this.invoiceNumber().nativeElement.focus();}
+  submitHelp(){if(this.reading())return 'Aguarde a leitura ou informe o número manualmente.';if(this.form.controls.vehicle_plate.invalid||this.form.controls.tractor_plate.invalid||this.form.controls.driver_name.invalid)return 'Preencha as duas placas e o nome do motorista.';if(!this.file)return 'Anexe uma foto da nota fiscal.';if(this.form.controls.invoice_number.invalid)return 'Informe um número válido da NF-e.';if(!this.form.controls.number_confirmed.value)return 'Confira o número na foto e marque a conferência.';return '';}
+  ngOnDestroy(){this.readSession.cancel();if(this.preview())URL.revokeObjectURL(this.preview());}
 
 }
 

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { Component, inject, OnInit, signal, viewChild } from "@angular/core";
+import { afterNextRender, Component, ElementRef, inject, Injector, OnInit, signal, viewChild } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { IonButton, IonSpinner } from "@ionic/angular/standalone";
@@ -219,11 +219,11 @@ export class AppointmentList implements OnInit {
     <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
       <a [routerLink]="api.can('gatehouse') ? '/portaria' : '/agenda'">{{ api.can('gatehouse') ? 'Voltar à portaria' : 'Voltar à agenda' }}</a>
     </app-page-header>
-    @if (error()) {
+    @if (error() && action() !== 'gate-check-in') {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
     @if (success()) {
-      <div app-feedback tone="success" class="success">{{ success() }}</div>
+      <div #actionSuccess app-feedback tone="success" class="success" tabindex="-1">{{ success() }}</div>
     }
     @if (busy() && !a()) {
       <app-loading-state label="Carregando recebimento…" />
@@ -291,7 +291,7 @@ export class AppointmentList implements OnInit {
         @if(item.purchase_status==='rejected' && item.comparison_notes){<p class="notice">{{item.comparison_notes}}</p>}
         <h3 class="section">Próximo passo</h3>
         @if(primaryCommand(); as command) {
-          <ion-button [disabled]="busy() || !loaded()" (click)="open(command.code, command.visitId)">{{command.label}}</ion-button>
+          <ion-button #primaryAction [disabled]="busy() || !loaded()" (click)="open(command.code, command.visitId)">{{command.label}}</ion-button>
         } @else {<p class="muted">Não há uma etapa operacional disponível para seu perfil neste momento.</p>}
         @if(blockedCommands().length){<details class="section"><summary>Condições para a próxima etapa</summary>@for(command of blockedCommands();track command.code){<p>{{commandLabel(command.code)}}: {{command.reason}}</p>}</details>}
         @if(exceptionCommands().length){<details class="section"><summary>Exceções e correções</summary><div class="actions section">@for(command of exceptionCommands();track command.code){
@@ -391,8 +391,11 @@ export class AppointmentList implements OnInit {
       }
       @if(item.workflow_version === 2 && api.can("warehouse","purchasing")){<app-receipt-check [appointment]="item" [invoices]="invoices()" (changed)="load()" />}
       @if (action()) {
-        <form class="panel form-page" [formGroup]="form" (ngSubmit)="execute()">
-          <h2>{{ actionTitle() }}</h2>
+        <form #actionForm class="panel form-page" [class.gate-entry-form]="action() === 'gate-check-in'" [formGroup]="form" (ngSubmit)="execute()" [attr.aria-busy]="busy()" aria-labelledby="receiving-action-title">
+          <h2 id="receiving-action-title">{{ actionTitle() }}</h2>
+          @if (action() === 'gate-check-in' && error()) {
+            <div #entryError app-feedback tone="error" tabindex="-1">{{ error() }}</div>
+          }
           @if(action()==='exceptions'){<label>Tipo<select formControlName="exception_kind"><option value="late">Atraso</option><option value="no_show">Ausência</option>@if(api.can('warehouse','purchasing')){<option value="nature">Impedimento por natureza</option><option value="invoice_mismatch">Divergência documental</option>}<option value="other">Outro</option></select></label><label>Descrição<textarea formControlName="notes" required></textarea></label><label>Quando ocorreu<input type="datetime-local" formControlName="occurred_at" /></label><p class="field-help">O registro não aplica multa ou bloqueio automático.</p>}
           @if (action() === "purchase-review") {
             <div class="form-grid">
@@ -438,7 +441,7 @@ export class AppointmentList implements OnInit {
             </label>
           }
           @if (
-            action() === "gate-check-in" || action() === "gate-check-out" || action() === "correct-time" ||
+            action() === "gate-check-out" || action() === "correct-time" ||
             action() === "arrive" ||
             action() === "start" ||
             action() === "finish" ||
@@ -450,9 +453,25 @@ export class AppointmentList implements OnInit {
                 formControlName="occurred_at"
                 required
               /><span class="field-help"
-                >Horário local. A sequência é conferida no backend.</span
+                >Horário local. O horário deve respeitar a ordem dos eventos.</span
               ></label
             >
+          }
+          @if (action() === "gate-check-in") {
+            <div class="form-grid">
+              <div>
+                <label for="gate-driver-name">Nome do motorista</label>
+                <input #gateDriverInput id="gate-driver-name" formControlName="driver_name" maxlength="160" required
+                  [attr.aria-invalid]="driverError() ? 'true' : null"
+                  [attr.aria-describedby]="driverError() ? 'gate-driver-help gate-driver-error' : 'gate-driver-help'"
+                  (input)="driverError.set('')" />
+                <p id="gate-driver-help" class="field-help">Obrigatório. Até 160 caracteres.</p>
+                @if (driverError()) { <p id="gate-driver-error" class="field-help field-error" role="alert">{{ driverError() }}</p> }
+              </div>
+              <label>Data / hora da entrada<input type="datetime-local" formControlName="occurred_at" required />
+                <span class="field-help">Horário local. Registre o horário da chegada.</span>
+              </label>
+            </div>
           }
           @if (action() === "finish" || action() === "visit-finish" || action() === "visit-check-out") {
             @if (crewHint()) { <p class="field-help section">{{ crewHint() }}</p> }
@@ -547,10 +566,11 @@ export class AppointmentList implements OnInit {
               @if (busy()) {
                 <ion-spinner name="dots" />
               }
-              Confirmar {{ actionTitle().toLowerCase() }}</ion-button
+              @if (action() === 'gate-check-in') { {{ busy() ? 'Registrando entrada…' : 'Registrar entrada' }} }
+              @else { Confirmar {{ actionTitle().toLowerCase() }} }</ion-button
             ><ion-button
               fill="outline"
-              (click)="action.set('')"
+              (click)="closeAction()"
               [disabled]="busy()"
               >Fechar edição</ion-button
             >
@@ -629,6 +649,11 @@ export class AppointmentList implements OnInit {
       </details>
     }
   </div>`,
+  styles: `.gate-entry-form { scroll-margin-top: 96px; }
+    .gate-entry-form label[for] { margin-bottom: 8px; }
+    .gate-entry-form p.field-help { margin: 8px 0 0; }
+    .gate-entry-form input[aria-invalid="true"] { border-color: var(--danger); }
+    @media (max-width: 767px) { .gate-entry-form input { font-size: 16px; } }`,
 })
 export class AppointmentDetail implements OnInit {
   decimal = decimal;
@@ -636,6 +661,13 @@ export class AppointmentDetail implements OnInit {
   catalog = inject(Catalog);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
+  private injector = inject(Injector);
+  private actionForm = viewChild<ElementRef<HTMLFormElement>>("actionForm");
+  private gateDriverInput = viewChild<ElementRef<HTMLInputElement>>("gateDriverInput");
+  private primaryAction = viewChild<IonButton, ElementRef<HTMLElement>>("primaryAction", { read: ElementRef });
+  private entryError = viewChild<FeedbackState, ElementRef<HTMLElement>>("entryError", { read: ElementRef });
+  private actionSuccess = viewChild<FeedbackState, ElementRef<HTMLElement>>("actionSuccess", { read: ElementRef });
+  readonly driverError = signal("");
   a = signal<Appointment | null>(null);
   invoiceData = signal<InvoiceData | null>(null);
   invoices = signal<InvoiceData[]>([]);
@@ -696,6 +728,7 @@ export class AppointmentDetail implements OnInit {
     order_reference: [""],
     notes: [""],
     occurred_at: [nowLocal()],
+    driver_name: [""],
     worker_count: [0],
     resources_confirmed: [false],
     reason: [""],
@@ -735,7 +768,9 @@ export class AppointmentDetail implements OnInit {
     this.visitId = visitId;
     this.error.set("");
     this.success.set("");
+    this.driverError.set("");
     this.form.controls.occurred_at.setValue(nowLocal());
+    this.form.controls.driver_name.setValue(this.a()?.driver_name ?? "");
     this.selectedWarehouses.set(
       this.a()?.visits?.map((v) => v.warehouse) ?? [],
     );
@@ -747,6 +782,23 @@ export class AppointmentDetail implements OnInit {
     if (action === "assign-cancelled") {
       this.form.controls.hold_id.setValue(this.activeHolds()[0]?.id ?? "");
       void this.loadCandidates();
+    }
+    if (action === "gate-check-in") afterNextRender(() => {
+      this.actionForm()?.nativeElement.scrollIntoView({ block: "start" });
+      this.gateDriverInput()?.nativeElement.focus({ preventScroll: true });
+    }, { injector: this.injector });
+  }
+  closeAction() {
+    const wasGateEntry = this.action() === "gate-check-in";
+    this.action.set("");
+    if (wasGateEntry) {
+      this.driverError.set("");
+      this.error.set("");
+      afterNextRender(() => {
+        const trigger = this.primaryAction()?.nativeElement;
+        const button = trigger?.shadowRoot?.querySelector<HTMLButtonElement>("button");
+        button?.focus();
+      }, { injector: this.injector });
     }
   }
   applyUpdated(item:Appointment){const selected=this.invoiceData()?.id;this.a.set(item);this.invoices.set(item.invoices??[]);this.invoiceData.set(item.invoices?.find(invoice=>invoice.id===selected)??item.invoices?.[0]??null);}
@@ -933,6 +985,7 @@ export class AppointmentDetail implements OnInit {
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
+    this.driverError.set("");
     const v = this.form.getRawValue(),
       act = this.action();
     let body: unknown = {};
@@ -959,6 +1012,15 @@ export class AppointmentDetail implements OnInit {
         )
       ) {
         body = { occurred_at: localTimestamp(v.occurred_at) };
+        if (act === "gate-check-in") {
+          const driverName = v.driver_name.trim();
+          if (!driverName || driverName.length > 160) {
+            this.driverError.set("Informe o nome do motorista, com até 160 caracteres.");
+            this.gateDriverInput()?.nativeElement.focus();
+            return;
+          }
+          body = { ...body as object, driver_name: driverName };
+        }
         if (act.startsWith("visit-"))
           endpoint = `warehouse-visits/${this.visitId}/${act.replace("visit-", "")}/`;
         if (act === "finish" || act === "visit-finish" || act === "visit-check-out") {
@@ -1014,9 +1076,13 @@ export class AppointmentDetail implements OnInit {
       });
       this.action.set("");
       await this.load();
-      this.success.set(`${this.commandLabel(act)}: registro salvo no servidor.`);
+      this.success.set(act === "gate-check-in" ? "Entrada na portaria registrada." : `${this.commandLabel(act)}: registro salvo no servidor.`);
+      if (act === "gate-check-in") afterNextRender(() => this.actionSuccess()?.nativeElement.focus(), { injector: this.injector });
     } catch (e) {
-      this.error.set(apiError(e));
+      this.error.set(act === "gate-check-in" && e instanceof HttpErrorResponse && (e.status === 0 || e.status >= 500)
+        ? "Não foi possível registrar a entrada. Confira a conexão e tente novamente."
+        : apiError(e));
+      if (act === "gate-check-in") afterNextRender(() => this.entryError()?.nativeElement.focus(), { injector: this.injector });
       if(act === 'reschedule' && e instanceof HttpErrorResponse && e.status === 409){
         this.rescheduleReady.set(false);
         // Keep the date and reason while reloading the server revision and capacity.

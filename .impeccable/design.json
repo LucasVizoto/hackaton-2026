@@ -1,164 +1,554 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-03T17:15:43Z",
+  "generatedAt": "2026-10-04T04:08:30.462Z",
   "title": "Design System: Recebimento Cocapec",
   "extensions": {
     "colorMeta": {
       "green": {
         "role": "primary",
-        "displayName": "Verde Cocapec"
+        "displayName": "Verde Cocapec",
+        "tonalRamp": [
+          "oklch(15% 0.0700072043 165.0092862632deg)",
+          "oklch(26.4285714286% 0.0700072043 165.0092862632deg)",
+          "oklch(37.8571428571% 0.0700072043 165.0092862632deg)",
+          "oklch(49.2857142857% 0.0700072043 165.0092862632deg)",
+          "oklch(60.7142857143% 0.0700072043 165.0092862632deg)",
+          "oklch(72.1428571429% 0.0700072043 165.0092862632deg)",
+          "oklch(83.5714285714% 0.0700072043 165.0092862632deg)",
+          "oklch(95% 0.0700072043 165.0092862632deg)"
+        ]
       },
       "brand-hover": {
         "role": "primary",
-        "displayName": "Verde de interação"
+        "displayName": "Verde de interação",
+        "tonalRamp": [
+          "oklch(15% 0.0514675773 166.1671969781deg)",
+          "oklch(26.4285714286% 0.0514675773 166.1671969781deg)",
+          "oklch(37.8571428571% 0.0514675773 166.1671969781deg)",
+          "oklch(49.2857142857% 0.0514675773 166.1671969781deg)",
+          "oklch(60.7142857143% 0.0514675773 166.1671969781deg)",
+          "oklch(72.1428571429% 0.0514675773 166.1671969781deg)",
+          "oklch(83.5714285714% 0.0514675773 166.1671969781deg)",
+          "oklch(95% 0.0514675773 166.1671969781deg)"
+        ]
       },
       "brand-contrast": {
         "role": "primary",
-        "displayName": "Texto sobre verde"
+        "displayName": "Texto sobre verde",
+        "tonalRamp": [
+          "oklch(15% 0 none)",
+          "oklch(26.4285714286% 0 none)",
+          "oklch(37.8571428571% 0 none)",
+          "oklch(49.2857142857% 0 none)",
+          "oklch(60.7142857143% 0 none)",
+          "oklch(72.1428571429% 0 none)",
+          "oklch(83.5714285714% 0 none)",
+          "oklch(95% 0 none)"
+        ]
       },
       "brand-soft": {
         "role": "primary",
-        "displayName": "Fundo verde de apoio"
+        "displayName": "Fundo verde de apoio",
+        "tonalRamp": [
+          "oklch(15% 0.0124737506 164.7983777742deg)",
+          "oklch(26.4285714286% 0.0124737506 164.7983777742deg)",
+          "oklch(37.8571428571% 0.0124737506 164.7983777742deg)",
+          "oklch(49.2857142857% 0.0124737506 164.7983777742deg)",
+          "oklch(60.7142857143% 0.0124737506 164.7983777742deg)",
+          "oklch(72.1428571429% 0.0124737506 164.7983777742deg)",
+          "oklch(83.5714285714% 0.0124737506 164.7983777742deg)",
+          "oklch(95% 0.0124737506 164.7983777742deg)"
+        ]
       },
       "blue": {
         "role": "secondary",
-        "displayName": "Azul de informação"
+        "displayName": "Azul de informação",
+        "tonalRamp": [
+          "oklch(15% 0.1268168266 250.3805496033deg)",
+          "oklch(26.4285714286% 0.1268168266 250.3805496033deg)",
+          "oklch(37.8571428571% 0.1268168266 250.3805496033deg)",
+          "oklch(49.2857142857% 0.1268168266 250.3805496033deg)",
+          "oklch(60.7142857143% 0.1268168266 250.3805496033deg)",
+          "oklch(72.1428571429% 0.1268168266 250.3805496033deg)",
+          "oklch(83.5714285714% 0.1268168266 250.3805496033deg)",
+          "oklch(95% 0.1268168266 250.3805496033deg)"
+        ]
       },
       "info-soft": {
         "role": "secondary",
-        "displayName": "Fundo de informação"
+        "displayName": "Fundo de informação",
+        "tonalRamp": [
+          "oklch(15% 0.0144235849 244.7164308976deg)",
+          "oklch(26.4285714286% 0.0144235849 244.7164308976deg)",
+          "oklch(37.8571428571% 0.0144235849 244.7164308976deg)",
+          "oklch(49.2857142857% 0.0144235849 244.7164308976deg)",
+          "oklch(60.7142857143% 0.0144235849 244.7164308976deg)",
+          "oklch(72.1428571429% 0.0144235849 244.7164308976deg)",
+          "oklch(83.5714285714% 0.0144235849 244.7164308976deg)",
+          "oklch(95% 0.0144235849 244.7164308976deg)"
+        ]
       },
       "paper": {
         "role": "neutral",
-        "displayName": "Papel"
+        "displayName": "Papel",
+        "tonalRamp": [
+          "oklch(15% 0.0034126992 247.8577745944deg)",
+          "oklch(26.4285714286% 0.0034126992 247.8577745944deg)",
+          "oklch(37.8571428571% 0.0034126992 247.8577745944deg)",
+          "oklch(49.2857142857% 0.0034126992 247.8577745944deg)",
+          "oklch(60.7142857143% 0.0034126992 247.8577745944deg)",
+          "oklch(72.1428571429% 0.0034126992 247.8577745944deg)",
+          "oklch(83.5714285714% 0.0034126992 247.8577745944deg)",
+          "oklch(95% 0.0034126992 247.8577745944deg)"
+        ]
       },
       "surface": {
         "role": "neutral",
-        "displayName": "Superfície"
+        "displayName": "Superfície",
+        "tonalRamp": [
+          "oklch(15% 0 none)",
+          "oklch(26.4285714286% 0 none)",
+          "oklch(37.8571428571% 0 none)",
+          "oklch(49.2857142857% 0 none)",
+          "oklch(60.7142857143% 0 none)",
+          "oklch(72.1428571429% 0 none)",
+          "oklch(83.5714285714% 0 none)",
+          "oklch(95% 0 none)"
+        ]
       },
       "surface-subtle": {
         "role": "neutral",
-        "displayName": "Superfície de apoio"
+        "displayName": "Superfície de apoio",
+        "tonalRamp": [
+          "oklch(15% 0.0068536168 247.8956799606deg)",
+          "oklch(26.4285714286% 0.0068536168 247.8956799606deg)",
+          "oklch(37.8571428571% 0.0068536168 247.8956799606deg)",
+          "oklch(49.2857142857% 0.0068536168 247.8956799606deg)",
+          "oklch(60.7142857143% 0.0068536168 247.8956799606deg)",
+          "oklch(72.1428571429% 0.0068536168 247.8956799606deg)",
+          "oklch(83.5714285714% 0.0068536168 247.8956799606deg)",
+          "oklch(95% 0.0068536168 247.8956799606deg)"
+        ]
       },
       "surface-hover": {
         "role": "neutral",
-        "displayName": "Superfície em interação"
+        "displayName": "Superfície em interação",
+        "tonalRamp": [
+          "oklch(15% 0.0075752685 228.8538332799deg)",
+          "oklch(26.4285714286% 0.0075752685 228.8538332799deg)",
+          "oklch(37.8571428571% 0.0075752685 228.8538332799deg)",
+          "oklch(49.2857142857% 0.0075752685 228.8538332799deg)",
+          "oklch(60.7142857143% 0.0075752685 228.8538332799deg)",
+          "oklch(72.1428571429% 0.0075752685 228.8538332799deg)",
+          "oklch(83.5714285714% 0.0075752685 228.8538332799deg)",
+          "oklch(95% 0.0075752685 228.8538332799deg)"
+        ]
       },
       "text": {
         "role": "neutral",
-        "displayName": "Texto principal"
+        "displayName": "Texto principal",
+        "tonalRamp": [
+          "oklch(15% 0.0398243266 265.7548754714deg)",
+          "oklch(26.4285714286% 0.0398243266 265.7548754714deg)",
+          "oklch(37.8571428571% 0.0398243266 265.7548754714deg)",
+          "oklch(49.2857142857% 0.0398243266 265.7548754714deg)",
+          "oklch(60.7142857143% 0.0398243266 265.7548754714deg)",
+          "oklch(72.1428571429% 0.0398243266 265.7548754714deg)",
+          "oklch(83.5714285714% 0.0398243266 265.7548754714deg)",
+          "oklch(95% 0.0398243266 265.7548754714deg)"
+        ]
       },
       "muted": {
         "role": "neutral",
-        "displayName": "Texto secundário"
+        "displayName": "Texto secundário",
+        "tonalRamp": [
+          "oklch(15% 0.0386034456 256.8241473803deg)",
+          "oklch(26.4285714286% 0.0386034456 256.8241473803deg)",
+          "oklch(37.8571428571% 0.0386034456 256.8241473803deg)",
+          "oklch(49.2857142857% 0.0386034456 256.8241473803deg)",
+          "oklch(60.7142857143% 0.0386034456 256.8241473803deg)",
+          "oklch(72.1428571429% 0.0386034456 256.8241473803deg)",
+          "oklch(83.5714285714% 0.0386034456 256.8241473803deg)",
+          "oklch(95% 0.0386034456 256.8241473803deg)"
+        ]
       },
       "line": {
         "role": "neutral",
-        "displayName": "Divisória estrutural"
+        "displayName": "Divisória estrutural",
+        "tonalRamp": [
+          "oklch(15% 0.0126187744 255.5078854448deg)",
+          "oklch(26.4285714286% 0.0126187744 255.5078854448deg)",
+          "oklch(37.8571428571% 0.0126187744 255.5078854448deg)",
+          "oklch(49.2857142857% 0.0126187744 255.5078854448deg)",
+          "oklch(60.7142857143% 0.0126187744 255.5078854448deg)",
+          "oklch(72.1428571429% 0.0126187744 255.5078854448deg)",
+          "oklch(83.5714285714% 0.0126187744 255.5078854448deg)",
+          "oklch(95% 0.0126187744 255.5078854448deg)"
+        ]
       },
       "control-line": {
         "role": "neutral",
-        "displayName": "Borda de controle"
+        "displayName": "Borda de controle",
+        "tonalRamp": [
+          "oklch(15% 0.0367548199 255.281190835deg)",
+          "oklch(26.4285714286% 0.0367548199 255.281190835deg)",
+          "oklch(37.8571428571% 0.0367548199 255.281190835deg)",
+          "oklch(49.2857142857% 0.0367548199 255.281190835deg)",
+          "oklch(60.7142857143% 0.0367548199 255.281190835deg)",
+          "oklch(72.1428571429% 0.0367548199 255.281190835deg)",
+          "oklch(83.5714285714% 0.0367548199 255.281190835deg)",
+          "oklch(95% 0.0367548199 255.281190835deg)"
+        ]
       },
       "success": {
         "role": "secondary",
-        "displayName": "Confirmação"
+        "displayName": "Confirmação",
+        "tonalRamp": [
+          "oklch(15% 0.1083205662 151.3276881954deg)",
+          "oklch(26.4285714286% 0.1083205662 151.3276881954deg)",
+          "oklch(37.8571428571% 0.1083205662 151.3276881954deg)",
+          "oklch(49.2857142857% 0.1083205662 151.3276881954deg)",
+          "oklch(60.7142857143% 0.1083205662 151.3276881954deg)",
+          "oklch(72.1428571429% 0.1083205662 151.3276881954deg)",
+          "oklch(83.5714285714% 0.1083205662 151.3276881954deg)",
+          "oklch(95% 0.1083205662 151.3276881954deg)"
+        ]
       },
       "success-soft": {
         "role": "secondary",
-        "displayName": "Fundo de confirmação"
+        "displayName": "Fundo de confirmação",
+        "tonalRamp": [
+          "oklch(15% 0.0164965995 156.9126199244deg)",
+          "oklch(26.4285714286% 0.0164965995 156.9126199244deg)",
+          "oklch(37.8571428571% 0.0164965995 156.9126199244deg)",
+          "oklch(49.2857142857% 0.0164965995 156.9126199244deg)",
+          "oklch(60.7142857143% 0.0164965995 156.9126199244deg)",
+          "oklch(72.1428571429% 0.0164965995 156.9126199244deg)",
+          "oklch(83.5714285714% 0.0164965995 156.9126199244deg)",
+          "oklch(95% 0.0164965995 156.9126199244deg)"
+        ]
       },
       "warning": {
         "role": "secondary",
-        "displayName": "Pendência e origem sintética"
+        "displayName": "Pendência e origem sintética",
+        "tonalRamp": [
+          "oklch(15% 0.1246985028 46.2006446257deg)",
+          "oklch(26.4285714286% 0.1246985028 46.2006446257deg)",
+          "oklch(37.8571428571% 0.1246985028 46.2006446257deg)",
+          "oklch(49.2857142857% 0.1246985028 46.2006446257deg)",
+          "oklch(60.7142857143% 0.1246985028 46.2006446257deg)",
+          "oklch(72.1428571429% 0.1246985028 46.2006446257deg)",
+          "oklch(83.5714285714% 0.1246985028 46.2006446257deg)",
+          "oklch(95% 0.1246985028 46.2006446257deg)"
+        ]
       },
       "warning-soft": {
         "role": "secondary",
-        "displayName": "Fundo de pendência"
+        "displayName": "Fundo de pendência",
+        "tonalRamp": [
+          "oklch(15% 0.0239302196 85.7870584476deg)",
+          "oklch(26.4285714286% 0.0239302196 85.7870584476deg)",
+          "oklch(37.8571428571% 0.0239302196 85.7870584476deg)",
+          "oklch(49.2857142857% 0.0239302196 85.7870584476deg)",
+          "oklch(60.7142857143% 0.0239302196 85.7870584476deg)",
+          "oklch(72.1428571429% 0.0239302196 85.7870584476deg)",
+          "oklch(83.5714285714% 0.0239302196 85.7870584476deg)",
+          "oklch(95% 0.0239302196 85.7870584476deg)"
+        ]
       },
       "danger": {
         "role": "secondary",
-        "displayName": "Falha"
+        "displayName": "Falha",
+        "tonalRamp": [
+          "oklch(15% 0.1904934162 27.5180976747deg)",
+          "oklch(26.4285714286% 0.1904934162 27.5180976747deg)",
+          "oklch(37.8571428571% 0.1904934162 27.5180976747deg)",
+          "oklch(49.2857142857% 0.1904934162 27.5180976747deg)",
+          "oklch(60.7142857143% 0.1904934162 27.5180976747deg)",
+          "oklch(72.1428571429% 0.1904934162 27.5180976747deg)",
+          "oklch(83.5714285714% 0.1904934162 27.5180976747deg)",
+          "oklch(95% 0.1904934162 27.5180976747deg)"
+        ]
       },
       "danger-soft": {
         "role": "secondary",
-        "displayName": "Fundo de falha"
+        "displayName": "Fundo de falha",
+        "tonalRamp": [
+          "oklch(15% 0.0154217698 27.2804932188deg)",
+          "oklch(26.4285714286% 0.0154217698 27.2804932188deg)",
+          "oklch(37.8571428571% 0.0154217698 27.2804932188deg)",
+          "oklch(49.2857142857% 0.0154217698 27.2804932188deg)",
+          "oklch(60.7142857143% 0.0154217698 27.2804932188deg)",
+          "oklch(72.1428571429% 0.0154217698 27.2804932188deg)",
+          "oklch(83.5714285714% 0.0154217698 27.2804932188deg)",
+          "oklch(95% 0.0154217698 27.2804932188deg)"
+        ]
       },
       "dark-green": {
         "role": "primary",
-        "displayName": "Verde Cocapec · escuro"
+        "displayName": "Verde Cocapec · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0942679013 162.3431458225deg)",
+          "oklch(26.4285714286% 0.0942679013 162.3431458225deg)",
+          "oklch(37.8571428571% 0.0942679013 162.3431458225deg)",
+          "oklch(49.2857142857% 0.0942679013 162.3431458225deg)",
+          "oklch(60.7142857143% 0.0942679013 162.3431458225deg)",
+          "oklch(72.1428571429% 0.0942679013 162.3431458225deg)",
+          "oklch(83.5714285714% 0.0942679013 162.3431458225deg)",
+          "oklch(95% 0.0942679013 162.3431458225deg)"
+        ]
       },
       "dark-brand-hover": {
         "role": "primary",
-        "displayName": "Verde de interação · escuro"
+        "displayName": "Verde de interação · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0751357251 162.3073745339deg)",
+          "oklch(26.4285714286% 0.0751357251 162.3073745339deg)",
+          "oklch(37.8571428571% 0.0751357251 162.3073745339deg)",
+          "oklch(49.2857142857% 0.0751357251 162.3073745339deg)",
+          "oklch(60.7142857143% 0.0751357251 162.3073745339deg)",
+          "oklch(72.1428571429% 0.0751357251 162.3073745339deg)",
+          "oklch(83.5714285714% 0.0751357251 162.3073745339deg)",
+          "oklch(95% 0.0751357251 162.3073745339deg)"
+        ]
       },
       "dark-brand-contrast": {
         "role": "primary",
-        "displayName": "Texto sobre verde · escuro"
+        "displayName": "Texto sobre verde · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0515043334 161.2664575771deg)",
+          "oklch(26.4285714286% 0.0515043334 161.2664575771deg)",
+          "oklch(37.8571428571% 0.0515043334 161.2664575771deg)",
+          "oklch(49.2857142857% 0.0515043334 161.2664575771deg)",
+          "oklch(60.7142857143% 0.0515043334 161.2664575771deg)",
+          "oklch(72.1428571429% 0.0515043334 161.2664575771deg)",
+          "oklch(83.5714285714% 0.0515043334 161.2664575771deg)",
+          "oklch(95% 0.0515043334 161.2664575771deg)"
+        ]
       },
       "dark-brand-soft": {
         "role": "primary",
-        "displayName": "Fundo verde de apoio · escuro"
+        "displayName": "Fundo verde de apoio · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0352090453 172.6274250987deg)",
+          "oklch(26.4285714286% 0.0352090453 172.6274250987deg)",
+          "oklch(37.8571428571% 0.0352090453 172.6274250987deg)",
+          "oklch(49.2857142857% 0.0352090453 172.6274250987deg)",
+          "oklch(60.7142857143% 0.0352090453 172.6274250987deg)",
+          "oklch(72.1428571429% 0.0352090453 172.6274250987deg)",
+          "oklch(83.5714285714% 0.0352090453 172.6274250987deg)",
+          "oklch(95% 0.0352090453 172.6274250987deg)"
+        ]
       },
       "dark-blue": {
         "role": "secondary",
-        "displayName": "Azul de informação · escuro"
+        "displayName": "Azul de informação · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0881758598 240.515787345deg)",
+          "oklch(26.4285714286% 0.0881758598 240.515787345deg)",
+          "oklch(37.8571428571% 0.0881758598 240.515787345deg)",
+          "oklch(49.2857142857% 0.0881758598 240.515787345deg)",
+          "oklch(60.7142857143% 0.0881758598 240.515787345deg)",
+          "oklch(72.1428571429% 0.0881758598 240.515787345deg)",
+          "oklch(83.5714285714% 0.0881758598 240.515787345deg)",
+          "oklch(95% 0.0881758598 240.515787345deg)"
+        ]
       },
       "dark-info-soft": {
         "role": "secondary",
-        "displayName": "Fundo de informação · escuro"
+        "displayName": "Fundo de informação · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0498760674 249.4558067869deg)",
+          "oklch(26.4285714286% 0.0498760674 249.4558067869deg)",
+          "oklch(37.8571428571% 0.0498760674 249.4558067869deg)",
+          "oklch(49.2857142857% 0.0498760674 249.4558067869deg)",
+          "oklch(60.7142857143% 0.0498760674 249.4558067869deg)",
+          "oklch(72.1428571429% 0.0498760674 249.4558067869deg)",
+          "oklch(83.5714285714% 0.0498760674 249.4558067869deg)",
+          "oklch(95% 0.0498760674 249.4558067869deg)"
+        ]
       },
       "dark-paper": {
         "role": "neutral",
-        "displayName": "Papel · escuro"
+        "displayName": "Papel · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0398243266 265.7548754714deg)",
+          "oklch(26.4285714286% 0.0398243266 265.7548754714deg)",
+          "oklch(37.8571428571% 0.0398243266 265.7548754714deg)",
+          "oklch(49.2857142857% 0.0398243266 265.7548754714deg)",
+          "oklch(60.7142857143% 0.0398243266 265.7548754714deg)",
+          "oklch(72.1428571429% 0.0398243266 265.7548754714deg)",
+          "oklch(83.5714285714% 0.0398243266 265.7548754714deg)",
+          "oklch(95% 0.0398243266 265.7548754714deg)"
+        ]
       },
       "dark-surface": {
         "role": "neutral",
-        "displayName": "Superfície · escuro"
+        "displayName": "Superfície · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0368481257 260.0309873929deg)",
+          "oklch(26.4285714286% 0.0368481257 260.0309873929deg)",
+          "oklch(37.8571428571% 0.0368481257 260.0309873929deg)",
+          "oklch(49.2857142857% 0.0368481257 260.0309873929deg)",
+          "oklch(60.7142857143% 0.0368481257 260.0309873929deg)",
+          "oklch(72.1428571429% 0.0368481257 260.0309873929deg)",
+          "oklch(83.5714285714% 0.0368481257 260.0309873929deg)",
+          "oklch(95% 0.0368481257 260.0309873929deg)"
+        ]
       },
       "dark-surface-subtle": {
         "role": "neutral",
-        "displayName": "Superfície de apoio · escuro"
+        "displayName": "Superfície de apoio · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0422436694 258.3008079034deg)",
+          "oklch(26.4285714286% 0.0422436694 258.3008079034deg)",
+          "oklch(37.8571428571% 0.0422436694 258.3008079034deg)",
+          "oklch(49.2857142857% 0.0422436694 258.3008079034deg)",
+          "oklch(60.7142857143% 0.0422436694 258.3008079034deg)",
+          "oklch(72.1428571429% 0.0422436694 258.3008079034deg)",
+          "oklch(83.5714285714% 0.0422436694 258.3008079034deg)",
+          "oklch(95% 0.0422436694 258.3008079034deg)"
+        ]
       },
       "dark-surface-hover": {
         "role": "neutral",
-        "displayName": "Superfície em interação · escuro"
+        "displayName": "Superfície em interação · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0455124306 256.1269115236deg)",
+          "oklch(26.4285714286% 0.0455124306 256.1269115236deg)",
+          "oklch(37.8571428571% 0.0455124306 256.1269115236deg)",
+          "oklch(49.2857142857% 0.0455124306 256.1269115236deg)",
+          "oklch(60.7142857143% 0.0455124306 256.1269115236deg)",
+          "oklch(72.1428571429% 0.0455124306 256.1269115236deg)",
+          "oklch(83.5714285714% 0.0455124306 256.1269115236deg)",
+          "oklch(95% 0.0455124306 256.1269115236deg)"
+        ]
       },
       "dark-text": {
         "role": "neutral",
-        "displayName": "Texto principal · escuro"
+        "displayName": "Texto principal · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0068536168 247.8956799606deg)",
+          "oklch(26.4285714286% 0.0068536168 247.8956799606deg)",
+          "oklch(37.8571428571% 0.0068536168 247.8956799606deg)",
+          "oklch(49.2857142857% 0.0068536168 247.8956799606deg)",
+          "oklch(60.7142857143% 0.0068536168 247.8956799606deg)",
+          "oklch(72.1428571429% 0.0068536168 247.8956799606deg)",
+          "oklch(83.5714285714% 0.0068536168 247.8956799606deg)",
+          "oklch(95% 0.0068536168 247.8956799606deg)"
+        ]
       },
       "dark-muted": {
         "role": "neutral",
-        "displayName": "Texto secundário · escuro"
+        "displayName": "Texto secundário · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.028463758 253.2662576145deg)",
+          "oklch(26.4285714286% 0.028463758 253.2662576145deg)",
+          "oklch(37.8571428571% 0.028463758 253.2662576145deg)",
+          "oklch(49.2857142857% 0.028463758 253.2662576145deg)",
+          "oklch(60.7142857143% 0.028463758 253.2662576145deg)",
+          "oklch(72.1428571429% 0.028463758 253.2662576145deg)",
+          "oklch(83.5714285714% 0.028463758 253.2662576145deg)",
+          "oklch(95% 0.028463758 253.2662576145deg)"
+        ]
       },
       "dark-line": {
         "role": "neutral",
-        "displayName": "Divisória estrutural · escuro"
+        "displayName": "Divisória estrutural · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0424173405 256.4487896288deg)",
+          "oklch(26.4285714286% 0.0424173405 256.4487896288deg)",
+          "oklch(37.8571428571% 0.0424173405 256.4487896288deg)",
+          "oklch(49.2857142857% 0.0424173405 256.4487896288deg)",
+          "oklch(60.7142857143% 0.0424173405 256.4487896288deg)",
+          "oklch(72.1428571429% 0.0424173405 256.4487896288deg)",
+          "oklch(83.5714285714% 0.0424173405 256.4487896288deg)",
+          "oklch(95% 0.0424173405 256.4487896288deg)"
+        ]
       },
       "dark-success": {
         "role": "secondary",
-        "displayName": "Confirmação · escuro"
+        "displayName": "Confirmação · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.1029037656 154.0517459799deg)",
+          "oklch(26.4285714286% 0.1029037656 154.0517459799deg)",
+          "oklch(37.8571428571% 0.1029037656 154.0517459799deg)",
+          "oklch(49.2857142857% 0.1029037656 154.0517459799deg)",
+          "oklch(60.7142857143% 0.1029037656 154.0517459799deg)",
+          "oklch(72.1428571429% 0.1029037656 154.0517459799deg)",
+          "oklch(83.5714285714% 0.1029037656 154.0517459799deg)",
+          "oklch(95% 0.1029037656 154.0517459799deg)"
+        ]
       },
       "dark-success-soft": {
         "role": "secondary",
-        "displayName": "Fundo de confirmação · escuro"
+        "displayName": "Fundo de confirmação · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0395760351 164.2620027121deg)",
+          "oklch(26.4285714286% 0.0395760351 164.2620027121deg)",
+          "oklch(37.8571428571% 0.0395760351 164.2620027121deg)",
+          "oklch(49.2857142857% 0.0395760351 164.2620027121deg)",
+          "oklch(60.7142857143% 0.0395760351 164.2620027121deg)",
+          "oklch(72.1428571429% 0.0395760351 164.2620027121deg)",
+          "oklch(83.5714285714% 0.0395760351 164.2620027121deg)",
+          "oklch(95% 0.0395760351 164.2620027121deg)"
+        ]
       },
       "dark-warning": {
         "role": "secondary",
-        "displayName": "Pendência e origem sintética · escuro"
+        "displayName": "Pendência e origem sintética · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.1049877885 83.5505965737deg)",
+          "oklch(26.4285714286% 0.1049877885 83.5505965737deg)",
+          "oklch(37.8571428571% 0.1049877885 83.5505965737deg)",
+          "oklch(49.2857142857% 0.1049877885 83.5505965737deg)",
+          "oklch(60.7142857143% 0.1049877885 83.5505965737deg)",
+          "oklch(72.1428571429% 0.1049877885 83.5505965737deg)",
+          "oklch(83.5714285714% 0.1049877885 83.5505965737deg)",
+          "oklch(95% 0.1049877885 83.5505965737deg)"
+        ]
       },
       "dark-warning-soft": {
         "role": "secondary",
-        "displayName": "Fundo de pendência · escuro"
+        "displayName": "Fundo de pendência · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0375484009 80.9502050119deg)",
+          "oklch(26.4285714286% 0.0375484009 80.9502050119deg)",
+          "oklch(37.8571428571% 0.0375484009 80.9502050119deg)",
+          "oklch(49.2857142857% 0.0375484009 80.9502050119deg)",
+          "oklch(60.7142857143% 0.0375484009 80.9502050119deg)",
+          "oklch(72.1428571429% 0.0375484009 80.9502050119deg)",
+          "oklch(83.5714285714% 0.0375484009 80.9502050119deg)",
+          "oklch(95% 0.0375484009 80.9502050119deg)"
+        ]
       },
       "dark-danger": {
         "role": "secondary",
-        "displayName": "Falha · escuro"
+        "displayName": "Falha · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0886731422 25.0800133197deg)",
+          "oklch(26.4285714286% 0.0886731422 25.0800133197deg)",
+          "oklch(37.8571428571% 0.0886731422 25.0800133197deg)",
+          "oklch(49.2857142857% 0.0886731422 25.0800133197deg)",
+          "oklch(60.7142857143% 0.0886731422 25.0800133197deg)",
+          "oklch(72.1428571429% 0.0886731422 25.0800133197deg)",
+          "oklch(83.5714285714% 0.0886731422 25.0800133197deg)",
+          "oklch(95% 0.0886731422 25.0800133197deg)"
+        ]
       },
       "dark-danger-soft": {
         "role": "secondary",
-        "displayName": "Fundo de falha · escuro"
+        "displayName": "Fundo de falha · escuro",
+        "tonalRamp": [
+          "oklch(15% 0.0437428533 6.2473290787deg)",
+          "oklch(26.4285714286% 0.0437428533 6.2473290787deg)",
+          "oklch(37.8571428571% 0.0437428533 6.2473290787deg)",
+          "oklch(49.2857142857% 0.0437428533 6.2473290787deg)",
+          "oklch(60.7142857143% 0.0437428533 6.2473290787deg)",
+          "oklch(72.1428571429% 0.0437428533 6.2473290787deg)",
+          "oklch(83.5714285714% 0.0437428533 6.2473290787deg)",
+          "oklch(95% 0.0437428533 6.2473290787deg)"
+        ]
       }
     },
     "typographyMeta": {
@@ -292,7 +682,7 @@
       "refersTo": "input",
       "description": "Campo nativo de formulário; label permanece visível.",
       "html": "<label class=\"ds-field\">Número da nota<input class=\"ds-input\" type=\"text\" /></label>",
-      "css": ".ds-field{display:flex;flex-direction:column;gap:8px;color:var(--text,#0F172A);font:600 14px/1.5 var(--font-body,Inter,system-ui,sans-serif)}.ds-input{font:inherit;color:var(--text,#0F172A);border:1px solid var(--control-line,#7B8BA0);border-radius:var(--radius-control,12px);padding:10px 12px;min-height:44px;max-width:100%;background:var(--surface,#FFFFFF);caret-color:var(--green,#134E39)}.ds-input:hover{border-color:var(--green,#134E39)}.ds-input:focus{border-color:var(--focus,#005596)}.ds-input:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:3px}"
+      "css": ".ds-field{display:flex;flex-direction:column;gap:8px;color:var(--text,#0F172A);font:600 14px/1.5 var(--font-body,Inter,system-ui,sans-serif)}.ds-input{box-sizing:border-box;font:inherit;color:var(--text,#0F172A);border:1px solid var(--control-line,#7B8BA0);border-radius:var(--radius-control,12px);padding:10px 12px;min-height:44px;max-width:100%;width:100%;background:var(--surface,#FFFFFF);caret-color:var(--green,#134E39)}.ds-input:hover{border-color:var(--green,#134E39)}.ds-input:focus{border-color:var(--focus,#005596)}.ds-input:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:3px}.ds-input::placeholder{color:var(--muted,#526176);opacity:1}"
     },
     {
       "name": "Módulo ativo",
@@ -300,7 +690,7 @@
       "refersTo": "nav-active",
       "description": "Destino da navegação lateral ou do menu de módulos, com ícone Ionicons inline.",
       "html": "<nav class=\"ds-navigation\" aria-label=\"Módulos\"><a class=\"ds-nav-link ds-active\" href=\"#ds-agenda\" aria-current=\"page\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 512 512\" aria-hidden=\"true\"><rect width=\"416\" height=\"384\" x=\"48\" y=\"80\" fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"32\" rx=\"48\"/><circle cx=\"296\" cy=\"232\" r=\"24\"/><circle cx=\"376\" cy=\"232\" r=\"24\"/><circle cx=\"296\" cy=\"312\" r=\"24\"/><circle cx=\"376\" cy=\"312\" r=\"24\"/><circle cx=\"136\" cy=\"312\" r=\"24\"/><circle cx=\"216\" cy=\"312\" r=\"24\"/><circle cx=\"136\" cy=\"392\" r=\"24\"/><circle cx=\"216\" cy=\"392\" r=\"24\"/><circle cx=\"296\" cy=\"392\" r=\"24\"/><path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"32\" d=\"M128 48v32M384 48v32\"/><path fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"32\" d=\"M464 160H48\"/></svg><span>Agenda</span></a></nav>",
-      "css": ".ds-navigation{display:flex;flex-direction:column;gap:6px}.ds-nav-link{display:flex;align-items:center;gap:12px;padding:12px;min-height:48px;text-decoration:none;color:var(--muted,#526176);border-radius:var(--radius-control,12px);font:400 14px/1.5 var(--font-body,Inter,system-ui,sans-serif);transition:background-color 160ms ease-out}.ds-nav-link.ds-active{background:var(--green,#134E39);color:var(--brand-contrast,#FFFFFF);font-weight:600}.ds-nav-link:not(.ds-active):hover{background:var(--surface-hover,#EDF3F6);color:var(--text,#0F172A)}.ds-nav-link:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:3px}.ds-nav-icon{width:22px;height:22px;fill:currentColor;flex-shrink:0}"
+      "css": ".ds-navigation{display:flex;flex-direction:column;gap:6px}.ds-nav-link{box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:12px;min-height:48px;text-decoration:none;color:var(--muted,#526176);border-radius:var(--radius-control,12px);font:400 14px/1.5 var(--font-body,Inter,system-ui,sans-serif);transition:background-color 160ms ease-out}.ds-nav-link.ds-active{background:var(--green,#134E39);color:var(--brand-contrast,#FFFFFF);font-weight:600}.ds-nav-link:not(.ds-active):hover{background:var(--surface-hover,#EDF3F6);color:var(--text,#0F172A)}.ds-nav-link:focus-visible{outline:3px solid var(--focus,#005596);outline-offset:3px}.ds-nav-icon{width:22px;height:22px;fill:currentColor;flex-shrink:0}"
     },
     {
       "name": "Estado pendente",
@@ -336,7 +726,7 @@
     }
   ],
   "narrative": {
-    "overview": "Interface de operação para agenda, conferência, armazém, boletins e gestão. O redesign aprovado usa como referência visual o Coffee Logistics Dashboard do Google Stitch, projeto `8449242214206285579`. A direção foi aplicada a partir do código, preservando tarefas, permissões, conteúdo de domínio e contratos da API. A referência não acrescenta funcionalidades ao produto.\n\nO sistema organiza a leitura com cabeçalhos compactos, superfícies claras, cartões de indicadores, tabelas e estados escritos. Verde identifica ação e seleção; azul ajuda a localizar dados e informação. A marca em uso é o texto “Cocapec / Recebimento” acompanhado de uma folha em contorno do Ionicons; não é um logotipo oficial fornecido pela cooperativa. Não há imagens raster na interface entregue.\n\n**Características:** hierarquia de tarefa, dados com origem e cobertura, componentes compartilhados, temas completos e navegação adaptada ao perfil. Este arquivo substitui as regras visuais anteriores. Os valores do frontmatter foram extraídos de [styles.scss](frontend/src/styles.scss); esse arquivo continua sendo a fonte de implementação e de compatibilidade com Ionic.\n\nEvidência do redesign em 03/10/2026: revisão independente com disposição `ship`, conferência web em 1440, 820 e 390px e reflow em 320px nos dois temas; Android em AVD API 36 e viewport de tablet de 800dp. Foram inspecionados teclado nativo, menu Mais, persistência do tema, erro de conexão/repetição e alcance da ação de salvar, sem gravações de negócio durante essa QA visual. Lint, 17 testes de apresentação, 81 testes PostgreSQL, build Angular, sincronização Capacitor, `assembleDebug` e `testDebugUnitTest` passaram. O build inicial registrado é 632,79 kB, abaixo dos limites configurados de 2 MB para aviso e 3 MB para erro. O teste Java local é uma asserção padrão; aparelho físico e TalkBack não foram validados. Evidências detalhadas ficam no arquivo local `.impeccable/review/validation.md`, que não é publicado no repositório.",
+    "overview": "Interface de operação para agenda, conferência, armazém, boletins e gestão. O redesign aprovado usa como referência visual o Coffee Logistics Dashboard do Google Stitch, projeto `8449242214206285579`. A direção foi aplicada a partir do código, preservando tarefas, permissões, conteúdo de domínio e contratos da API. A referência não acrescenta funcionalidades ao produto.\n\nO sistema organiza a leitura com cabeçalhos compactos, superfícies claras, cartões de indicadores, tabelas e estados escritos. Verde identifica ação e seleção; azul ajuda a localizar dados e informação. A marca em uso é o texto “Cocapec / Recebimento” acompanhado de uma folha em contorno do Ionicons; não é um logotipo oficial fornecido pela cooperativa. A área operacional usa componentes e ícones. A home reproduz conteúdo institucional com imagens e links do site Cocapec; clima e cotações são uma captura de referência, identificada e sem atualização automática. A barra de acesso local precede esse conteúdo e preserva sua atribuição.\n\n**Características:** hierarquia de tarefa, dados com origem e cobertura, componentes compartilhados, temas completos e navegação adaptada ao perfil. Este arquivo substitui as regras visuais anteriores. Os valores do frontmatter foram extraídos de [styles.scss](frontend/src/styles.scss); esse arquivo continua sendo a fonte de implementação e de compatibilidade com Ionic.\n\nEvidência do redesign em 03/10/2026: revisão independente com disposição `ship`, conferência web em 1440, 820 e 390px e reflow em 320px nos dois temas; Android em AVD API 36 e viewport de tablet de 800dp. Foram inspecionados teclado nativo, menu Mais, persistência do tema, erro de conexão/repetição e alcance da ação de salvar, sem gravações de negócio durante essa QA visual. Lint, 17 testes de apresentação, 81 testes PostgreSQL, build Angular, sincronização Capacitor, `assembleDebug` e `testDebugUnitTest` passaram. O build inicial registrado é 632,79 kB, abaixo dos limites configurados de 2 MB para aviso e 3 MB para erro. O teste Java local é uma asserção padrão; aparelho físico e TalkBack não foram validados. Evidências detalhadas ficam no arquivo local `.impeccable/review/validation.md`, que não é publicado no repositório.",
     "keyCharacteristics": [
       "hierarquia de tarefa",
       "dados com origem e cobertura",

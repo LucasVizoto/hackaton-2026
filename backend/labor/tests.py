@@ -184,7 +184,17 @@ class BulletinPersistenceTests(TestCase):
             self.assertEqual(result.status_code, 201)
             self.assertEqual(len(result.data["lines"]), 14)
             self.assertEqual(len(result.data["participants"]), 11)
-            self.assertEqual(result.data["participants"][0]["name"], self.workers[0].name)
+            expected_participants = {
+                str(worker.id): (worker.name, Decimal("0.5" if half and index == 10 else "1.0"))
+                for index, worker in enumerate(self.workers[:11])
+            }
+            self.assertEqual(
+                {
+                    participant["worker"]: (participant["name"], Decimal(participant["fraction"]))
+                    for participant in result.data["participants"]
+                },
+                expected_participants,
+            )
             closed = self.client.post(
                 f"/api/v1/bulletins/{result.data['id']}/close/",
                 {"revision": result.data["revision"]},
@@ -196,6 +206,13 @@ class BulletinPersistenceTests(TestCase):
             reload = self.client.get(f"/api/v1/bulletins/{result.data['id']}/")
             self.assertEqual(reload.data["status"], "CLOSED")
             self.assertEqual(reload.data["calculation"], closed.data["calculation"])
+            self.assertEqual(
+                {
+                    participant["worker"]: (participant["name"], Decimal(participant["fraction"]))
+                    for participant in reload.data["participants"]
+                },
+                expected_participants,
+            )
 
     def test_duplicate_worker_over_twenty_invalid_fraction_negative_unknown_rejected(self):
         payload = official_payload(self.warehouse, self.workers)

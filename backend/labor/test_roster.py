@@ -82,6 +82,9 @@ class RosterTests(TestCase):
         team = self.client.get("/api/v2/roster/team/", {"date": str(MONDAY), "origin": "demo_sintetico"}).data
         self.assertEqual(sorted(p["fraction"] for p in team["participants"]), ["1.0", "1.0"])
         self.assertEqual(team["absences"], 1)
+        self.assertEqual(team["absent"], [{"worker": str(self.workers[2].pk),
+                                          "registration": self.workers[2].registration, "name": self.workers[2].name}])
+        self.assertNotIn(str(self.workers[2].pk), [p["worker"] for p in team["participants"]])
         monday = self.week()["days"][0]
         self.assertEqual((monday["scheduled_equivalents"], monday["present_equivalents"]), ("2", "2"))
 

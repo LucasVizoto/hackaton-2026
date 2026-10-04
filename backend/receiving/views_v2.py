@@ -57,7 +57,9 @@ class AppointmentsV2(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
 
     @action(detail=True, methods=["post"], url_path="gate-check-in")
     def gate_check_in(self, request, pk=None):
-        return self.apply(request, "gate-check-in", TimeInput)
+        from .serializers_v2 import GateCheckInInput
+
+        return self.apply(request, "gate-check-in", GateCheckInInput)
 
     @action(detail=True, methods=["post"], url_path="gate-check-out")
     def gate_check_out(self, request, pk=None):
