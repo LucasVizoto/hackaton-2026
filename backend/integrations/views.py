@@ -175,6 +175,9 @@ def analytics_context(user, filters):
     operations = OperationsV2View().get(authorized).data
     return {"period": costs["period"], "origin": costs["origin"], "financial_summary": costs["summary"],
             "cost_groups": costs["groups"], "financial_coverage": costs["coverage"],
+            "weekly_supplement": costs["weekly_supplement"],
+            "gate_wait_by_warehouse": operations["gate_wait_by_warehouse"],
+            "operational_coverage": operations["coverage"],
             "received_loads": operations["received_loads"], "average_total_stay_minutes": operations["average_total_stay_minutes"],
             "warnings": costs["warnings"] + operations["warnings"]}
 
@@ -205,6 +208,8 @@ class AssistantView(APIView):
             result = openai_response([{"type": "input_text", "text": json.dumps({"question": data["question"], "current": context, "previous": previous}, default=str)}],
                 instructions="Você é um assistente de consulta Cocapec. Responda em português usando exclusivamente os dados fornecidos. "
                 "Declare período, origem e lacunas. Compare variações sem afirmar causalidade. Produção atribuída não é produtividade individual. "
+                "Complemento é apuração do piso, não pagamento efetivado nem ociosidade comprovada. "
+                "Espera após portaria pertence apenas ao primeiro destino; use a janela explícita do complemento semanal e informe empates. "
                 "Não execute nem alegue executar pagamentos, agenda ou alterações. Não há ferramentas. Não invente valores, economia, pessoas ou fontes.")
         except ProviderUnavailable as error:
             unavailable(error)

@@ -7,6 +7,22 @@ import { HttpClient } from "@angular/common/http";
 import { Api } from "../src/app/core/api";
 import { routes } from "../src/app/routes";
 
+test("legacy settlement URL preserves the embedded fortnight view in bulletins", () => {
+  const tree = {};
+  let destination: unknown;
+  const injector = createEnvironmentInjector([
+    { provide: Router, useValue: { createUrlTree: (...args: unknown[]) => { destination = args; return tree; } } },
+  ], null!);
+  try {
+    const route = routes.find(route => route.path === "acerto")!;
+    assert.equal(typeof route.redirectTo, "function");
+    const redirect = route.redirectTo as (snapshot: never) => unknown;
+    assert.equal(runInInjectionContext(injector, () => redirect(null!)), tree);
+    assert.deepEqual(destination, [["/boletins"], { queryParams: { visao: "quinzena" } }]);
+    assert.ok(routes.find(route => route.path === "boletins")!.canActivate!.length > 0);
+  } finally { injector.destroy(); }
+});
+
 test("management can consult all modules but cannot enter creation routes or gain operational roles", () => {
   const redirected = {};
   const injector = createEnvironmentInjector([

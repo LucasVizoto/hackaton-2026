@@ -196,6 +196,48 @@ class DailyBulletinTests(DailyBulletinBase):
 
 
 class DailyBulletinAnalyticsTests(DailyBulletinBase):
+    def test_dashboard_series_and_week_reconcile_with_split_daily_bulletin(self):
+        bulletin = self.close(self.create(split=True, half=True))
+        self.client.force_authenticate(self.manager)
+        params = {"date_from": "2025-11-16", "date_to": "2025-11-18", "origin": "demo_sintetico"}
+        response = self.client.get("/api/v2/analytics/labor-costs/", params)
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        row = data["daily_series"][1]
+        for key in ("production", "supplement", "total_payable"):
+            self.assertEqual(Decimal(row[key]), Decimal(bulletin["calculation"][key]))
+        self.assertIsNone(data["daily_series"][0]["total_payable"])
+        week = data["weekly_supplement"]
+        self.assertEqual(week["closed_bulletins"], 1)
+        self.assertEqual(len(week["groups"]), 2)
+        self.assertEqual(sum(Decimal(group["supplement"]) for group in week["groups"]), Decimal(row["supplement"]))
+        for warehouse in (self.warehouse, self.other_warehouse):
+            filtered = self.client.get("/api/v2/analytics/labor-costs/", {**params, "warehouse": str(warehouse.pk)})
+            self.assertEqual(filtered.status_code, 200, filtered.data)
+            filtered = filtered.data
+            self.assertEqual(filtered["daily_series"][1]["total_payable"], filtered["summary"]["total_payable"])
+            self.assertEqual(filtered["weekly_supplement"]["closed_bulletins"], 1)
+            self.assertEqual(filtered["weekly_supplement"]["groups"][0]["warehouse"], str(warehouse.pk))
+            self.assertLess(Decimal(filtered["summary"]["total_payable"]), Decimal(row["total_payable"]))
+
+    def test_dashboard_unattributed_daily_floor_and_assistant_context(self):
+        payload = {**self.payload(day=date(2025, 11, 22)), "lines": []}
+        response = self.client.post("/api/v2/bulletins/", payload, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        bulletin = self.close(response.data)
+        self.client.force_authenticate(self.manager)
+        params = {"date_from": "2025-11-22", "date_to": "2025-11-22", "origin": "demo_sintetico"}
+        response = self.client.get("/api/v2/analytics/labor-costs/", params)
+        self.assertEqual(response.status_code, 200, response.data)
+        week = response.data["weekly_supplement"]
+        self.assertEqual(week["closed_bulletins"], 1)
+        self.assertEqual(week["groups"][0]["warehouse_name"], "Não atribuído")
+        self.assertEqual(week["groups"][0]["supplement"], bulletin["calculation"]["supplement"])
+        from integrations.views import analytics_context
+        context = analytics_context(self.manager, params)
+        self.assertEqual(context["weekly_supplement"], week)
+        self.assertEqual(context["financial_summary"]["total_payable"], response.data["daily_series"][0]["total_payable"])
+
     def test_management_cost_split_and_statement(self):
         bulletin = self.close(self.create(split=True))
         self.client.force_authenticate(self.manager)

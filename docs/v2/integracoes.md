@@ -10,6 +10,8 @@ A leitura de fotos da Portaria e de PDFs sem texto confiável usa o SDK OpenAI n
 
 `GET /api/v2/integrations/capabilities/` informa se o recurso está habilitado e possui a configuração mínima. Isso não verifica a validade de credenciais, disponibilidade de rede, saldo da conta ou autorização no provedor. Chamadas indisponíveis retornam erro, sem fabricar resultado.
 
+Em Gestão, **Análise automática** é uma síntese local dos agregados consultados. **Análise da IA** aparece somente após uma resposta do provedor, com período e origem. A chamada automática usa os filtros aplicados, incluindo local, e exige disponibilidade configurada, perfil Gestão/admin e indicadores consultados sem falhas. O contexto inclui complemento semanal, esperas por primeiro destino e cobertura. Falha externa mantém a síntese local e permite tentar novamente; respostas de filtros anteriores são descartadas. Sem dados apurados, o painel informa que a IA aguarda boletins ou esperas medidas. Nenhuma dessas análises altera ou executa pagamentos, boletins ou recebimentos.
+
 | Recurso | Contrato local | Limite |
 |---|---|---|
 | Assistente gerencial | `POST integrations/assistant/`; Gestão/admin; pergunta, período, origem e local opcionais | Consulta indicadores autorizados e compara com o período anterior. Não recebe ferramentas, SQL executável ou acesso para alterar agenda/pagamentos. |
