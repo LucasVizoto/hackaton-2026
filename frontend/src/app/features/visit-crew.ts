@@ -8,11 +8,10 @@ export interface CrewPerson { id: string; registration: string; name: string; at
 export interface CrewEquipment { id: string; name: string; kind: string; kind_label: string; warehouse_name: string | null; own: boolean; planned: boolean; busy_at: string | null; }
 export interface Crew {
   visit: string; appointment: string; warehouse: string; warehouse_name: string; date: string; origin: string; stage: "waiting" | "running" | "done";
-  suggestion: { packaging_label: string; people: number; gas_forklifts: number; text: string; estimated: boolean; light_load: boolean; notes: string[]; equipment: string[]; forklift_warning: string | null; borrowed: boolean };
   crew: string[]; people: CrewPerson[]; others: { id: string; registration: string; name: string }[]; equipment: CrewEquipment[];
 }
 
-/** Equipe da descarga numa etapa (caminhão × armazém): a norma sugere, o armazém escolhe quem vai. */
+/** Equipe da descarga numa etapa (caminhão × armazém): o armazém escolhe quem vai e com qual equipamento. */
 @Component({
   selector: "app-visit-crew",
   standalone: true,
@@ -20,15 +19,12 @@ export interface Crew {
   imports: [FormsModule, RouterLink, FeedbackState, LoadingState],
   styles: [`
     .crew { display: grid; gap: 12px; }
-    .suggest { padding: 12px 14px; border-radius: var(--radius-control); background: var(--info-soft); color: var(--blue); }
-    .suggest strong { display: block; }
     .chips { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
     .chip[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: var(--brand-contrast); font-weight: 600; }
     .chip:disabled { opacity: .5; cursor: not-allowed; }
     .chip small { font-weight: 400; opacity: .85; }
     .count { font-weight: 600; }
-    .count.short { color: var(--danger); }
     .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
     .add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .add select { min-height: 44px; }
@@ -40,15 +36,9 @@ export interface Crew {
   @if (!data() && busy()) { <app-loading-state label="Carregando equipe sugerida…" /> }
   @if (data(); as d) {
     <div class="crew">
-      <div class="suggest" role="note"><strong>Sugestão: {{ d.suggestion.text }}</strong>
-        @if (d.suggestion.borrowed) { <span>Empilhadeira emprestada de outro armazém (a deste está ocupada ou não existe).</span> }
-        @if (d.suggestion.forklift_warning) { <span>{{ d.suggestion.forklift_warning }}</span> }
-        @if (d.suggestion.estimated) { <small>Estimativa pela norma; peso ou volumes da nota não informados.</small> }
-      </div>
-
       <div>
         <div class="row"><h3>Quem vai nesta descarga</h3>
-          <span class="count" [class.short]="selected().length < d.suggestion.people">{{ selected().length }} de {{ d.suggestion.people }} {{ d.suggestion.people === 1 ? "pessoa sugerida" : "pessoas sugeridas" }}</span></div>
+          <span class="count">{{ selected().length }} {{ selected().length === 1 ? "pessoa selecionada" : "pessoas selecionadas" }}</span></div>
         @if (d.people.length) {
           <div class="chips" role="group" aria-label="Chapas escalados hoje">
             @for (p of d.people; track p.id) {
@@ -109,7 +99,7 @@ export class VisitCrew {
     this.data.set(crew);
     const planned = crew.equipment.filter(e => e.planned).map(e => e.id);
     this.selected.set([...crew.crew]);
-    this.equipment.set(planned.length || crew.stage === "done" ? planned : [...crew.suggestion.equipment]);
+    this.equipment.set(planned);
     this.original.set(JSON.stringify([[...crew.crew].sort(), planned.slice().sort()]));
   }
   async load(id: string) {

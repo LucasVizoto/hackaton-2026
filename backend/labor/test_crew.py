@@ -10,7 +10,7 @@ from receiving.tests_v2 import ReceivingV2Tests
 
 
 class CrewTests(TestCase):
-    """Equipe da descarga: sugestão da norma, nomes por etapa e registro na saída do armazém."""
+    """Equipe da descarga: nomes por etapa, equipamentos do armazém e registro na saída."""
     setUp = ReceivingV2Tests.setUp
     create = ReceivingV2Tests.create
     command = ReceivingV2Tests.command
@@ -37,8 +37,7 @@ class CrewTests(TestCase):
         self.client.force_authenticate(self.operator)
         url = f"/api/v2/allocation/visits/{visit.pk}/crew/"
         data = self.client.get(url).data
-        self.assertEqual((data["suggestion"]["chapas"], data["suggestion"]["gas_forklifts"]), (2, 1))
-        self.assertIn("Paletizado", data["suggestion"]["text"])
+        self.assertNotIn("suggestion", data)
         self.assertEqual([p["id"] for p in data["people"]], [str(people[0].pk)])
         self.assertEqual(len(data["others"]), 2)
         response = self.client.post(url, {"worker_ids": [str(people[0].pk), str(people[1].pk)], "equipment_ids": []},

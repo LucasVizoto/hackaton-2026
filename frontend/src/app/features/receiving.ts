@@ -761,9 +761,9 @@ export class AppointmentDetail implements OnInit {
       const names = crew.people.filter(p => crew.crew.includes(p.id)).map(p => p.name);
       const planned = crew.equipment.filter(e => e.planned).map(e => e.id);
       this.checkoutEquipment.set(crew.equipment.map(e => ({ id: e.id, name: e.own || !e.warehouse_name ? e.name : `${e.name} (do ${e.warehouse_name})` })));
-      this.selectedEquipment.set(planned.length ? planned : crew.suggestion.equipment);
-      this.form.controls.worker_count.setValue(names.length || crew.suggestion.people);
-      this.crewHint.set(names.length ? `Equipe alocada: ${names.join(", ")}. Confira e corrija se mudou.` : `Ninguém alocado nesta etapa; preenchido com a sugestão (${crew.suggestion.text}).`);
+      this.selectedEquipment.set(planned);
+      this.form.controls.worker_count.setValue(names.length);
+      this.crewHint.set(names.length ? `Equipe alocada: ${names.join(", ")}. Confira e corrija se mudou.` : "Ninguém alocado nesta etapa: informe quantos chapas atuaram.");
     } catch { this.crewHint.set(""); }
   }
   toggleEquipment(id: string) {

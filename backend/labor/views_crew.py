@@ -1,7 +1,7 @@
 """Equipe da descarga: o armazém direciona chapas e equipamentos para cada etapa (caminhão × armazém).
 
-A norma sugere quantos chapas e qual empilhadeira; o responsável escolhe quem vai entre os escalados
-do dia e confirma ou troca. Os nomes ficam em LaborActivity (RECEIVING); a quantidade e os
+O responsável escolhe quem vai entre os escalados do dia e quais equipamentos usa.
+Os nomes ficam em LaborActivity (RECEIVING); a quantidade e os
 equipamentos confirmados continuam sendo gravados na saída do armazém (check-out da etapa).
 """
 from django.db import transaction
@@ -13,8 +13,6 @@ from rest_framework.views import APIView
 
 from catalog.models import Equipment, Worker
 from core.permissions import IsInternal, require_role
-from labor.allocation import GAS_FORKLIFT, NORMS, requirement
-from labor.allocation_service import load_estimate, observed_times
 from labor.models import LaborActivity, RosterShift, WorkerDay
 from receiving.models import WarehouseVisit
 
@@ -52,9 +50,6 @@ def _allowed_equipment(visit):
 def crew_payload(visit):
     ap = visit.appointment
     day, origin = ap.slot.date, ap.origin
-    weight, units = load_estimate(ap)
-    observed, _ = observed_times(origin, day)
-    req = requirement(ap.packaging, weight, units, observed.get(ap.packaging))
     busy_people, busy_equipment = _busy_elsewhere(visit, day, origin)
     crew = {activity.worker_day.worker_id for activity in _crew_query(visit) if activity.used}
     roster = {shift.worker_id: shift for shift in RosterShift.objects.filter(date=day, origin=origin).select_related("worker")}
@@ -75,30 +70,10 @@ def crew_payload(visit):
               for w in workers if w.pk not in roster and w.pk not in crew]
     planned = set(visit.equipment.values_list("id", flat=True))
     allowed = _allowed_equipment(visit)
-    gas_own = [e for e in allowed if e.kind == GAS_FORKLIFT and e.warehouse_id == visit.warehouse_id and e.pk not in busy_equipment]
-    gas_mobile = [e for e in allowed if e.kind == GAS_FORKLIFT and e.warehouse_id != visit.warehouse_id and e.mobile
-                  and e.warehouse and e.warehouse.code != "MAQUINAS" and e.pk not in busy_equipment]
-    suggested_equipment = (gas_own or gas_mobile)[:1] if req.gas_forklifts else []
-    norm = NORMS[ap.packaging]
-    needed = req.chapas + req.operators
     return {
         "visit": str(visit.pk), "appointment": str(ap.pk), "warehouse": str(visit.warehouse_id),
         "warehouse_name": visit.warehouse.name, "date": day.isoformat(), "origin": origin,
         "stage": "done" if visit.checked_out_at else "running" if visit.checked_in_at else "waiting",
-        "suggestion": {
-            "packaging": ap.packaging, "packaging_label": norm["label"], "chapas": req.chapas, "operators": req.operators,
-            "people": needed, "gas_forklifts": req.gas_forklifts, "equipment_hint": norm["equipment"],
-            "unload_minutes": format(req.unload_minutes, ".0f"), "cycle_minutes": format(req.cycle_minutes, ".0f"),
-            "estimated": req.estimated, "light_load": req.light_load, "notes": list(req.notes),
-            "equipment": [str(e.pk) for e in suggested_equipment],
-            "text": ("Carga leve (abaixo de 500 kg): não exige chapas." if req.light_load else
-                     f"{norm['label']}: {needed} {'pessoa' if needed == 1 else 'pessoas'}"
-                     + (f" + {req.gas_forklifts} empilhadeira a gás" if req.gas_forklifts else "")
-                     + f" · cerca de {format(req.cycle_minutes, '.0f')} min até guardar tudo"),
-            "forklift_warning": ("Nenhuma empilhadeira a gás livre para este armazém agora." if req.gas_forklifts
-                                 and not suggested_equipment else None),
-            "borrowed": bool(suggested_equipment and suggested_equipment[0].warehouse_id != visit.warehouse_id),
-        },
         "crew": [str(w) for w in crew],
         "people": people, "others": others,
         "equipment": [{"id": str(e.pk), "name": e.name, "kind": e.kind, "kind_label": KIND_LABELS.get(e.kind, ""),
