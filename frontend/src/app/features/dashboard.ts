@@ -138,6 +138,8 @@ interface Scenario {
   conditional: boolean;
   assumptions: string[];
 }
+// Visão de diretoria: últimos 30 dias, para o padrão semanal aparecer.
+function daysBefore(day: string, days: number) { const d=new Date(`${day}T12:00:00`); d.setDate(d.getDate()-days); return d.toISOString().slice(0,10); }
 const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, FeedbackState];
 @Component({
   standalone: true,
@@ -145,7 +147,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
   template: `<div class="page">
     <app-page-header
       title="Dashboard"
-      subtitle="Compare produção e piso por local e período com a operação registrada e a cobertura disponível."
+      subtitle="Responde se a equipe de chapas está sobrando ou faltando, onde e quanto custa."
     ><a routerLink="/gestao/logistica">Logística e Entregas</a></app-page-header>
     <form
       app-filter-block
@@ -191,15 +193,18 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
     }
     <app-staffing-balance [filters]="balanceFilters()" />
     @if (!busy() || costs() || operations()) {
-      <section class="section" aria-label="Custos e gargalos">
+      <section class="section" aria-labelledby="period-summary-title">
+        <h2 id="period-summary-title">Custo e operação no período</h2>
         @if (appliedFilters(); as applied) {<p class="muted">{{origin(applied.origin)}} · {{date(applied.date_from)}} a {{date(applied.date_to)}} · {{appliedWarehouseName()}}</p>}
         @if (costsError()) {<div app-feedback tone="error">Comparativo financeiro indisponível: {{costsError()}} Reaplique o período para tentar novamente.</div>}
-        @if (costs()?.daily_series; as series) {<app-cost-comparison-chart [series]="series"/>}
-        <div class="metric-grid section bottleneck-grid">
-          <app-metric-card label="Maior espera após portaria" [value]="waitHighlightValue()" [hint]="waitHighlightHint()"/>
-          <app-metric-card label="Maior complemento do piso" [value]="supplementHighlightValue()" [hint]="supplementHighlightHint()" tone="warning"/>
+        @if (operationsError()) {<div app-feedback tone="error">Operação indisponível: {{operationsError()}} Reaplique o período para tentar novamente.</div>}
+        <div class="metric-grid">
+          <app-metric-card label="Custo da mão de obra" [value]="costs() ? money(costs()!.summary.total_payable) : 'Não disponível'" [hint]="costs() ? 'Boletins fechados · ' + money(costs()!.summary.supplement) + ' de complemento' : ''" tone="brand"/>
+          <app-metric-card label="Caminhões recebidos" [value]="metric('received_loads')" hint="Descargas concluídas no período"/>
+          <app-metric-card label="Maior espera por armazém" [value]="waitHighlightValue()" [hint]="waitLeaderName()" tone="warning"/>
+          <app-metric-card label="Descarga média" [value]="metric('average_unloading_minutes', 'min')" hint="Do início à conclusão" tone="info"/>
         </div>
-        @if (operationsError()) {<div app-feedback tone="error">Espera indisponível: {{operationsError()}} Reaplique o período para tentar novamente.</div>}
+        @if (costs()?.daily_series; as series) {<app-cost-comparison-chart [series]="series"/>}
         @if (costs() || operations()) {
           <section class="panel section management-analysis" aria-labelledby="management-analysis-title">
             <h2 id="management-analysis-title"><ion-icon name="sparkles-outline" aria-hidden="true"/>Análise automática</h2>
@@ -213,6 +218,12 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
         }
       </section>
     }
+    <details class="section audit">
+      <summary>Detalhamento para auditoria: operação, boletins, pessoas e cenário</summary>
+    <div class="metric-grid section bottleneck-grid">
+      <app-metric-card label="Maior espera após portaria" [value]="waitHighlightValue()" [hint]="waitHighlightHint()"/>
+      <app-metric-card label="Maior complemento do piso" [value]="supplementHighlightValue()" [hint]="supplementHighlightHint()" tone="warning"/>
+    </div>
     @if (operations(); as o) {
       <section class="section">
         <h2>Operação e recursos</h2>
@@ -732,8 +743,9 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
       medidos nos arquivos fornecidos. Complemento não prova ociosidade;
       complemento zero não prova dimensionamento adequado.
     </p>
+    </details>
   </div>`,
-  styles: [`.bottleneck-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .management-analysis { border-left-color:var(--blue); } .management-analysis h2 { display:flex; align-items:center; gap:10px; font-size:20px; } .management-analysis ion-icon { color:var(--blue); flex-shrink:0; } .ai-answer { white-space:pre-wrap; } @media(max-width:600px) { .bottleneck-grid { grid-template-columns:1fr; } }`],
+  styles: [`.audit > summary { font-size:16px; } .bottleneck-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .management-analysis { border-left-color:var(--blue); } .management-analysis h2 { display:flex; align-items:center; gap:10px; font-size:20px; } .management-analysis ion-icon { color:var(--blue); flex-shrink:0; } .ai-answer { white-space:pre-wrap; } @media(max-width:600px) { .bottleneck-grid { grid-template-columns:1fr; } }`],
 })
 export class Dashboard implements OnInit, OnDestroy {
   constructor() { addIcons({ sparklesOutline }); }
@@ -744,7 +756,7 @@ export class Dashboard implements OnInit, OnDestroy {
   catalog = inject(Catalog);
   private fb = inject(FormBuilder);
   filters = this.fb.nonNullable.group({
-    date_from: [today().slice(0, 8) + "01", Validators.required],
+    date_from: [daysBefore(today(), 29), Validators.required],
     date_to: [today(), Validators.required],
     warehouse: [""],
     origin: ["operacional_registrado"],
@@ -788,6 +800,7 @@ export class Dashboard implements OnInit, OnDestroy {
   private waitWinners() { return waitLeaders(this.operations()?.gate_wait_by_warehouse); }
   private supplementWinners() { const week=this.costs()?.weekly_supplement; return week?.groups.filter(row=>week.leaders.includes(row.warehouse)) ?? []; }
   waitHighlightValue() { const rows=this.waitWinners(); return rows.length ? waitDuration(rows[0].average_minutes!) : !this.operations() && this.busy() && !this.operationsError() ? "Consultando…" : "Não disponível"; }
+  waitLeaderName() { const rows=this.waitWinners(); return rows.length ? `${rows.map(row=>row.warehouse_name).join(" e ")} · portaria até o armazém` : "Portaria até o primeiro armazém"; }
   waitHighlightHint() {
     const rows=this.waitWinners();
     if(!rows.length) return this.operationsError() ? "Falha ao consultar a operação." : !this.operations() && this.busy() ? "Consultando a operação…" : "Sem espera válida atribuída ao primeiro destino neste recorte.";
