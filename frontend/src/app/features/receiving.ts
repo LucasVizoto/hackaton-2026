@@ -166,8 +166,8 @@ async function appointmentOptions(api: Api): Promise<Appointment[]> {
       @if(api.user()?.role==='supplier'){<ion-button routerLink="/agenda/novo">Agendar entrega</ion-button>}
       @if(api.can('gatehouse')){<ion-button routerLink="/portaria/avisos" fill="outline">Avisar chegada com foto</ion-button>}
     </app-page-header>
-    @if(api.can('purchasing')){<app-purchase-orders />}
-    @if(api.can('warehouse','purchasing','gatehouse')){<app-notifications />}
+    @if(api.can('purchasing','management')){<app-purchase-orders />}
+    @if(api.can('warehouse','purchasing','gatehouse','management')){<app-notifications />}
     <details class="help-box"><summary>Como funciona a agenda?</summary><ul><li>Cada horário recebe até dois caminhões. Carga batida ocupa o horário inteiro.</li><li>Somente Fornecedor agenda. A disponibilidade considera toda a unidade.</li><li>A Portaria registra entrada e saída; o Armazém registra cada etapa da descarga.</li><li>A descarga exige aprovação de Compras e confirmação dos destinos. Divergências podem ser encaminhadas a Compras.</li></ul></details>
     @if(api.user()?.role==='supplier'){<p class="notice">Você visualiza os recebimentos do seu cadastro. A disponibilidade considera a ocupação global da unidade.</p>}
     @if(error()){<div app-feedback tone="error">{{error()}}</div>}

@@ -60,7 +60,7 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
           }
         </div>
         <div class="arrival-actions">
-          @if (board() === "warehouse" && item.decision === "pending") {
+          @if (board() === "warehouse" && api.can('warehouse') && item.decision === "pending") {
             <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized')">Aceitar</ion-button>
             <ion-button size="small" color="danger" fill="outline" [disabled]="busyId() === item.id" (click)="decide(item, 'rejected')">Recusar</ion-button>
           }
@@ -113,7 +113,7 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
   ],
 })
 export class ArrivalList {
-  private api = inject(Api);
+  api = inject(Api);
   rows = input.required<Arrival[]>();
   board = input<"warehouse" | "portaria" | "review">("portaria");
   updated = output<Arrival>();
@@ -169,7 +169,7 @@ export class ArrivalList {
         this.closeImage();
         this.image.set(url);
       }
-      if (this.board() === "warehouse" && !item.seen_at && !this.seenIds().has(item.id)) {
+      if (this.board() === "warehouse" && this.api.can('warehouse') && !item.seen_at && !this.seenIds().has(item.id)) {
         const seen = await this.api.post<Arrival>(`gate-arrivals/${item.id}/seen/`, {});
         if (seen.seen_at) this.seenIds.update(ids => new Set([...ids, item.id]));
       }
@@ -343,7 +343,7 @@ export class GateDesk {
   standalone: true,
   imports: [RouterLink, IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
-    <app-page-header title="Chegadas na portaria" subtitle="Aceite libera a entrada na portaria. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
+    <app-page-header title="Chegadas na portaria" [subtitle]="api.can('warehouse') ? 'Aceite libera a entrada na portaria. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto.' : 'Consulta de todos os avisos de chegada. A abertura da foto não altera a ciência do Armazém.'"><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
     <p class="notice">Um aviso com foto não cria agendamento nem registra entrada ou saída automaticamente. <a routerLink="/operacao">Consultar recebimentos</a></p>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
@@ -358,7 +358,7 @@ export class GateDesk {
   </div>`,
 })
 export class ArrivalInbox implements OnInit {
-  private api = inject(Api);
+  api = inject(Api);
   private live = inject(GateLive);
   rows = signal<Arrival[]>([]);
   error = signal("");
@@ -425,14 +425,14 @@ export class ArrivalReview implements OnInit {
   ngOnInit() {
     void this.load();
   }
-  async load(page=this.page){this.busy.set(true);this.error.set('');try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
+  async load(page=this.page){this.busy.set(true);this.error.set('');try{const result=await this.api.get<Page<Arrival>>(`gate-arrivals/?decision=rejected&page=${page}`);this.page=page;this.rows.set(result.results);this.count.set(result.count);this.hasNext.set(!!result.next);}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
 }
 
 @Component({
   standalone: true,
   imports: [IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
-    <app-page-header title="Chegadas enviadas" subtitle="Avisos com foto enviados por você. O filtro inicial mostra só o que ainda aguarda o armazém."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar</ion-button></app-page-header>
+    <app-page-header [title]="api.user()?.role === 'management' ? 'Avisos de chegada' : 'Chegadas enviadas'" [subtitle]="api.user()?.role === 'management' ? 'Consulta dos avisos de todos os operadores da Portaria.' : 'Avisos com foto enviados por você. O filtro inicial mostra só o que ainda aguarda o armazém.'"><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar</ion-button></app-page-header>
     <div class="actions">
       @for (option of filters; track option.value) {
         <ion-button size="small" [fill]="filter() === option.value ? 'solid' : 'outline'" (click)="choose(option.value)">{{ option.label }}</ion-button>
@@ -454,7 +454,7 @@ export class ArrivalReview implements OnInit {
   </div>`,
 })
 export class SentArrivals implements OnInit {
-  private api = inject(Api);
+  api = inject(Api);
   private live = inject(GateLive);
   readonly filters = [
     { value: "pending" as const, label: "Aguardando" },

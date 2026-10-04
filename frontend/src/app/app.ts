@@ -11,15 +11,15 @@ import { BrandMark, ThemeToggle } from "./shared/ui";
 interface NavigationItem { route: string; label: string; shortLabel?: string; icon: string; roles?: string[]; }
 const MODULES: NavigationItem[] = [
   { route: "/agenda", label: "Agenda", icon: "calendar-outline", roles: ["supplier", "purchasing", "warehouse", "management"] },
-  { route: "/compras", label: "Compras", icon: "checkmark-circle-outline", roles: ["purchasing"] },
-  { route: "/portaria", label: "Portaria", icon: "trail-sign-outline", roles: ["gatehouse"] },
+  { route: "/compras", label: "Compras", icon: "checkmark-circle-outline", roles: ["purchasing", "management"] },
+  { route: "/portaria", label: "Portaria", icon: "trail-sign-outline", roles: ["gatehouse", "management"] },
   { route: "/portaria/avisos", label: "Aviso com foto", icon: "notifications-outline", roles: ["gatehouse"] },
   { route: "/portaria/chegadas", label: "Chegadas enviadas", shortLabel: "Chegadas", icon: "document-text-outline", roles: ["gatehouse"] },
   { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
-  { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse"] },
-  { route: "/revisoes", label: "Chegadas recusadas", icon: "warning-outline", roles: ["purchasing"] },
-  { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse"] },
-  { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse"] },
+  { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse", "management"] },
+  { route: "/revisoes", label: "Chegadas recusadas", icon: "warning-outline", roles: ["purchasing", "management"] },
+  { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse", "management"] },
+  { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse", "management"] },
   { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"] },
   { route: "/integracoes", label: "Integrações", icon: "grid-outline", roles: ["warehouse", "purchasing", "management"] },
   { route: "/qualidade", label: "Origem dos dados", shortLabel: "Origem", icon: "shield-checkmark-outline", roles: ["management", "warehouse", "purchasing"] },
@@ -79,12 +79,12 @@ export class AppComponent {
       const role = this.api.user()?.role;
       const message = this.live.last();
       const refreshed = this.live.refreshed();
-      if (role === "warehouse" || role === "admin" || role === "gatehouse" || role === "portaria" || role === "purchasing") {
+      if (role === "warehouse" || role === "admin" || role === "management" || role === "gatehouse" || role === "portaria" || role === "purchasing") {
         untracked(() => this.live.connect());
       } else {
         untracked(() => this.live.close());
       }
-      if ((message || refreshed) && (role === "warehouse" || role === "admin" || role === "purchasing")) {
+      if ((message || refreshed) && (role === "warehouse" || role === "admin" || role === "management" || role === "purchasing")) {
         untracked(() => void this.loadArrivals());
       }
     });
@@ -101,7 +101,7 @@ export class AppComponent {
   arrivalCount(route: string) {
     const count = this.unreadArrivals();
     if (!count) return "";
-    if (route === "/chegadas" && this.api.can("warehouse")) return ` (${count})`;
+    if (route === "/chegadas" && this.api.can("warehouse", "management")) return ` (${count})`;
     if (route === "/revisoes" && this.api.user()?.role === "purchasing") return ` (${count})`;
     return "";
   }
@@ -115,7 +115,7 @@ export class AppComponent {
   }
   private watchesArrivals() {
     const role = this.api.user()?.role;
-    return role === "warehouse" || role === "admin" || role === "purchasing";
+    return role === "warehouse" || role === "admin" || role === "management" || role === "purchasing";
   }
   private async loadArrivals() {
     if (!this.watchesArrivals()) return;

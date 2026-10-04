@@ -2,6 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP, localcontext
 from fractions import Fraction
 
 from labor.constants import FLOOR
+from labor.bulletin import calculate_totals, snapshot_summary
 
 
 def money_display(value):
@@ -27,10 +28,11 @@ def calculate(lines, participants, floor=FLOOR):
             Decimal(0),
         )
         equivalents = sum((Decimal(str(person["fraction"])) for person in participants), Decimal(0))
-        collective_floor = equivalents * Decimal(str(floor))
-        total = max(production, collective_floor)
-        supplement = total - production
-        per_day = production / equivalents if equivalents else None
+        exact = calculate_totals(production, equivalents, Decimal(str(floor)))
+        collective_floor = exact.pisoColetivo
+        total = exact.totalAPagar
+        supplement = exact.complemento
+        per_day = exact.valorPorDiariaApurado
         return {
             "people_count": len(participants),
             "equivalent_days": format(equivalents, "f"),
@@ -63,6 +65,7 @@ def calculate_v2(lines, participants, floor=FLOOR, daily_services=(), production
     result["allocation_policy"] = ALLOCATION_VERSION
     result["daily_services"] = list(daily_services)
     result["production_records"] = list(production_records)
+    result["resumo"] = snapshot_summary(result)
     return result
 
 

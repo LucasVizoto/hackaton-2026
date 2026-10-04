@@ -58,7 +58,7 @@ class GateConsumer(AsyncJsonWebsocketConsumer):
         user = await user_from_key(token_from_scope(self.scope))
         role = await database_sync_to_async(user_role)(user) if user else ""
         self.joined = []
-        if role in {"warehouse", "admin"}:
+        if role in {"warehouse", "management", "admin"}:
             self.joined.append("gate-warehouse")
         elif role == "gatehouse":
             self.joined.append(f"gate-user-{user.id}")

@@ -17,6 +17,8 @@ Apoio atual: [API](v2/api.md), [indicadores](v2/indicadores.md), [integrações 
 
 Remediação pré-banca: [correções, cenário limpo, testes e limites](remediacao_pre_banca.md). O cenário de `seed_demo --presentation` tem um percurso de consulta próprio; ele não pré-cadastra todas as exceções do roteiro ampliado.
 
+Contrato e permissões: [Boletim dos ensacadores e consulta da Gestão](v2/boletim-ensacadores.md), com exemplo Python, resumo da API, precisão monetária e validação.
+
 Planejamento futuro: [PRD da pré-folha e conciliação dos chapas](prd-folha-chapas.md), com regras, fluxo, etapas e decisões pendentes de validação com o RH.
 
 Os diagramas novos foram escritos em XML draw.io; SVG/PNG são produzidos pelo [gerador do mesmo grafo](fontes/gerar_diagramas_v2.py). O Desktop/CLI não estava disponível. Não se afirma publicação GitHub, teste de APK v2 ou execução de integração externa sem evidência específica no relatório de validação.

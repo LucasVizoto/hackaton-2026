@@ -9,6 +9,7 @@ import { operationLabel } from "../core/presentation";
 import { originLabel } from "../core/api";
 
 interface Capability { available: boolean; reason: string; }
+interface OCRDocument { id:string;original_name:string;media_type:string;status:string;suggestion:string;created_at:string;created_by_name:string;original_path:string; }
 interface Readiness { warehouse: string; warehouse_name: string; ready: boolean | null; notes: string; revision: number; updated_at: string; }
 interface ReceiptSummary { id: string; supplier_name: string; vehicle_plate: string; revision: number; operation_status: string; workflow_version: number; }
 interface AssistantAnswer { answer: string; references: string[]; context: { period: { date_from: string; date_to: string }; origin: string }; }
@@ -60,6 +61,14 @@ interface WeatherData { forecast: { hourly?: { time: string[]; temperature_2m: n
         </section>
       }
 
+      @if (api.can('management', 'warehouse', 'purchasing')) {
+        <section class="panel"><h2>Documentos da leitura assistida</h2>
+          <button type="button" [disabled]="busy()" (click)="loadDocuments(documentPage)">Atualizar documentos</button>
+          @for(doc of documents();track doc.id){<details class="section"><summary>{{doc.original_name}} · {{doc.status}}</summary><p>{{dateTime(doc.created_at)}} · {{doc.created_by_name}}</p><p style="white-space:pre-wrap">{{doc.suggestion || 'Sem sugestão registrada.'}}</p><button type="button" [disabled]="busy()" (click)="downloadDocument(doc)">Consultar original</button></details>}
+          @if(!documents().length){<p>Nenhum documento registrado.</p>}
+          <div class="actions section"><button [disabled]="busy() || documentPage===1" (click)="loadDocuments(documentPage-1)">Anterior</button><span>Página {{documentPage}}</span><button [disabled]="busy() || !documentsNext()" (click)="loadDocuments(documentPage+1)">Próxima</button></div>
+        </section>
+      }
       @if (api.can('warehouse', 'purchasing')) {
         <section class="panel"><h2>Leitura assistida de documento</h2><p>PDF ou imagem de até 10 MB. Confira a sugestão antes de preencher a nota; o arquivo original é preservado.</p>
           @if (!available('ocr')) {<p class="notice">{{unavailable('ocr')}}</p>}
@@ -112,6 +121,9 @@ export class IntegrationsPage implements OnInit {
   readonly history = signal<Page<ReceiptSummary> | null>(null);
   readonly weather = signal<WeatherData | null>(null);
   readonly suggestion = signal("");
+  readonly documents = signal<OCRDocument[]>([]);
+  readonly documentsNext = signal(false);
+  documentPage = 1;
   readonly busy = signal(false);
   readonly error = signal("");
   readonly message = signal("");
@@ -128,6 +140,7 @@ export class IntegrationsPage implements OnInit {
       this.capabilities.set(capabilities.capabilities);
       await this.catalog.load();
       await this.refreshReadiness();
+      if(this.api.can('management','warehouse','purchasing')) await this.refreshDocuments(1);
       if (this.api.can("warehouse")) {
         const completed: ReceiptSummary[] = [];
         let page = 1;
@@ -142,6 +155,12 @@ export class IntegrationsPage implements OnInit {
     });
   }
   available(channel: string) { return this.capabilities()[channel]?.available ?? false; }
+  private async refreshDocuments(page:number) {
+    const response=await this.api.get<Page<OCRDocument>>(`integrations/ocr/?page=${page}`);
+    this.documents.set(response.results);this.documentsNext.set(!!response.next);this.documentPage=page;
+  }
+  async loadDocuments(page:number) { await this.perform(()=>this.refreshDocuments(page)); }
+  async downloadDocument(document:OCRDocument) { await this.perform(async()=>{await this.api.download(document.original_path,document.original_name);}); }
   unavailable(channel: string) { return this.capabilities()[channel]?.reason || "Consultando configuração…"; }
   readinessFor(id: string) { return this.readiness().find(item => item.warehouse === id); }
   private async perform(work: () => Promise<void>) {
