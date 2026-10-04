@@ -90,6 +90,10 @@ export class Api {
     await this.configure();
     return firstValueFrom(this.http.patch<T>(`${this.base}/${path}`, body));
   }
+  async delete(path: string) {
+    await this.configure();
+    return firstValueFrom(this.http.delete(`${this.base}/${path}`));
+  }
   async login(username: string, password: string) {
     const r = await this.post<{ token: string; user: User }>("auth/login/", {
       username,
