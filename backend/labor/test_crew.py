@@ -6,17 +6,17 @@ from rest_framework.exceptions import ValidationError
 from catalog.models import Equipment, Worker
 from labor.models import LaborActivity, RosterShift
 from receiving.tests import AT, DAY, RESOURCES
-from receiving.tests_v2 import ReceivingV2Tests
+from receiving import tests_v2
 
 
 class CrewTests(TestCase):
     """Equipe da descarga: nomes por etapa, equipamentos do armazém e registro na saída."""
-    setUp = ReceivingV2Tests.setUp
-    create = ReceivingV2Tests.create
-    command = ReceivingV2Tests.command
-    approve = ReceivingV2Tests.approve
-    arrive = ReceivingV2Tests.arrive
-    line = ReceivingV2Tests.line
+    setUp = tests_v2.ReceivingV2Tests.setUp
+    create = tests_v2.ReceivingV2Tests.create
+    command = tests_v2.ReceivingV2Tests.command
+    approve = tests_v2.ReceivingV2Tests.approve
+    arrive = tests_v2.ReceivingV2Tests.arrive
+    line = tests_v2.ReceivingV2Tests.line
 
     def started(self, warehouses=None):
         ap = self.create()

@@ -21,7 +21,6 @@ const WEEKDAYS_LONG = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábad
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 /** One color rule for the whole screen: the day situation drives card border, dot and text. */
 const TONE: Record<string, string> = { shortage: "danger", attention: "warning", watch: "warning", ok: "success", info: "neutral", closed: "neutral" };
-const SHIFT_LABEL: Record<string, string> = { FULL: "Dia todo", MORNING: "Meia diária (manhã)", AFTERNOON: "Meia diária (tarde)" };
 const PRESENCE_LABEL: Record<string, string> = { PLANNED: "Aguardando", PRESENT: "Veio", ABSENT: "Faltou" };
 /** Search only helps when the list is long. */
 const SEARCH_FROM = 12;
@@ -154,8 +153,6 @@ function plural(count: number, one: string, many: string): string { return `${nu
     .toggle.is-on { background: var(--green); color: var(--brand-contrast); }
     .toggle.is-on:hover:not(:disabled) { background: var(--brand-hover); }
     .toggle:disabled { opacity: 0.6; cursor: not-allowed; }
-    .half { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--muted); font-size: 13px; font-weight: 400; cursor: pointer; }
-    .half input { width: 18px; height: 18px; margin: 0; }
     .sel-status { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-weight: 700; }
     .sel-status.danger { color: var(--danger); } .sel-status.warning { color: var(--warning); } .sel-status.success { color: var(--success); }
     .person.is-off .person-name { color: var(--muted); }
@@ -355,7 +352,7 @@ function plural(count: number, one: string, many: string): string { return `${nu
                 <li class="person" [class.is-off]="!entry">
                   <span class="person-name">
                     <span>{{ person.name }}@if (person.contract_type === "TERCEIRIZADO") { <span class="tag">Terceirizado</span> }</span>
-                    <small>Matrícula {{ person.registration }}@if (entry && entry.period !== "FULL") { · meia diária ({{ entry.period === "MORNING" ? "manhã" : "tarde" }}) }</small>
+                    <small>Matrícula {{ person.registration }}</small>
                   </span>
                   @if (canEdit()) {
                     <div class="person-actions">
@@ -367,15 +364,11 @@ function plural(count: number, one: string, many: string): string { return `${nu
                           <button type="button" class="PRESENT" [attr.aria-pressed]="entry.attendance === 'PRESENT'" [disabled]="busy()" (click)="tapPresence(entry, 'PRESENT')">Veio</button>
                           <button type="button" class="ABSENT" [attr.aria-pressed]="entry.attendance === 'ABSENT'" [disabled]="busy()" (click)="tapPresence(entry, 'ABSENT')">Faltou</button>
                         </div>
-                        <label class="half">
-                          <input type="checkbox" [checked]="entry.period !== 'FULL'" [disabled]="busy()" (change)="setHalf(entry, $any($event.target).checked)" />
-                          Meia diária
-                        </label>
                       }
                     </div>
                   } @else {
                     <div class="person-actions">
-                      <span [class]="'badge' + (entry ? ' on' : '')">{{ entry ? (entry.period === "FULL" ? "Escalado" : "Meia diária") : "Folga" }}</span>
+                      <span [class]="'badge' + (entry ? ' on' : '')">{{ entry ? "Escalado" : "Folga" }}</span>
                       @if (entry) { <span [class]="'badge ' + presenceTone(entry.attendance)">{{ presenceLabel(entry.attendance) }}</span> }
                     </div>
                   }
@@ -395,7 +388,7 @@ function plural(count: number, one: string, many: string): string { return `${nu
       <details class="ros-details">
         <summary>Ver a semana inteira</summary>
         <div class="ros-details-body">
-          <p class="legend"><span>● dia todo</span><span>◐ meio período</span><span>✕ faltou</span><span>— folga</span></p>
+          <p class="legend"><span>● escalado</span><span>✕ faltou</span><span>— folga</span></p>
           @if (weekPeople().length) {
             <div class="table-wrap" tabindex="0" role="region" aria-label="Escala da semana">
               <table class="overview">
@@ -407,7 +400,7 @@ function plural(count: number, one: string, many: string): string { return `${nu
                     <tr><th scope="row">{{ person.name }}</th>
                       @for (day of w.days; track day.date) {
                         @let entry = cell(person.id, day.date);
-                        <td [class]="'sym ' + (entry?.attendance ?? '')" [attr.aria-label]="entry ? shiftLabel(entry.period) + ', ' + presenceLabel(entry.attendance) : 'Folga'" [title]="entry ? shiftLabel(entry.period) + ' · ' + presenceLabel(entry.attendance) : 'Folga'">{{ symbol(entry) }}</td>
+                        <td [class]="'sym ' + (entry?.attendance ?? '')" [attr.aria-label]="entry ? 'Escalado, ' + presenceLabel(entry.attendance) : 'Folga'" [title]="entry ? 'Escalado · ' + presenceLabel(entry.attendance) : 'Folga'">{{ symbol(entry) }}</td>
                       }
                     </tr>
                   }
@@ -535,10 +528,9 @@ export class StaffRoster implements OnInit {
     return `${plural(day.entries.length, "escalado", "escalados")} · ${present} ${present === 1 ? "veio" : "vieram"} · ${absent} ${absent === 1 ? "faltou" : "faltaram"}`;
   }
   waiting(day: RosterDay) { return day.entries.filter(entry => entry.attendance === "PLANNED"); }
-  shiftLabel(value: string) { return SHIFT_LABEL[value] ?? value; }
   presenceLabel(value: string) { return PRESENCE_LABEL[value] ?? value; }
   presenceTone(value: string) { return value === "PRESENT" ? "success" : value === "ABSENT" ? "danger" : ""; }
-  symbol(entry: RosterEntry | undefined) { return !entry ? "—" : entry.attendance === "ABSENT" ? "✕" : entry.period === "FULL" ? "●" : "◐"; }
+  symbol(entry: RosterEntry | undefined) { return !entry ? "—" : entry.attendance === "ABSENT" ? "✕" : "●"; }
   cell(worker: string, date: string) { return this.index().get(`${worker}|${date}`); }
 
   move(days: number) { this.weekStart.set(addDays(this.weekStart(), days)); this.selected.set(""); void this.load(); }
@@ -564,11 +556,6 @@ export class StaffRoster implements OnInit {
     const entry = this.cell(worker, date);
     if (entry) { await this.run(() => this.api.delete(`roster/${entry.id}/`), `${entry.name} saiu da escala.`); return; }
     await this.run(() => this.api.post("roster/", { worker, date, origin: this.origin(), period: "FULL", warehouse: this.warehouse() || null }), "Pessoa escalada.");
-  }
-  async setHalf(entry: RosterEntry, half: boolean) {
-    const period = half ? "MORNING" : "FULL";
-    if ((entry.period !== "FULL") === half) return;
-    await this.run(() => this.api.post("roster/", { worker: entry.worker, date: entry.date, origin: this.origin(), period, warehouse: entry.warehouse }), half ? "Marcado como meia diária." : "Marcado como dia todo.");
   }
   /** Veio / Faltou; tapping the selected one again goes back to "aguardando". */
   async tapPresence(entry: RosterEntry, attendance: "PRESENT" | "ABSENT") {

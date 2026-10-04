@@ -46,11 +46,10 @@ class RosterTests(TestCase):
             self.schedule(worker)
         self.assertEqual(self.week()["days"][0]["balance"]["status"], "ok")
 
-    def test_one_line_per_person_day_and_half_period(self):
+    def test_one_line_per_person_day_and_no_half_day_in_roster(self):
         self.assertEqual(self.schedule(self.workers[0]).status_code, 201)
-        response = self.schedule(self.workers[0], period="MORNING")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["fraction"], "0.5")
+        self.assertEqual(self.schedule(self.workers[0]).status_code, 200)
+        self.assertEqual(self.schedule(self.workers[1], period="MORNING").status_code, 400)
         self.assertEqual(RosterShift.objects.count(), 1)
 
     def test_sunday_holiday_inactive_and_demo_mixing_refused(self):
@@ -78,13 +77,13 @@ class RosterTests(TestCase):
         second = self.schedule(self.workers[1]).data
         third = self.schedule(self.workers[2]).data
         self.client.patch(f"/api/v2/roster/{first['id']}/", {"attendance": "PRESENT"}, format="json")
-        self.client.patch(f"/api/v2/roster/{second['id']}/", {"attendance": "PRESENT", "period": "AFTERNOON"}, format="json")
+        self.client.patch(f"/api/v2/roster/{second['id']}/", {"attendance": "PRESENT"}, format="json")
         self.client.patch(f"/api/v2/roster/{third['id']}/", {"attendance": "ABSENT"}, format="json")
         team = self.client.get("/api/v2/roster/team/", {"date": str(MONDAY), "origin": "demo_sintetico"}).data
-        self.assertEqual(sorted(p["fraction"] for p in team["participants"]), ["0.5", "1.0"])
+        self.assertEqual(sorted(p["fraction"] for p in team["participants"]), ["1.0", "1.0"])
         self.assertEqual(team["absences"], 1)
         monday = self.week()["days"][0]
-        self.assertEqual((monday["scheduled_equivalents"], monday["present_equivalents"]), ("1.5", "1.5"))
+        self.assertEqual((monday["scheduled_equivalents"], monday["present_equivalents"]), ("2", "2"))
 
     def test_copy_week_skips_existing_and_management_is_read_only(self):
         self.schedule(self.workers[0])
