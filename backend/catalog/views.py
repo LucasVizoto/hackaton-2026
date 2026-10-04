@@ -21,7 +21,7 @@ class SupplierSerializer(serializers.ModelSerializer):
 class WorkerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Worker
-        fields = ["id", "registration", "name", "origin", "is_active"]
+        fields = ["id", "registration", "name", "origin", "is_active", "contract_type"]
 
     def validate_origin(self, value):
         if self.instance and value == self.instance.origin:
@@ -36,7 +36,7 @@ class WorkerSerializer(serializers.ModelSerializer):
 class EquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Equipment
-        fields = ["id", "code", "name", "warehouse", "mobile", "purpose", "is_active"]
+        fields = ["id", "code", "name", "warehouse", "mobile", "purpose", "is_active", "kind", "quantity"]
 
 
 class WarehouseViewSet(viewsets.ReadOnlyModelViewSet):

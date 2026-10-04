@@ -8,6 +8,8 @@ from labor.constants import CATEGORY_CHOICES
 
 
 class LineInput(serializers.Serializer):
+    # Obrigatório no boletim do dia: a produção é lançada por armazém e tipo de item.
+    warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all(), required=False, allow_null=True)
     category = serializers.ChoiceField(choices=CATEGORY_CHOICES)
     unloading = serializers.DecimalField(
         max_digits=18, decimal_places=4, min_value=Decimal(0), default=0
@@ -31,7 +33,7 @@ class ParticipantInput(serializers.Serializer):
 
 
 class BulletinInput(serializers.Serializer):
-    warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all())
+    warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all(), required=False, allow_null=True)
     reference_date = serializers.DateField()
     origin = serializers.ChoiceField(choices=ORIGIN_CHOICES, default="operacional_registrado")
     lines = LineInput(many=True)
@@ -41,9 +43,10 @@ class BulletinInput(serializers.Serializer):
     def validate(self, data):
         lines = data.get("lines", [])
         people = data.get("participants", [])
-        if len({line["category"] for line in lines}) != len(lines):
+        keys = [(getattr(line.get("warehouse"), "pk", None), line["category"]) for line in lines]
+        if len(set(keys)) != len(keys):
             raise serializers.ValidationError(
-                {"lines": "Cada categoria deve aparecer uma única vez."}
+                {"lines": "Cada categoria deve aparecer uma única vez por armazém."}
             )
         if len(people) > 20:
             raise serializers.ValidationError({"participants": "O boletim aceita até 20 pessoas."})

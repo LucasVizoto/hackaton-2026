@@ -25,6 +25,8 @@ class BulletinInputV2(BulletinInput):
             if origins == {'demo_sintetico'}:
                 data['origin'] = 'demo_sintetico'
         data = super().validate(data)
+        if not data.get('warehouse') and any(not line.get('warehouse') for line in data.get('lines', [])):
+            raise serializers.ValidationError({'lines': 'No boletim do dia, informe o armazém de cada linha de produção.'})
         kinds = [item['kind'] for item in data.get('daily_services', [])]
         if len(kinds) != len(set(kinds)):
             raise serializers.ValidationError({'daily_services': 'Cada tipo aparece uma única vez.'})
@@ -108,6 +110,7 @@ class ProductionInput(serializers.ModelSerializer):
 
     class Meta:
         model = ProductionRecord
-        fields = ['id', 'bulletin', 'source_key', 'category', 'movement', 'quantity', 'price', 'origin', 'revision']
+        fields = ['id', 'bulletin', 'warehouse', 'source_key', 'category', 'movement', 'quantity', 'price', 'origin',
+                  'revision']
         read_only_fields = ['id', 'price', 'origin']
         extra_kwargs = {'quantity': {'min_value': Decimal(0)}}

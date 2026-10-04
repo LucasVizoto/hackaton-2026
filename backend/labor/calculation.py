@@ -112,3 +112,42 @@ def allocate_individuals(calculation, people):
         result.append({"worker": key, "fraction": str(person["fraction"]), "exact": exact,
                        "display": display, "policy_version": ALLOCATION_VERSION})
     return result
+
+
+UNATTRIBUTED = "NAO_ATRIBUIDO"
+COST_SPLIT_VERSION = "production-share-largest-remainder-v1"
+
+
+def split_cost_by_warehouse(calculation, production_by_warehouse):
+    """Divide o total do dia pela participação de cada armazém na produção (regra proposta no PRD).
+
+    ``production_by_warehouse`` mapeia código do armazém (ou ``UNATTRIBUTED``) para a produção em R$.
+    Sem produção, o custo inteiro fica "não atribuído", nunca num armazém escolhido.
+    Os centavos usam maiores restos, então a soma reconcilia com o total exibido do dia.
+    """
+    with localcontext() as context:
+        context.prec = 40
+        production = {key: Decimal(str(value)) for key, value in production_by_warehouse.items() if Decimal(str(value))}
+        total_production = sum(production.values(), Decimal(0))
+        fields = ("total_payable", "supplement", "equivalent_days")
+        if not total_production:
+            return {"policy": COST_SPLIT_VERSION, "unattributed": True, "warehouses": [{
+                "warehouse": UNATTRIBUTED, "share": "1", "production": "0",
+                **{field: calculation[field] for field in fields},
+                "display": {"total_payable": calculation["display"]["total_payable"],
+                            "supplement": calculation["display"]["supplement"], "production": "0.00"},
+            }]}
+        weights = [{"worker": key, "fraction": value} for key, value in production.items()]
+        cents = {field: _apportion_cents(calculation["display"][field] if field in calculation["display"] else calculation[field], weights)
+                 for field in ("total_payable", "supplement")}
+        rows = []
+        for key in sorted(production):
+            share = production[key] / total_production
+            rows.append({
+                "warehouse": key, "share": format(share, "f"), "production": format(production[key], "f"),
+                **{field: format(Decimal(calculation[field]) * share, "f") for field in fields},
+                "display": {"total_payable": format(Decimal(cents["total_payable"][key]) / 100, ".2f"),
+                            "supplement": format(Decimal(cents["supplement"][key]) / 100, ".2f"),
+                            "production": money_display(production[key])},
+            })
+        return {"policy": COST_SPLIT_VERSION, "unattributed": False, "warehouses": rows}
