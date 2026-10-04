@@ -32,3 +32,17 @@ export function applyPending(rows: Arrival[], message: GateMessage): Arrival[] {
   const next = message.event === "created" && message.arrival.decision === "pending" ? [...others, message.arrival] : others;
   return next.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 }
+
+/** Replays events observed while the paginated snapshot was loading. Decisions are final. */
+export function reconcilePending(snapshot: Arrival[], messages: Iterable<GateMessage>): Arrival[] {
+  const events = [...messages];
+  const decided = new Set(snapshot.filter(row => row.decision !== "pending").map(row => row.id));
+  for (const message of events) {
+    if (message.event !== "created" || message.arrival.decision !== "pending") decided.add(message.arrival.id);
+  }
+  const rows = new Map(snapshot.filter(row => row.decision === "pending" && !decided.has(row.id)).map(row => [row.id, row]));
+  for (const message of events) {
+    if (!decided.has(message.arrival.id)) rows.set(message.arrival.id, message.arrival);
+  }
+  return [...rows.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+}

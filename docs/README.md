@@ -17,6 +17,8 @@ Apoio atual: [API](v2/api.md), [indicadores](v2/indicadores.md), [integrações 
 
 Remediação pré-banca: [correções, cenário limpo, testes e limites](remediacao_pre_banca.md). O cenário de `seed_demo --presentation` tem um percurso de consulta próprio; ele não pré-cadastra todas as exceções do roteiro ampliado.
 
+Reconciliação da Agenda e dos alertas do Richardy: [histórico integrado, validação e sincronização dos desenvolvedores](reconciliacao_richardy.md).
+
 Contrato e permissões: [Boletim dos ensacadores e consulta da Gestão](v2/boletim-ensacadores.md), com exemplo Python, resumo da API, precisão monetária e validação.
 
 Planejamento futuro: [PRD da pré-folha e conciliação dos chapas](prd-folha-chapas.md), com regras, fluxo, etapas e decisões pendentes de validação com o RH.

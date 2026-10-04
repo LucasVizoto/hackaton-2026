@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyPending, waitLabel, waitLevel, waitMinutes } from "../src/app/core/arrival-wait";
+import { applyPending, reconcilePending, waitLabel, waitLevel, waitMinutes } from "../src/app/core/arrival-wait";
 import { Arrival } from "../src/app/core/gate-live";
 
 const base = Date.parse("2026-10-03T10:00:00Z");
@@ -35,4 +35,29 @@ test("pending queue keeps the longest wait first and drops decided arrivals", ()
   assert.deepEqual(rows.map(row => row.id), ["new"]);
   rows = applyPending(rows, { event: "rejected", arrival: arrival("new", 1, "rejected") });
   assert.deepEqual(rows, []);
+});
+
+test("paginated snapshot preserves more than 50 arrivals, deduplicates and replays concurrent events", () => {
+  const snapshot = Array.from({ length: 105 }, (_, i) => arrival(String(i), i));
+  const rows = reconcilePending([...snapshot, snapshot[0]], [
+    { event: "created", arrival: arrival("new", 0) },
+    { event: "created", arrival: arrival("new", 0) },
+    { event: "authorized", arrival: arrival("70", 70, "authorized") },
+    { event: "rejected", arrival: arrival("80", 80, "rejected") },
+    { event: "created", arrival: arrival("70", 70) },
+  ]);
+  assert.equal(rows.length, 104);
+  assert.equal(new Set(rows.map(row => row.id)).size, rows.length);
+  assert.ok(rows.some(row => row.id === "new"));
+  assert.ok(!rows.some(row => ["70", "80"].includes(row.id)));
+  assert.equal(rows[0].id, "104");
+});
+
+test("decisions during loading stay final even with out-of-order duplicate creation", () => {
+  const item = arrival("1", 20);
+  assert.deepEqual(reconcilePending([item], [
+    { event: "rejected", arrival: { ...item, decision: "rejected" } },
+    { event: "created", arrival: item },
+  ]), []);
+  assert.deepEqual(reconcilePending([{ ...item, decision: "authorized" }], [{ event: "created", arrival: item }]), []);
 });
