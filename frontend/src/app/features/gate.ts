@@ -3,10 +3,17 @@ import { RouterLink } from "@angular/router";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { IonButton, IonSpinner } from "@ionic/angular/standalone";
 import { Api, apiError, dateTime, Page } from "../core/api";
-import { invoiceNumber } from "../core/workflow";
 import { Arrival, GateLive, GateMessage } from "../core/gate-live";
 import { readInvoiceImage } from "./invoice-code";
 import { FeedbackState, PageHeader } from "../shared/ui";
+
+function gateInvoiceNumber(value: string): string {
+  const number = value.trim();
+  if (!/^(?!0+$)\d{1,9}$/.test(number)) {
+    throw new Error("Informe o número da NF com 1 a 9 dígitos. Zeros à esquerda são permitidos; não use letras nem a chave de 44 dígitos.");
+  }
+  return number;
+}
 
 function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" | "portaria" | "review"): Arrival[] {
   const arrival = message.arrival;
@@ -64,9 +71,6 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
         @if (decisionError() && errorId() === item.id) {
           <p class="error">{{ decisionError() }}</p>
         }
-        @if (openId() === item.id && image()) {
-          <img class="note-preview" [src]="image()" alt="Nota fiscal de {{ item.driver_name }}" />
-        }
       </article>
     }
   </div>`,
@@ -90,7 +94,6 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
       .arrival-card .pass { color: var(--success); }
       .arrival-card .hold { color: var(--danger); }
       .arrival-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-      .note-preview { display: block; max-width: 100%; max-height: 220px; border-radius: 12px; object-fit: contain; }
       @media (max-width: 960px) {
         .arrival-grid.decisions { grid-template-columns: 1fr; }
       }
@@ -103,14 +106,12 @@ export class ArrivalList {
   board = input<"warehouse" | "portaria" | "review">("portaria");
   updated = output<Arrival>();
   openId = signal("");
-  image = signal("");
   imageError = signal("");
   seenIds = signal<ReadonlySet<string>>(new Set());
   decisionError = signal("");
   errorId = signal("");
   busyId = signal("");
   when = dateTime;
-  private generation = 0;
   tone(item: Arrival) {
     if (item.decision === "authorized") return "approved";
     if (item.decision === "rejected") return "rejected";
@@ -136,24 +137,24 @@ export class ArrivalList {
     }
   }
   async open(item: Arrival) {
-    const generation=++this.generation;
-    if (this.image()) URL.revokeObjectURL(this.image());
+    const tab = window.open("about:blank", "_blank");
     this.openId.set(item.id);
-    this.image.set("");
     this.imageError.set("");
     try {
       const blob = await this.api.blob(`gate-arrivals/${item.id}/file/`);
-      if(generation!==this.generation)return;
-      this.image.set(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      if (tab && !tab.closed) tab.location.href = url;
+      else window.open(url, "_blank");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
       if (this.board() === "warehouse" && !item.seen_at && !this.seenIds().has(item.id)) {
         const seen = await this.api.post<Arrival>(`gate-arrivals/${item.id}/seen/`, {});
         if (seen.seen_at) this.seenIds.update(ids => new Set([...ids, item.id]));
       }
     } catch (e) {
-      if(generation===this.generation)this.imageError.set(apiError(e));
+      tab?.close();
+      this.imageError.set(apiError(e));
     }
   }
-  ngOnDestroy(){this.generation++;if(this.image())URL.revokeObjectURL(this.image());}
 }
 
 @Component({
@@ -193,10 +194,10 @@ export class ArrivalList {
             }
           </div>
           <label class="wide"
-            >Número da nota<input formControlName="invoice_number" [readonly]="reading()" (input)="numberEdited()" inputmode="numeric" autocomplete="off" /><span class="field-help">Informe o número da NF-e com 1 a 9 dígitos, sem zeros iniciais; não informe a chave de 44 dígitos.</span></label>
+            >Número da nota<input formControlName="invoice_number" [readonly]="reading()" (input)="numberEdited()" inputmode="numeric" autocomplete="off" /><span class="field-help">Informe o número da NF-e com 1 a 9 dígitos. Zeros à esquerda são permitidos; não informe a chave de 44 dígitos.</span></label>
           <label class="checkbox wide"><input type="checkbox" formControlName="number_confirmed" />Conferi o número da nota na imagem.</label>
-          @if(suggestion()){<p class="field-help wide">Número sugerido pela leitura: {{suggestion()}}. Zeros de preenchimento impressos foram removidos; a imagem original foi preservada.</p>}
-          @if(form.controls.invoice_number.touched && form.controls.invoice_number.invalid){<p class="error wide">Use apenas o número da NF-e, de 1 a 9 dígitos, sem zeros iniciais.</p>}
+          @if(suggestion()){<p class="field-help wide">Número sugerido pela leitura: {{suggestion()}}. Se a nota imprimir zeros à esquerda, inclua-os neste campo antes de enviar.</p>}
+          @if(form.controls.invoice_number.touched && form.controls.invoice_number.invalid){<p class="error wide">Use apenas o número da NF-e, de 1 a 9 dígitos. Zeros à esquerda são permitidos.</p>}
         </div>
       </section>
       <div class="actions">
@@ -231,7 +232,7 @@ export class GateDesk {
     vehicle_plate: ["", Validators.required],
     tractor_plate: ["", Validators.required],
     driver_name: ["", [Validators.required, Validators.minLength(3)]],
-    invoice_number: ["", [Validators.required, Validators.pattern(/^[1-9][0-9]{0,8}$/)]],
+    invoice_number: ["", [Validators.required, Validators.pattern(/^(?!0+$)[0-9]{1,9}$/)]],
     number_confirmed: [false, Validators.requiredTrue],
   });
   constructor() {
@@ -289,7 +290,7 @@ export class GateDesk {
       body.append("vehicle_plate", value.vehicle_plate);
       body.append("tractor_plate", value.tractor_plate);
       body.append("driver_name", value.driver_name);
-      body.append("invoice_number", invoiceNumber(value.invoice_number));
+      body.append("invoice_number", gateInvoiceNumber(value.invoice_number));
       await this.api.post("gate-arrivals/", body);
       this.notice.set("Chegada informada ao armazém.");
       this.form.reset();this.suggestion.set('');

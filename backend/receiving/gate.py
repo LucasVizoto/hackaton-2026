@@ -17,7 +17,6 @@ from core.permissions import require_role, user_role
 from .models import GateArrival
 from .realtime import notify_arrival
 from .serializers import GateArrivalSerializer
-from .xml_parser import validate_invoice_number
 
 class GateArrivalPagination(PageNumberPagination):
     page_size = 50
@@ -68,12 +67,13 @@ def _invoice_number(value, legacy=False):
     text = str(value or "").strip()
     # The old form allowed printed thousands separators. It never needs a
     # 44-digit access key: its OCR extracts the nine-digit nNF portion first.
-    if legacy and re.fullmatch(r"[1-9][0-9]{0,2}(?:\.[0-9]{3}){1,2}", text):
+    if legacy and re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]{3}){1,2}", text):
         text = text.replace(".", "")
-    try:
-        return validate_invoice_number(text)
-    except ValidationError as error:
-        raise ValidationError({"invoice_number": error.detail["number"]}) from None
+    if not re.fullmatch(r"[0-9]{1,9}", text) or set(text) == {"0"}:
+        raise ValidationError({
+            "invoice_number": "Informe o número da NF: de 1 a 9 dígitos. Zeros à esquerda são permitidos; não use letras, só zeros ou a chave de acesso.",
+        })
+    return text
 
 
 class GateArrivalListView(APIView):

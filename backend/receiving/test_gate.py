@@ -139,14 +139,16 @@ class GateArrivalTests(TestCase):
 
     def test_invoice_number_does_not_silently_truncate_or_extract_typed_values(self):
         self.client.force_authenticate(self.gate)
-        for number in ("0", "000123", "abc123", "123.456", "1" * 10, "1" * 44, "１２３"):
+        for number in ("0", "000000000", "abc123", "123.456", "1" * 10, "1" * 44, "１２３"):
             with self.subTest(number=number):
                 response = self.create_arrival(invoice_number=number)
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("invoice_number", response.data["error"]["details"])
         self.assertEqual(GateArrival.objects.count(), 0)
-        for number in ("1", "999999999"):
-            self.assertEqual(self.create_arrival(invoice_number=number).status_code, 201)
+        for number in ("1", "999999999", "000123", "012345678"):
+            created = self.create_arrival(invoice_number=number)
+            self.assertEqual(created.status_code, 201)
+            self.assertEqual(created.data["invoice_number"], number)
         self.assertEqual(self.create_arrival("v1", invoice_number="abc123").status_code, 400)
         self.assertEqual(self.create_arrival("v1", invoice_number="1" * 44).status_code, 400)
 
