@@ -12,6 +12,9 @@ export interface CatalogEntry {
   warehouse?: string|null;
   mobile?:boolean;
   purpose?:string;
+  contract_type?: string;
+  kind?: string;
+  quantity?: number;
 }
 export interface ServiceRate {
   code: string;

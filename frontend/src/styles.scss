@@ -197,6 +197,11 @@ app-brand { display: inline-flex; gap: 12px; align-items: center; }
 .skip-link { position: fixed; top: -100px; left: 20px; z-index: 1000; background: var(--surface); padding: 12px 20px; border-radius: var(--radius-control); }
 .skip-link:focus { top: 12px; }
 .page { padding: 32px; max-width: 1600px; margin: 0 auto; }
+.module-tabs { display: flex; gap: 4px; max-width: 1600px; margin: 0 auto; padding: 20px 32px 0; overflow-x: auto; }
+.module-tabs a { flex: 0 0 auto; padding: 8px 16px; border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--surface); color: var(--muted); font: 500 14px/1.4 var(--font-body); text-decoration: none; white-space: nowrap; }
+.module-tabs a:hover { color: var(--text); border-color: var(--green); }
+.module-tabs a.active { background: var(--green); border-color: var(--green); color: var(--brand-contrast); }
+.module-tabs ~ * > .page { padding-top: 20px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 24px; }
 .page-title { min-width: 0; }
 .page-head h1 { margin-bottom: 0; }
@@ -389,6 +394,7 @@ app-bar-chart { min-width: 0; }
   .sidebar { display: none; }
   .tablet-menu { display: inline-grid; }
   .page { padding: 28px; }
+  .module-tabs { padding: 16px 28px 0; }
   .topbar { padding: 10px 28px; }
   .page-head-actions { flex-shrink: 1; }
 }
@@ -400,6 +406,7 @@ app-bar-chart { min-width: 0; }
   .topbar-actions { gap: 4px; }
   .topbar ion-button { --padding-start: 8px; --padding-end: 8px; font-size: 13px; }
   .page { padding: 24px 16px calc(112px + env(safe-area-inset-bottom,0px)); }
+  .module-tabs { padding: 16px 16px 0; }
   .page-head { flex-wrap: wrap; gap: 16px; }
   .page-head h1 { font-size: 24px; }
   .page-head-actions { width: 100%; }
@@ -452,4 +459,38 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .calendar-column h3 { margin: 0 0 .5rem; }
 .calendar-booking { display: flex; flex-direction: column; gap: .4rem; padding: .85rem; margin: .75rem 0; border: 1px solid var(--line); border-radius: .5rem; color: inherit; text-decoration: none; background: var(--surface); }
 .calendar-booking:hover { border-color: var(--green); }
-@media print { .sidebar, .topbar, .pill-nav, .navigation-popover, .filters, ion-button, button, .actions, app-theme-toggle, app-notifications { display: none !important; } .shell, .main, .page { display: block !important; width: 100% !important; height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; } .table-wrap { overflow: visible !important; } table { min-width: 0 !important; font-size: 10pt; } .panel, .calendar-booking { break-inside: avoid; box-shadow: none !important; } .calendar-grid { grid-template-columns: repeat(7,1fr); overflow: visible; } }
+/* Cadastros (Pessoas, Equipamentos): lista primeiro, formulário em painel lateral. */
+.registry-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 20px; }
+.registry-bar .registry-search { flex: 1 1 260px; max-width: 420px; }
+.registry-bar label { min-width: 160px; }
+.segmented { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--control-line); border-radius: var(--radius-full); background: var(--surface); }
+.segmented button { min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.segmented button[aria-pressed="true"] { background: var(--green); color: var(--brand-contrast); }
+.segmented-field { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.registry-count { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.registry-group { margin: 24px 0 8px; font-size: 15px; color: var(--muted); }
+.registry-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; }
+.registry-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 8px 16px; align-items: center; min-height: 64px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.registry-row:first-child { border-top: 0; }
+.registry-row.is-inactive .registry-name { color: var(--muted); }
+.registry-name { display: grid; gap: 2px; min-width: 0; color: var(--text); font-weight: 600; text-decoration: none; }
+a.registry-name:hover strong { text-decoration: underline; }
+.registry-name small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.registry-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.registry-tag { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: var(--radius-full); font-size: 12px; font-weight: 700; background: var(--surface-subtle); color: var(--muted); white-space: nowrap; }
+.registry-tag.warning { background: var(--warning-soft); color: var(--warning); }
+.registry-tag.info { background: var(--info-soft); color: var(--blue); }
+.registry-tag.success { background: var(--success-soft); color: var(--success); }
+.link-button { min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--blue); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.link-button:hover { background: var(--surface-hover); }
+.sheet { width: min(480px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0 0 0 auto; padding: 0; border: 0; background: var(--surface); color: var(--text); box-shadow: var(--shadow-overlay); }
+.sheet::backdrop { background: var(--scrim); }
+.sheet form { display: flex; flex-direction: column; height: 100%; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+.sheet-head h2 { margin: 0; font-size: 20px; }
+.sheet-body { flex: 1; display: grid; align-content: start; gap: 20px; padding: 24px; overflow-y: auto; }
+.sheet-foot { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid var(--line); }
+.sheet .field-help { margin: -12px 0 0; }
+.sheet .pair { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 16px; }
+@media (max-width: 767px) { .registry-row { grid-template-columns: minmax(0,1fr) auto; } .registry-tags { grid-column: 1 / -1; justify-content: flex-start; grid-row: 2; } .sheet { width: 100vw; } }
+@media print { .sidebar, .topbar, .pill-nav, .module-tabs, .navigation-popover, .filters, ion-button, button, .actions, app-theme-toggle, app-notifications { display: none !important; } .shell, .main, .page { display: block !important; width: 100% !important; height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; } .table-wrap { overflow: visible !important; } table { min-width: 0 !important; font-size: 10pt; } .panel, .calendar-booking { break-inside: avoid; box-shadow: none !important; } .calendar-grid { grid-template-columns: repeat(7,1fr); overflow: visible; } }
