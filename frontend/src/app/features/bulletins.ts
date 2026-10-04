@@ -867,6 +867,10 @@ export class BulletinEditor implements OnInit {
     return this.bulletin()?.status === "CLOSED";
   }
   async ngOnInit() {
+    this.destroyRef.onDestroy(() => {
+      this.invalidatePreview();
+      this.rosterGeneration += 1;
+    });
     this.busy.set(true);
     try {
       await Promise.all([this.catalog.load(), this.catalog.loadRates()]);
@@ -885,6 +889,9 @@ export class BulletinEditor implements OnInit {
       this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
         this.dirty.set(true);
         this.success.set("");
+        this.invalidatePreview();
+        this.calculation.set(null);
+        this.allocations.set([]);
         if (!this.canAttemptPreview()) return;
         const draft = this.readDraft();
         this.previewHold.set("hold" in draft ? draft.hold : "");
@@ -1019,6 +1026,7 @@ export class BulletinEditor implements OnInit {
   async preview() {
     const draft = this.readDraft();
     if (!("payload" in draft)) {
+      this.invalidatePreview();
       if (!this.busy()) this.previewing.set(false);
       if ("hold" in draft) this.previewHold.set(draft.hold);
       return;
@@ -1040,7 +1048,7 @@ export class BulletinEditor implements OnInit {
     }
   }
   canPrint() {
-    return !!this.calculation() && !this.previewing() && !this.printBusy() && (this.form.valid || this.form.disabled);
+    return !!this.calculation() && !this.previewing() && !this.previewHold() && !this.busy() && !this.printBusy() && (this.form.valid || this.form.disabled);
   }
   private printModel(): BulletinPrintInput {
     const calculation = this.calculation();
@@ -1062,7 +1070,9 @@ export class BulletinEditor implements OnInit {
         unloading: row.unloading,
         removal: row.removal,
         transfer: row.transfer,
-        price: this.ratePrice(row.category, row.warehouse),
+        price: this.closed() || this.legacy()
+          ? saved?.lines.find((line) => line.category === row.category && (!this.daily() || line.warehouse === row.warehouse))?.price ?? ""
+          : this.ratePrice(row.category, row.warehouse),
       })),
       calculation,
       people: this.participants.getRawValue().map((person) => {
@@ -1098,6 +1108,7 @@ export class BulletinEditor implements OnInit {
   }
   async save() {
     if (this.legacy() || this.form.invalid || !this.loaded() || this.busy()) return;
+    this.invalidatePreview();
     this.busy.set(true);
     this.error.set("");
     this.success.set("");
