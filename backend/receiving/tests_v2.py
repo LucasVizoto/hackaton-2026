@@ -194,6 +194,28 @@ class ReceivingV2Tests(TestCase):
             self.command(ap, "forward-to-purchasing", {"reason": "Tarde demais"})
         self.assertEqual(ap.visits.get().checked_in_at, AT + timedelta(minutes=10))
 
+    def test_forward_publishes_live_alert_only_to_purchasing(self):
+        ap = self.create()
+        self.approve(ap)
+        layer = mock.Mock(group_send=mock.AsyncMock())
+        with mock.patch("receiving.realtime.get_channel_layer", return_value=layer), \
+                self.captureOnCommitCallbacks(execute=True):
+            self.command(ap, "forward-to-purchasing", {"reason": "Quantidade divergente da NF"})
+            workflow.notification(ap, "gatehouse", "warehouse_complete", "Sem alerta em tempo real.")
+        sent = [call.args for call in layer.group_send.call_args_list]
+        self.assertEqual([group for group, _ in sent], ["gate-purchasing"])
+        payload = sent[0][1]["payload"]
+        self.assertEqual(payload["event"], "notification")
+        self.assertEqual(payload["notification"]["kind"], "invoice_divergence")
+        self.assertEqual(str(payload["notification"]["appointment"]), str(ap.pk))
+        self.assertIn("vehicle_plate", payload["notification"])
+        layer.group_send.reset_mock()
+        with mock.patch("receiving.realtime.get_channel_layer", return_value=layer), \
+                self.captureOnCommitCallbacks(execute=True):
+            workflow.notification(ap, "purchasing", "receipt_discrepancy", "Primeiro.", "linha")
+            workflow.notification(ap, "purchasing", "receipt_discrepancy", "Duplicado.", "linha")
+        self.assertEqual(layer.group_send.await_count, 1)
+
     def test_optional_key_and_manual_number_remain_required_and_consistent(self):
         self.client.force_authenticate(self.external)
         for number, key, expected in [("", "", 400), ("9001", "", 201),

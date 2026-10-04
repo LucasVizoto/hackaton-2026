@@ -2,82 +2,58 @@ import { Component, computed, DestroyRef, effect, inject, input, signal, untrack
 import { Router, RouterLink } from "@angular/router";
 import { Api, apiError } from "../core/api";
 import { AlertTitle } from "../core/alert-title";
-import { Arrival, GateLive, GateMessage } from "../core/gate-live";
-import { AlertStage, applyPending, entersStage, OCCURRENCE_STAGE, reconcilePending, WAREHOUSE_STAGE, WaitLevel, waitLabel, waitLevel, waitMinutes } from "../core/arrival-wait";
+import { GateLive, LiveNotice } from "../core/gate-live";
+import { WaitLevel, waitLabel, waitLevel, waitMinutes } from "../core/arrival-wait";
+import { ALERT_STYLES } from "./arrival-alert";
 
 const VISIBLE_CARDS = 3;
-const PROMPT_KEY = "arrival-alert-prompt-dismissed";
+const PROMPT_KEY = "purchasing-alert-prompt-dismissed";
 
 function readFlag(key: string) { try { return localStorage.getItem(key) === "1"; } catch { return false; } }
 function writeFlag(key: string) { try { localStorage.setItem(key, "1"); } catch { /* Preferência só desta sessão. */ } }
 
-/** Visual compartilhado pelos alertas persistentes (Armazém e Compras). */
-export const ALERT_STYLES = `
-    .arrival-stack { display: grid; gap: 12px; }
-    .arrival-card { display: grid; gap: 6px; padding: 16px 18px; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-left: 6px solid var(--warning); border-radius: var(--radius-card); box-shadow: var(--shadow-overlay); animation: arrival-in .22s ease-out; }
-    .arrival-card[data-level="1"] { background: var(--warning-soft); }
-    .arrival-card[data-level="2"] { background: var(--danger-soft); border-left-color: var(--danger); }
-    .arrival-card header { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 600; }
-    .arrival-kicker { color: var(--muted); }
-    .arrival-wait { color: var(--warning); font-weight: 700; white-space: nowrap; }
-    .arrival-card[data-level="2"] .arrival-wait { color: var(--danger); }
-    .arrival-plate { font: 700 20px/1.3 var(--font-heading); letter-spacing: .02em; }
-    .arrival-plate small { font: 600 14px/1.4 var(--font-body); color: var(--muted); letter-spacing: 0; }
-    .arrival-card p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
-    .arrival-actions { display: flex; gap: 8px; margin-top: 6px; }
-    .arrival-primary,.arrival-dismiss { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: var(--radius-control); font: 600 14px/1.4 var(--font-body); text-decoration: none; cursor: pointer; }
-    .arrival-primary { flex: 1; background: var(--green); color: var(--brand-contrast); border: 0; }
-    .arrival-primary:hover { background: var(--brand-hover); }
-    .arrival-dismiss { background: transparent; color: var(--text); border: 1px solid var(--control-line); }
-    .arrival-more { justify-self: end; padding: 8px 14px; border-radius: var(--radius-full); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); color: var(--green); font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer; }
-    .arrival-prompt { border-left-color: var(--blue); }
-    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    @keyframes arrival-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { .arrival-card { animation: none; } }
-  `;
-
 /**
- * Alerta persistente de chegada na portaria: cartão fixo com tempo de espera, som curto, vibração,
- * notificação do navegador quando a aba está em segundo plano e contador no título.
- * Armazém recebe as chegadas pendentes; Compras recebe as ocorrências que o Armazém encaminhou.
+ * Alerta persistente para Compras com as mesmas características do alerta de chegada do Armazém:
+ * cartão fixo com tempo de espera, som, vibração, notificação do navegador e contador no título.
+ * Dispara quando o Armazém encaminha uma divergência ou uma diferença de recebimento para Compras.
  */
 @Component({
-  selector: "app-arrival-alert",
+  selector: "app-purchasing-alert",
   standalone: true,
   imports: [RouterLink],
   template: `@if (active()) {
     <p class="visually-hidden" aria-live="assertive">{{ announcement() }}</p>
     @if (!hidden() && (cards().length || showPrompt() || error())) {
-      <section class="arrival-stack" [attr.aria-label]="occurrence() ? 'Ocorrências aguardando decisão de Compras' : 'Transportadoras aguardando na portaria'">
+      <section class="arrival-stack" aria-label="Solicitações do Armazém aguardando Compras">
         @if (error()) {
           <article class="arrival-card" role="alert">
-            <p>Não foi possível atualizar as chegadas. {{ error() }}</p>
+            <p>Não foi possível atualizar os avisos. {{ error() }}</p>
             <button type="button" class="arrival-dismiss" (click)="load()">Tentar novamente</button>
           </article>
         }
         @for (item of visibleCards(); track item.id) {
           <article class="arrival-card" [attr.data-level]="level(item)">
             <header>
-              <span class="arrival-kicker">{{ occurrence() ? "Ocorrência do Armazém" : "Transportadora na portaria" }}</span>
+              <span class="arrival-kicker">Solicitação do Armazém</span>
               <span class="arrival-wait">{{ wait(item) }}</span>
             </header>
-            <strong class="arrival-plate">{{ item.vehicle_plate }}@if (item.tractor_plate) {<small> · cavalo {{ item.tractor_plate }}</small>}</strong>
-            <p>{{ item.driver_name }} · NF {{ item.invoice_number }}</p>
+            <strong class="arrival-plate">{{ item.vehicle_plate || item.supplier_name || "Recebimento" }}@if (item.vehicle_plate && item.supplier_name) {<small> · {{ item.supplier_name }}</small>}</strong>
+            <p>{{ item.message }}@if (item.driver_name) { · {{ item.driver_name }}}</p>
             <div class="arrival-actions">
-              <a routerLink="/chegadas" [queryParams]="listQuery()" class="arrival-primary">{{ occurrence() ? "Aprovar ou recusar" : "Ver e decidir" }}</a>
-              <button type="button" class="arrival-dismiss" (click)="dismiss(item)" [attr.aria-label]="'Dispensar alerta da placa ' + item.vehicle_plate">Dispensar</button>
+              <a [routerLink]="['/agenda', item.appointment]" class="arrival-primary">Abrir recebimento</a>
+              <button type="button" class="arrival-dismiss" (click)="dismiss(item)" [attr.aria-label]="'Dispensar alerta: ' + item.message">Dispensar</button>
             </div>
           </article>
         }
         @if (cards().length > visibleLimit) {
-          <a routerLink="/chegadas" [queryParams]="listQuery()" class="arrival-more">+{{ cards().length - visibleLimit }} {{ occurrence() ? "ocorrências aguardando" : "aguardando na portaria" }}</a>
+          <a routerLink="/agenda" class="arrival-more">+{{ cards().length - visibleLimit }} aguardando Compras</a>
         }
         @if (cards().length) {
           <button type="button" class="arrival-more" (click)="dismissAll()">Dispensar todos os alertas</button>
         }
         @if (showPrompt()) {
           <article class="arrival-card arrival-prompt">
-            <p>Ative as notificações para ser avisado de chegadas mesmo com o sistema em outra aba.</p>
+            <p>Ative as notificações para ser avisado das solicitações do Armazém mesmo com o sistema em outra aba.</p>
             <div class="arrival-actions">
               <button type="button" class="arrival-primary" (click)="enableNotifications()">Ativar notificações</button>
               <button type="button" class="arrival-dismiss" (click)="skipPrompt()">Agora não</button>
@@ -89,23 +65,21 @@ export const ALERT_STYLES = `
   }`,
   styles: [ALERT_STYLES],
 })
-export class ArrivalAlert {
-  /** Esconde os cartões (ex.: já na tela de Chegadas); som, notificação e título continuam. */
+export class PurchasingAlert {
+  /** Esconde os cartões (ex.: já no recebimento); som, notificação e título continuam. */
   readonly hidden = input(false);
   readonly visibleLimit = VISIBLE_CARDS;
   private api = inject(Api);
   private live = inject(GateLive);
   private router = inject(Router);
-  readonly pending = signal<Arrival[]>([]);
+  readonly pending = signal<LiveNotice[]>([]);
   readonly now = signal(Date.now());
   readonly dismissed = signal<ReadonlyMap<string, WaitLevel>>(new Map());
   readonly announcement = signal("");
   readonly error = signal("");
   readonly permission = signal<NotificationPermission | "unsupported">(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
   readonly promptSkipped = signal(readFlag(PROMPT_KEY));
-  readonly occurrence = computed(() => this.api.user()?.role === "purchasing");
-  readonly active = computed(() => ["warehouse", "admin", "purchasing"].includes(this.api.user()?.role ?? ""));
-  readonly listQuery = computed(() => this.occurrence() ? { decisao: "occurrence" } : {});
+  readonly active = computed(() => this.api.user()?.role === "purchasing");
   readonly cards = computed(() => this.pending().filter(item => this.level(item) > (this.dismissed().get(item.id) ?? -1)));
   readonly visibleCards = computed(() => this.cards().slice(0, VISIBLE_CARDS));
   readonly showPrompt = computed(() => this.permission() === "default" && !this.promptSkipped());
@@ -116,8 +90,6 @@ export class ArrivalAlert {
   private timer?: number;
   private controller?: AbortController;
   private refreshQueued = false;
-  private loadingEvents = new Map<string, GateMessage>();
-  private decided = new Set<string>();
   private notices = new Set<Notification>();
   private audio?: AudioContext;
   private title = inject(AlertTitle);
@@ -140,32 +112,21 @@ export class ArrivalAlert {
       });
     });
     effect(() => {
-      const message = this.live.last();
-      if (!message || !this.active() || !this.api.token()) return;
+      const notice = this.live.notice();
+      if (!notice || !this.active() || !this.api.token()) return;
       untracked(() => {
-        const id = message.arrival.id;
-        const stage = this.stage();
-        const enters = entersStage(message, stage);
-        if (!enters) this.decided.add(id);
-        if (message.event === stage.event && this.decided.has(id)) return;
-        if (this.controller) { this.loadingEvents.set(id, message); this.refreshQueued = true; }
-        this.pending.update(rows => applyPending(rows, message, stage));
-        if (enters && !this.alerted.has(id)) this.alertNew([message.arrival]);
-        else if (!enters) {
-          this.alerted.delete(id);
-          this.dismissed.update(map => { const next = new Map(map); next.delete(id); return next; });
-          this.closeNotice(id);
-        }
+        if (notice.acknowledged_at || this.pending().some(item => item.id === notice.id)) return;
+        this.pending.update(rows => [...rows, notice].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)));
+        if (!this.alerted.has(notice.id)) this.alertNew([notice]);
       });
     });
     effect(() => this.setTitle(this.active() ? this.pending().length : 0));
   }
 
-  level(item: Arrival): WaitLevel { return waitLevel(waitMinutes(item.created_at, this.now())); }
-  wait(item: Arrival) { return waitLabel(waitMinutes(item.created_at, this.now())); }
-  private stage(): AlertStage { return this.occurrence() ? OCCURRENCE_STAGE : WAREHOUSE_STAGE; }
+  level(item: LiveNotice): WaitLevel { return waitLevel(waitMinutes(item.created_at, this.now())); }
+  wait(item: LiveNotice) { return waitLabel(waitMinutes(item.created_at, this.now())); }
 
-  dismiss(item: Arrival) {
+  dismiss(item: LiveNotice) {
     this.dismissed.update(map => new Map(map).set(item.id, this.level(item)));
   }
 
@@ -191,18 +152,16 @@ export class ArrivalAlert {
     const controller = new AbortController();
     this.controller = controller;
     this.refreshQueued = false;
-    this.loadingEvents.clear();
     const generation = ++this.generation;
     try {
-      const stage = this.stage();
-      const snapshot = await this.api.getAll<Arrival>(`gate-arrivals/?decision=${stage.decision}`, controller.signal);
+      const snapshot = await this.api.getAll<LiveNotice>("notifications/?unread=true", controller.signal);
       if (generation !== this.generation || !this.active() || controller.signal.aborted) return;
-      const rows = reconcilePending(snapshot, this.loadingEvents.values(), stage).filter(item => !this.decided.has(item.id));
+      const rows = snapshot.filter(item => !item.acknowledged_at).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
       const fresh = rows.filter(item => !this.alerted.has(item.id));
       this.pending.set(rows);
       this.error.set("");
       const ids = new Set(rows.map(item => item.id));
-      for (const id of [...this.alerted.keys()]) if (!ids.has(id)) this.alerted.delete(id);
+      for (const id of [...this.alerted.keys()]) if (!ids.has(id)) { this.alerted.delete(id); this.closeNotice(id); }
       this.dismissed.update(map => new Map([...map].filter(([id]) => ids.has(id))));
       if (this.seeded) this.alertNew(fresh);
       else fresh.forEach(item => this.alerted.set(item.id, this.level(item)));
@@ -212,8 +171,7 @@ export class ArrivalAlert {
     } finally {
       if (this.controller === controller) {
         const refresh = this.refreshQueued;
-        this.controller = undefined; this.loadingEvents.clear(); this.refreshQueued = false;
-        // Offset pagination can shift during arrivals/decisions. Repeat after concurrent changes.
+        this.controller = undefined; this.refreshQueued = false;
         if (refresh) void this.load();
       }
     }
@@ -226,8 +184,6 @@ export class ArrivalAlert {
     this.controller?.abort();
     this.controller = undefined;
     this.refreshQueued = false;
-    this.loadingEvents.clear();
-    this.decided.clear();
     this.pending.set([]);
     this.dismissed.set(new Map());
     this.alerted.clear();
@@ -239,18 +195,14 @@ export class ArrivalAlert {
     if (this.audio) { void this.audio.close().catch(() => undefined); this.audio = undefined; }
   }
 
-  private alertNew(items: Arrival[]) {
+  private alertNew(items: LiveNotice[]) {
     if (!items.length) return;
     items.forEach(item => this.alerted.set(item.id, this.level(item)));
     const first = items[items.length - 1];
-    const text = this.occurrence()
-      ? items.length === 1
-        ? `Ocorrência do Armazém para Compras decidir: placa ${first.vehicle_plate}, motorista ${first.driver_name}.`
-        : `${items.length} ocorrências do Armazém aguardam Compras.`
-      : items.length === 1
-        ? `Transportadora chegou na portaria: placa ${first.vehicle_plate}, motorista ${first.driver_name}.`
-        : `${items.length} transportadoras chegaram na portaria.`;
-    this.notify(text, first.id, 0);
+    const text = items.length === 1
+      ? `Armazém enviou para Compras: ${first.message}${first.vehicle_plate ? ` Placa ${first.vehicle_plate}.` : ""}`
+      : `${items.length} solicitações do Armazém aguardam Compras.`;
+    this.notify(text, first, 0);
   }
 
   /** Repete o alerta quando a espera passa de um nível (15 e 30 min), mesmo se o cartão foi dispensado. */
@@ -260,24 +212,21 @@ export class ArrivalAlert {
       const level = this.level(item);
       if (level > (this.alerted.get(item.id) ?? 0)) {
         this.alerted.set(item.id, level);
-        this.notify(this.occurrence()
-          ? `Ocorrência da placa ${item.vehicle_plate} aguarda Compras; caminhão na portaria ${this.wait(item)}.`
-          : `Placa ${item.vehicle_plate} aguarda na portaria ${this.wait(item)}.`, item.id, level);
+        this.notify(`Solicitação do Armazém aguarda Compras ${this.wait(item)}: ${item.message}`, item, level);
       }
     }
   }
 
-  private notify(text: string, id: string, level: WaitLevel) {
+  private notify(text: string, item: LiveNotice, level: WaitLevel) {
     this.announcement.set(text);
     try { this.beep(level); } catch { /* O cartão continua disponível sem áudio. */ }
     try { navigator.vibrate?.(level === 2 ? [250, 120, 250, 120, 250] : [200, 100, 200]); } catch { /* Vibração opcional. */ }
     if (this.permission() === "granted" && (document.hidden || !document.hasFocus())) {
       try {
-        const title = this.occurrence() ? (level ? "Ocorrência aguardando Compras" : "Nova ocorrência do Armazém") : (level ? "Transportadora aguardando" : "Transportadora chegou");
-        const notice = new Notification(title, { body: text, tag: `arrival-${id}`, requireInteraction: true });
+        const notice = new Notification(level ? "Solicitação aguardando Compras" : "Nova solicitação do Armazém", { body: text, tag: `purchasing-${item.id}`, requireInteraction: true });
         this.notices.add(notice);
         notice.onclose = () => this.notices.delete(notice);
-        notice.onclick = () => { window.focus(); void this.router.navigate(["/chegadas"], { queryParams: this.listQuery() }); notice.close(); };
+        notice.onclick = () => { window.focus(); void this.router.navigate(["/agenda", item.appointment]); notice.close(); };
       } catch { /* Navegadores móveis exigem service worker; o cartão e o som continuam. */ }
     }
   }
@@ -308,10 +257,10 @@ export class ArrivalAlert {
   }
 
   private setTitle(count: number) {
-    this.title.set("arrivals", count, this.occurrence() ? `Ocorrência${count === 1 ? "" : "s"}` : `Chegada${count === 1 ? "" : "s"}`);
+    this.title.set("purchasing-notices", count, `Aviso${count === 1 ? "" : "s"} de Compras`);
   }
 
   private closeNotice(id: string) {
-    for (const notice of this.notices) if (notice.tag === `arrival-${id}`) { notice.close(); this.notices.delete(notice); }
+    for (const notice of this.notices) if (notice.tag === `purchasing-${id}`) { notice.close(); this.notices.delete(notice); }
   }
 }

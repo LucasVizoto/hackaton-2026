@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyPending, reconcilePending, waitLabel, waitLevel, waitMinutes } from "../src/app/core/arrival-wait";
+import { applyPending, OCCURRENCE_STAGE, reconcilePending, waitLabel, waitLevel, waitMinutes } from "../src/app/core/arrival-wait";
 import { Arrival } from "../src/app/core/gate-live";
 
 const base = Date.parse("2026-10-03T10:00:00Z");
@@ -60,4 +60,17 @@ test("decisions during loading stay final even with out-of-order duplicate creat
     { event: "created", arrival: item },
   ]), []);
   assert.deepEqual(reconcilePending([{ ...item, decision: "authorized" }], [{ event: "created", arrival: item }]), []);
+});
+
+test("occurrence leaves the warehouse queue and enters the purchasing queue until decided", () => {
+  const item = arrival("1", 20);
+  const occurrence = { event: "occurrence" as const, arrival: { ...item, decision: "occurrence" as const } };
+  assert.deepEqual(applyPending([item], occurrence), []);
+  let rows = applyPending([], occurrence, OCCURRENCE_STAGE);
+  assert.deepEqual(rows.map(row => row.id), ["1"]);
+  assert.deepEqual(applyPending(rows, { event: "created", arrival: arrival("2", 1) }, OCCURRENCE_STAGE).map(row => row.id), ["1"]);
+  rows = applyPending(rows, { event: "authorized", arrival: { ...item, decision: "authorized" } }, OCCURRENCE_STAGE);
+  assert.deepEqual(rows, []);
+  assert.deepEqual(reconcilePending([{ ...item, decision: "occurrence" }], [{ event: "rejected", arrival: { ...item, decision: "rejected" } }, occurrence], OCCURRENCE_STAGE), []);
+  assert.deepEqual(reconcilePending([arrival("3", 5)], [], OCCURRENCE_STAGE), []);
 });

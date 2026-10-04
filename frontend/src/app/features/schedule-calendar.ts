@@ -37,7 +37,7 @@ export interface GateArrivalItem {
   driver_name: string;
   invoice_number: string;
   created_at: string;
-  decision: "pending" | "authorized" | "rejected";
+  decision: "pending" | "occurrence" | "authorized" | "rejected";
   appointment?: string | null;
 }
 export interface ScheduleRange {
@@ -753,7 +753,7 @@ export class ScheduleCalendar implements OnInit {
     return arrival.decision === "authorized" ? "arrived" : arrival.decision === "rejected" ? "rejected" : "pending";
   }
   arrivalDecision(arrival: GateArrivalItem) {
-    return { pending: "Aguardando o armazém", authorized: "Entrada autorizada", rejected: "Recusada" }[arrival.decision];
+    return { pending: "Aguardando o armazém", occurrence: "Ocorrência · aguardando Compras", authorized: "Entrada autorizada", rejected: "Recusada" }[arrival.decision];
   }
   statusLabel(value:string){return STATUS_LABELS[value] ?? value;}
   vacancies(units:number){return units===1 ? '1 vaga' : `${units} vagas`;}

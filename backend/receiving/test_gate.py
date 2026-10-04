@@ -274,7 +274,8 @@ class GateArrivalTests(TestCase):
         review = self.client.get("/api/v1/gate-arrivals/")
         self.assertEqual(review.status_code, 200)
         self.assertEqual([item["id"] for item in review.data["results"]], [second_id])
-        self.assertEqual(review.data["unread"], 1)
+        # O contador de Compras mostra só ocorrências aguardando decisão, não recusas já encerradas.
+        self.assertEqual(review.data["unread"], 0)
         image = self.client.get(f"/api/v1/gate-arrivals/{second_id}/file/")
         self.assertEqual(image.status_code, 200)
         self.assertEqual(b"".join(image.streaming_content), TINY_PNG)

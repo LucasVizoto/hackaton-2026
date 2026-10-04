@@ -26,21 +26,33 @@ export function waitLabel(minutes: number): string {
   return rest ? `há ${hours} h ${rest} min` : `há ${hours} h`;
 }
 
-/** Mantém apenas chegadas pendentes, da mais antiga (maior espera) para a mais recente. */
-export function applyPending(rows: Arrival[], message: GateMessage): Arrival[] {
+/** Etapa que o alerta acompanha: o evento que coloca a chegada na fila e a decisão que a mantém lá. */
+export interface AlertStage { event: GateMessage["event"]; decision: Arrival["decision"]; }
+/** Armazém: chegadas avisadas pela portaria e ainda pendentes. */
+export const WAREHOUSE_STAGE: AlertStage = { event: "created", decision: "pending" };
+/** Compras: ocorrências abertas pelo Armazém aguardando aprovação ou recusa. */
+export const OCCURRENCE_STAGE: AlertStage = { event: "occurrence", decision: "occurrence" };
+
+/** O evento coloca (ou mantém) a chegada na fila da etapa. */
+export function entersStage(message: GateMessage, stage: AlertStage = WAREHOUSE_STAGE): boolean {
+  return message.event === stage.event && message.arrival.decision === stage.decision;
+}
+
+/** Mantém apenas chegadas da etapa, da mais antiga (maior espera) para a mais recente. */
+export function applyPending(rows: Arrival[], message: GateMessage, stage: AlertStage = WAREHOUSE_STAGE): Arrival[] {
   const others = rows.filter(row => row.id !== message.arrival.id);
-  const next = message.event === "created" && message.arrival.decision === "pending" ? [...others, message.arrival] : others;
+  const next = entersStage(message, stage) ? [...others, message.arrival] : others;
   return next.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 }
 
-/** Replays events observed while the paginated snapshot was loading. Decisions are final. */
-export function reconcilePending(snapshot: Arrival[], messages: Iterable<GateMessage>): Arrival[] {
+/** Replays events observed while the paginated snapshot was loading. Leaving the stage is final. */
+export function reconcilePending(snapshot: Arrival[], messages: Iterable<GateMessage>, stage: AlertStage = WAREHOUSE_STAGE): Arrival[] {
   const events = [...messages];
-  const decided = new Set(snapshot.filter(row => row.decision !== "pending").map(row => row.id));
+  const decided = new Set(snapshot.filter(row => row.decision !== stage.decision).map(row => row.id));
   for (const message of events) {
-    if (message.event !== "created" || message.arrival.decision !== "pending") decided.add(message.arrival.id);
+    if (!entersStage(message, stage)) decided.add(message.arrival.id);
   }
-  const rows = new Map(snapshot.filter(row => row.decision === "pending" && !decided.has(row.id)).map(row => [row.id, row]));
+  const rows = new Map(snapshot.filter(row => row.decision === stage.decision && !decided.has(row.id)).map(row => [row.id, row]));
   for (const message of events) {
     if (!decided.has(message.arrival.id)) rows.set(message.arrival.id, message.arrival);
   }

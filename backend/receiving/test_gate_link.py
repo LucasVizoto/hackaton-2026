@@ -12,9 +12,7 @@ from .models import GateArrival
 from .tests import AT, DAY, fixtures
 
 
-class GateArrivalLinkTests(TestCase):
-    """Aceitar a chegada vinculada a uma reserva registra a entrada; é isso que a agenda enxerga."""
-
+class GateArrivalCase(TestCase):
     def setUp(self):
         media = tempfile.TemporaryDirectory()
         self.addCleanup(media.cleanup)
@@ -41,6 +39,10 @@ class GateArrivalLinkTests(TestCase):
     def decide(self, arrival, **payload):
         return self.client.post(f"/api/v2/gate-arrivals/{arrival.pk}/decision/",
                                 {"decision": "authorized", **payload}, format="json")
+
+
+class GateArrivalLinkTests(GateArrivalCase):
+    """Aceitar a chegada vinculada a uma reserva registra a entrada; é isso que a agenda enxerga."""
 
     def test_candidates_are_waiting_reservations_of_the_arrival_day_with_matches_first(self):
         other = self.v2(time="08:00", plate="OTHER99")
@@ -90,3 +92,82 @@ class GateArrivalLinkTests(TestCase):
         # Sem reserva escolhida, aceitar continua possível, como antes.
         plain = self.decide(self.arrival())
         self.assertEqual((plain.status_code, plain.data["appointment"]), (200, None))
+
+
+class GateArrivalOccurrenceTests(GateArrivalCase):
+    """Ocorrência: o Armazém encaminha a chegada e Compras aprova (com reserva) ou recusa a entrada."""
+
+    def occurrence(self, arrival):
+        self.client.force_authenticate(self.operator)
+        return self.decide(arrival, decision="occurrence")
+
+    def test_warehouse_occurrence_waits_for_purchasing_and_locks_warehouse_decision(self):
+        arrival = self.arrival()
+        response = self.occurrence(arrival)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["decision"], "occurrence")
+        self.assertIsNotNone(response.data["occurrence_at"])
+        arrival.refresh_from_db()
+        self.assertEqual((arrival.occurrence_by, arrival.decided_at), (self.operator, None))
+        # O Armazém não decide mais; a chegada aguarda Compras.
+        self.assertEqual(self.decide(arrival).status_code, 400)
+        self.assertEqual(self.decide(arrival, decision="occurrence").status_code, 400)
+        self.client.force_authenticate(self.purchaser)
+        listed = self.client.get("/api/v2/gate-arrivals/?decision=occurrence").data
+        self.assertEqual(([row["id"] for row in listed["results"]], listed["unread"]), ([str(arrival.pk)], 1))
+        self.assertEqual(self.decide(arrival, decision="occurrence").status_code, 400)
+
+    def test_purchasing_approves_occurrence_linking_reservation(self):
+        ap = self.v2()
+        arrival = self.arrival()
+        self.occurrence(arrival)
+        self.client.force_authenticate(self.purchaser)
+        rows = self.client.get(f"/api/v2/gate-arrivals/{arrival.pk}/candidates/").data["results"]
+        self.assertEqual([row["id"] for row in rows], [str(ap.pk)])
+        approved = self.decide(arrival, appointment=str(ap.pk))
+        self.assertEqual(approved.status_code, 200, approved.data)
+        self.assertEqual((approved.data["decision"], approved.data["appointment"]), ("authorized", ap.pk))
+        arrival.refresh_from_db()
+        ap.refresh_from_db()
+        self.assertEqual(arrival.decided_by, self.purchaser)
+        self.assertEqual((ap.operation_status, ap.gate_checked_in_at), ("arrived", AT))
+        # Decidida, Compras ainda consulta, mas não decide de novo nem lista reservas.
+        self.assertEqual(self.decide(arrival, decision="rejected").status_code, 400)
+        self.assertEqual(self.client.get(f"/api/v2/gate-arrivals/{arrival.pk}/candidates/").status_code, 403)
+        self.assertIn(str(arrival.pk), [row["id"] for row in self.client.get("/api/v2/gate-arrivals/").data["results"]])
+
+    def test_purchasing_approves_legacy_reservation_as_warehouse_author(self):
+        ap = services.create_appointment(self.external, supplier=self.supplier, invoice=self.invoice,
+                                         day=DAY, time="08:00", packaging="paletizada")
+        arrival = self.arrival()
+        self.occurrence(arrival)
+        self.client.force_authenticate(self.purchaser)
+        self.assertEqual(self.decide(arrival, appointment=str(ap.pk)).status_code, 200)
+        ap.refresh_from_db()
+        self.assertEqual((ap.operation_status, ap.arrived_at), ("arrived", AT))
+
+    def test_purchasing_rejects_occurrence_but_cannot_decide_pending_arrivals(self):
+        pending = self.arrival()
+        arrival = self.arrival()
+        self.occurrence(arrival)
+        self.client.force_authenticate(self.purchaser)
+        self.assertEqual(self.decide(pending).status_code, 400)
+        rejected = self.decide(arrival, decision="rejected")
+        self.assertEqual((rejected.status_code, rejected.data["decision"]), (200, "rejected"))
+        self.assertEqual(self.decide(arrival).status_code, 400)
+        pending.refresh_from_db()
+        self.assertEqual(pending.decision, "pending")
+
+    def test_occurrence_cannot_link_reservation_and_reaches_purchasing_live(self):
+        from unittest import mock
+        ap = self.v2()
+        arrival = self.arrival()
+        self.client.force_authenticate(self.operator)
+        self.assertEqual(self.decide(arrival, decision="occurrence", appointment=str(ap.pk)).status_code, 400)
+        layer = mock.Mock(group_send=mock.AsyncMock())
+        with mock.patch("receiving.realtime.get_channel_layer", return_value=layer), \
+                self.captureOnCommitCallbacks(execute=True):
+            self.decide(arrival, decision="occurrence")
+        groups = [call.args[0] for call in layer.group_send.call_args_list]
+        self.assertEqual(groups, ["gate-warehouse", f"gate-user-{self.gate.pk}", "gate-purchasing"])
+        self.assertEqual(layer.group_send.call_args_list[0].args[1]["payload"]["event"], "occurrence")

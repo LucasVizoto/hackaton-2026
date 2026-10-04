@@ -8,15 +8,29 @@ export interface Arrival {
   driver_name: string;
   invoice_number: string;
   created_at: string;
-  decision: "pending" | "authorized" | "rejected";
+  decision: "pending" | "occurrence" | "authorized" | "rejected";
   decided_at: string | null;
   seen_at: string | null;
   created_by_name: string;
   appointment?: string | null;
+  occurrence_at?: string | null;
+}
+
+/** Aviso interno (ex.: Armazém encaminhou divergência para Compras) entregue pelo mesmo canal em tempo real. */
+export interface LiveNotice {
+  id: string;
+  appointment: string;
+  kind: string;
+  message: string;
+  created_at: string;
+  acknowledged_at: string | null;
+  vehicle_plate: string;
+  driver_name: string;
+  supplier_name: string;
 }
 
 export interface GateMessage {
-  event: "created" | "authorized" | "rejected";
+  event: "created" | "occurrence" | "authorized" | "rejected";
   arrival: Arrival;
 }
 
@@ -33,6 +47,7 @@ export class GateLive {
   readonly status = signal<"idle" | "connecting" | "connected" | "disconnected">("idle");
   readonly refreshed = signal(0);
   readonly last = signal<GateMessage | null>(null);
+  readonly notice = signal<LiveNotice | null>(null);
 
   async connect() {
     if (this.connecting || this.retry || (this.socket && this.socket.readyState <= WebSocket.OPEN)) return;
@@ -59,9 +74,10 @@ export class GateLive {
         try {
           const message = JSON.parse(String(event.data));
           if (message.event === "heartbeat") this.refreshed.update(value => value + 1);
-          if (["created", "authorized", "rejected"].includes(message.event) && message.arrival?.id) {
+          if (["created", "occurrence", "authorized", "rejected"].includes(message.event) && message.arrival?.id) {
             this.last.set(message as GateMessage);
           }
+          if (message.event === "notification" && message.notification?.id) this.notice.set(message.notification as LiveNotice);
         } catch { /* Invalid frames never change the persisted view. */ }
       };
       socket.onerror = () => socket.close();
@@ -103,6 +119,7 @@ export class GateLive {
     this.socket = undefined;
     socket?.close();
     this.last.set(null);
+    this.notice.set(null);
     this.status.set("idle");
   }
 }

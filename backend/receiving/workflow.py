@@ -28,10 +28,13 @@ def fingerprint(data):
 
 
 def notification(appointment, role, kind, message, suffix=""):
-    InternalNotification.objects.get_or_create(
+    item, created = InternalNotification.objects.get_or_create(
         dedupe_key=f"{appointment.pk}:{kind}:{suffix}",
         defaults={"appointment": appointment, "recipient_role": role, "kind": kind, "message": message},
     )
+    if created:
+        from .realtime import notify_internal
+        notify_internal(item)
 
 
 def documents(supplier, invoices):

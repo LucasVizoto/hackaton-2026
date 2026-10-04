@@ -205,9 +205,9 @@ export class AppointmentList implements OnInit {
   // Chegadas da portaria ainda não têm vínculo com agendamento; a agenda as mostra à parte para não sumirem.
   private async loadArrivals(query:ScheduleRange,controller:AbortController,request:number){
     if(!this.api.can('warehouse','purchasing','management'))return;
-    // Pendentes entram sempre: a agenda só tem dias úteis e um caminhão do fim de semana sumiria.
-    try{const [inRange,pending]=await Promise.all([this.api.getAll<GateArrivalItem>(`gate-arrivals/?date_from=${query.from}&date_to=${query.to}`,controller.signal),this.api.getAll<GateArrivalItem>('gate-arrivals/?decision=pending',controller.signal)]);
-      if(request===this.request)this.arrivals.set([...new Map([...inRange,...pending].map(row=>[row.id,row])).values()]);}
+    // Pendentes e ocorrências entram sempre: a agenda só tem dias úteis e um caminhão do fim de semana sumiria.
+    try{const [inRange,pending,occurrences]=await Promise.all([this.api.getAll<GateArrivalItem>(`gate-arrivals/?date_from=${query.from}&date_to=${query.to}`,controller.signal),this.api.getAll<GateArrivalItem>('gate-arrivals/?decision=pending',controller.signal),this.api.getAll<GateArrivalItem>('gate-arrivals/?decision=occurrence',controller.signal)]);
+      if(request===this.request)this.arrivals.set([...new Map([...inRange,...pending,...occurrences].map(row=>[row.id,row])).values()]);}
     catch(e){if(request===this.request&&!controller.signal.aborted)this.error.set(`Não foi possível consultar as chegadas da portaria: ${apiError(e)}`);}
   }
   ngOnDestroy(){this.request++;this.controller?.abort();}

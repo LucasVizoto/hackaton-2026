@@ -534,3 +534,9 @@ a.registry-name:hover strong { text-decoration: underline; }
 .sheet .pair { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 16px; }
 @media (max-width: 767px) { .registry-row { grid-template-columns: minmax(0,1fr) auto; } .registry-tags { grid-column: 1 / -1; justify-content: flex-start; grid-row: 2; } .sheet { width: 100vw; } }
 @media print { .sidebar, .topbar, .pill-nav, .module-tabs, .navigation-popover, .filters, ion-button, button, .actions, app-theme-toggle, app-notifications { display: none !important; } .shell, .main, .page { display: block !important; width: 100% !important; height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; } .table-wrap { overflow: visible !important; } table { min-width: 0 !important; font-size: 10pt; } .panel, .calendar-booking { break-inside: avoid; box-shadow: none !important; } .calendar-grid { grid-template-columns: repeat(7,1fr); overflow: visible; } }
+
+/* Alertas persistentes (chegadas, ocorrências e avisos de Compras) empilhados no mesmo canto. */
+.alert-dock { position: fixed; z-index: 50; right: 24px; bottom: 24px; display: grid; gap: 12px; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; }
+.alert-dock:empty { display: none; }
+@media (max-width: 767px) { .alert-dock { left: 16px; right: 16px; width: auto; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); max-height: calc(100dvh - 168px - env(safe-area-inset-bottom, 0px)); } }
+@media print { .alert-dock { display: none; } }

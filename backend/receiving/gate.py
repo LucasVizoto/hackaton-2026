@@ -2,11 +2,12 @@ import re
 from pathlib import Path
 
 from django.db import transaction
+from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -36,7 +37,8 @@ def _arrival_queryset(user):
     if role == "gatehouse":
         return queryset.filter(created_by=user)
     if role == "purchasing":
-        return queryset.filter(decision="rejected")
+        # Compras decide as ocorrências e consulta as recusas e as chegadas que já passaram por ele.
+        return queryset.filter(Q(decision__in=["occurrence", "rejected"]) | Q(occurrence_at__isnull=False))
     if role in {"warehouse", "management", "admin"}:
         return queryset
     return queryset.none()
@@ -44,7 +46,7 @@ def _arrival_queryset(user):
 
 def _unread(user, queryset):
     if user_role(user) == "purchasing":
-        return queryset.filter(decision="rejected").count()
+        return queryset.filter(decision="occurrence").count()
     return queryset.filter(seen_at__isnull=True).count()
 
 
@@ -89,7 +91,7 @@ class GateArrivalListView(APIView):
         decision = request.query_params.get("decision")
         listed = queryset
         if decision:
-            if decision not in {"pending", "authorized", "rejected"}:
+            if decision not in {"pending", "occurrence", "authorized", "rejected"}:
                 raise ValidationError({"decision": "Filtro de decisão inválido."})
             listed = queryset.filter(decision=decision)
         # A agenda mostra as chegadas do período visível; a data é a local, a mesma do calendário.
@@ -130,26 +132,44 @@ class GateArrivalListView(APIView):
 
 
 class GateArrivalDecisionView(APIView):
+    """Armazém aceita, recusa ou abre ocorrência; numa ocorrência, Compras aprova ou recusa a entrada."""
+
     @transaction.atomic
     def post(self, request, pk):
-        require_role(request.user, "warehouse")
+        require_role(request.user, "warehouse", "purchasing")
+        purchasing = user_role(request.user) == "purchasing"
         arrival = get_object_or_404(GateArrival.objects.select_for_update(), id=pk)
         choice = request.data.get("decision")
-        if choice not in {"authorized", "rejected"}:
-            raise ValidationError({"decision": "Informe se a chegada foi aceita ou recusada."})
-        if arrival.decision != "pending":
+        allowed = {"authorized", "rejected"} if purchasing else {"authorized", "rejected", "occurrence"}
+        if choice not in allowed:
+            raise ValidationError({"decision": "Informe se a entrada foi aprovada ou recusada." if purchasing
+                                   else "Informe se a chegada foi aceita, recusada ou enviada como ocorrência."})
+        if arrival.decision != ("occurrence" if purchasing else "pending"):
+            if purchasing:
+                raise ValidationError({"decision": "Compras só decide chegadas em ocorrência que ainda aguardam decisão."})
+            if arrival.decision == "occurrence":
+                raise ValidationError({"decision": "Esta chegada está em ocorrência e aguarda a decisão de Compras."})
             raise ValidationError({"decision": "Esta chegada já foi decidida."})
+        now = timezone.now()
+        if arrival.seen_at is None and not purchasing:
+            arrival.seen_at = now
+            arrival.seen_by = request.user
+        if choice == "occurrence":
+            if request.data.get("appointment"):
+                raise ValidationError({"appointment": "A reserva é escolhida por quem aprovar a entrada."})
+            arrival.decision = "occurrence"
+            arrival.occurrence_at = now
+            arrival.occurrence_by = request.user
+            arrival.save(update_fields=["decision", "occurrence_at", "occurrence_by", "seen_at", "seen_by"])
+            notify_arrival(arrival, "occurrence")
+            return Response(GateArrivalSerializer(arrival).data)
         if request.data.get("appointment"):
             if choice != "authorized":
                 raise ValidationError({"appointment": "Só uma chegada aceita é vinculada a uma reserva."})
             arrival.appointment = _register_entry(arrival, request.user, request.data["appointment"])
-        now = timezone.now()
         arrival.decision = choice
         arrival.decided_at = now
         arrival.decided_by = request.user
-        if arrival.seen_at is None:
-            arrival.seen_at = now
-            arrival.seen_by = request.user
         arrival.save(update_fields=["decision", "decided_at", "decided_by", "seen_at", "seen_by", "appointment"])
         notify_arrival(arrival, choice)
         return Response(GateArrivalSerializer(arrival).data)
@@ -188,13 +208,22 @@ def _register_entry(arrival, user, appointment_id):
         # O marco é da Portaria: quem registrou o aviso é o autor da entrada, no horário do aviso.
         return workflow.perform(arrival.created_by, appointment.pk, "gate-check-in", data)
     workflow.gate_entry_on_slot_date(appointment, arrival.created_at)
-    return services.arrive(user, appointment.pk, {"occurred_at": arrival.created_at})
+    # O fluxo legado só aceita o Armazém como autor da chegada; numa ocorrência, é quem a abriu.
+    author = arrival.occurrence_by if user_role(user) == "purchasing" else user
+    return services.arrive(author, appointment.pk, {"occurred_at": arrival.created_at})
 
 
 class GateArrivalCandidatesView(APIView):
     def get(self, request, pk):
-        require_role(request.user, "warehouse")
-        arrival = get_object_or_404(_arrival_queryset(request.user), id=pk)
+        require_role(request.user, "warehouse", "purchasing")
+        queryset = _arrival_queryset(request.user)
+        if user_role(request.user) == "purchasing":
+            # Compras só escolhe reserva ao aprovar uma ocorrência que ainda aguarda decisão.
+            arrival = queryset.filter(decision="occurrence", id=pk).first()
+            if arrival is None:
+                raise PermissionDenied("Compras só vincula reserva ao aprovar uma ocorrência.")
+        else:
+            arrival = get_object_or_404(queryset, id=pk)
         plate, number = _plate_key(arrival.vehicle_plate), arrival.invoice_number.lstrip("0")
         rows = []
         for appointment in _candidates(arrival):

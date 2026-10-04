@@ -8,6 +8,7 @@ import { Api } from "./core/api";
 import { GateLive } from "./core/gate-live";
 import { BrandMark, ThemeToggle } from "./shared/ui";
 import { ArrivalAlert } from "./shared/arrival-alert";
+import { PurchasingAlert } from "./shared/purchasing-alert";
 
 interface NavigationTab { route: string; label: string; roles?: string[]; }
 interface NavigationItem { route: string; label: string; shortLabel?: string; icon: string; roles?: string[]; tabs?: NavigationTab[]; }
@@ -36,7 +37,7 @@ const MODULES: NavigationItem[] = [
   ] },
 ];
 @Component({ selector: "app-root", standalone: true,
-  imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle, ArrivalAlert],
+  imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle, ArrivalAlert, PurchasingAlert],
   template: `<ion-app>
     @if (api.user()) {
       <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
@@ -53,7 +54,7 @@ const MODULES: NavigationItem[] = [
           @if (tabs().length > 1) { <nav class="module-tabs" [attr.aria-label]="'Seções de ' + currentModule()">@for (tab of tabs(); track tab.route) { <a [routerLink]="tab.route" [class.active]="path() === tab.route" [attr.aria-current]="path() === tab.route ? 'page' : null">{{ tab.label }}</a> }</nav> }
           <router-outlet />
         </main>
-        <app-arrival-alert [hidden]="path() === '/chegadas'" />
+        <div class="alert-dock"><app-arrival-alert [hidden]="path() === '/chegadas'" /><app-purchasing-alert /></div>
         <nav class="pill-nav" aria-label="Módulos principais">@for (item of primaryItems(); track item.route) { <a [routerLink]="item.route" [class.active]="groupActive(item)" [attr.aria-current]="groupActive(item) ? 'page' : null" [attr.aria-label]="item.label"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.shortLabel || item.label }}</span></a> }@if (extraItems().length) { <button type="button" [class.active]="extraActive()" [attr.aria-expanded]="menuOpen()" aria-label="Mais módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /><span>Mais</span></button> }</nav>
       </div>
       <ion-popover [isOpen]="menuOpen()" (didDismiss)="menuOpen.set(false)" cssClass="navigation-popover" [backdropDismiss]="true"><ng-template><div class="module-menu"><div class="module-menu-head"><h2>Módulos</h2><button class="icon-button" type="button" aria-label="Fechar módulos" (click)="menuOpen.set(false)"><ion-icon name="close-outline" aria-hidden="true" /></button></div><nav class="navigation" aria-label="Todos os módulos">@for (item of navItems(); track item.route) { <a [routerLink]="item.route" [class.active]="groupActive(item)" [attr.aria-current]="groupActive(item) ? 'page' : null" (click)="menuOpen.set(false)"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.label }}{{ arrivalCount(item.route) }}</span></a> }</nav></div></ng-template></ion-popover>
@@ -133,11 +134,11 @@ export class AppComponent {
     return route === "/gestao/logistica" && this.watchesArrivals() ? ` (${count})` : "";
   }
   alertQuery() {
-    return this.api.user()?.role === "purchasing" ? { decisao: "rejected" } : {};
+    return this.api.user()?.role === "purchasing" ? { decisao: "occurrence" } : {};
   }
   alertLabel() {
     const count = this.unreadArrivals();
-    if (this.api.user()?.role === "purchasing") return count === 1 ? "1 chegada recusada" : `${count} chegadas recusadas`;
+    if (this.api.user()?.role === "purchasing") return count === 1 ? "1 ocorrência aguardando" : `${count} ocorrências aguardando`;
     return `${count} chegada${count === 1 ? "" : "s"}`;
   }
   private watchesArrivals() {

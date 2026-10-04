@@ -25,7 +25,7 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
     return [arrival, ...rows];
   }
   if (index < 0) {
-    if (board === "review" && message.event === "rejected") return [arrival, ...rows];
+    if (board === "review" && (message.event === "occurrence" || message.event === "rejected")) return [arrival, ...rows];
     if (board === "portaria") return [arrival, ...rows];
     return rows;
   }
@@ -62,21 +62,29 @@ interface ArrivalCandidate {
           @if (board() === "warehouse" && !item.seen_at && !seenIds().has(item.id)) {
             <span class="status pending">Nova</span>
           }
+          @if (item.decision === "occurrence") {
+            <span class="hold">Ocorrência aberta pelo Armazém. Aguardando Compras aprovar ou recusar a entrada.</span>
+          }
           @if (item.decision === "authorized") {
-            <span class="pass">A portaria pode liberar a entrada.</span>
+            <span class="pass">{{ item.occurrence_at ? "Compras aprovou a entrada. " : "" }}A portaria pode liberar a entrada.</span>
             @if (item.appointment) {
               <a class="pass" [routerLink]="['/agenda', item.appointment]">Entrada registrada na reserva</a>
-            } @else if (board() === "warehouse") {
+            } @else if (board() !== "portaria") {
               <span>Sem reserva vinculada.</span>
             }
           }
           @if (item.decision === "rejected") {
-            <span class="hold">Recusa registrada pelo Armazém. Compras pode consultar a nota.</span>
+            <span class="hold">{{ item.occurrence_at ? "Compras recusou a entrada após a ocorrência." : "Recusa registrada pelo Armazém. Compras pode consultar a nota." }}</span>
           }
         </div>
         <div class="arrival-actions">
           @if (board() === "warehouse" && api.can('warehouse') && item.decision === "pending" && pickId() !== item.id) {
             <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="startAccept(item)">Aceitar</ion-button>
+            <ion-button size="small" color="warning" [disabled]="busyId() === item.id" (click)="decide(item, 'occurrence')">Ocorrência</ion-button>
+            <ion-button size="small" color="danger" fill="outline" [disabled]="busyId() === item.id" (click)="decide(item, 'rejected')">Recusar</ion-button>
+          }
+          @if (board() === "review" && api.can('purchasing') && item.decision === "occurrence" && pickId() !== item.id) {
+            <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="startAccept(item)">Aprovar entrada</ion-button>
             <ion-button size="small" color="danger" fill="outline" [disabled]="busyId() === item.id" (click)="decide(item, 'rejected')">Recusar</ion-button>
           }
           <ion-button fill="outline" size="small" [disabled]="opening()" (click)="open(item)">Ver nota</ion-button>
@@ -96,7 +104,7 @@ interface ArrivalCandidate {
               <span>Nenhuma reserva do dia da chegada aguarda caminhão.</span>
             }
             <div class="arrival-actions">
-              <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized', choice())">Confirmar entrada</ion-button>
+              <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized', choice())">{{ board() === "review" ? "Aprovar entrada" : "Confirmar entrada" }}</ion-button>
               <ion-button size="small" fill="outline" [disabled]="busyId() === item.id" (click)="pickId.set('')">Voltar</ion-button>
             </div>
           </div>
@@ -172,11 +180,13 @@ export class ArrivalList {
   tone(item: Arrival) {
     if (item.decision === "authorized") return "approved";
     if (item.decision === "rejected") return "rejected";
+    if (item.decision === "occurrence") return "arrived";
     return "pending";
   }
   label(item: Arrival) {
     if (item.decision === "authorized") return "Pode passar";
     if (item.decision === "rejected") return "Recusada";
+    if (item.decision === "occurrence") return "Ocorrência";
     return "Aguardando";
   }
   async startAccept(item: Arrival) {
@@ -198,7 +208,7 @@ export class ArrivalList {
   choose(event: Event) {
     this.choice.set((event.target as HTMLSelectElement).value);
   }
-  async decide(item: Arrival, decision: "authorized" | "rejected", appointment = "") {
+  async decide(item: Arrival, decision: "authorized" | "rejected" | "occurrence", appointment = "") {
     this.busyId.set(item.id);
     this.decisionError.set("");
     this.errorId.set("");
@@ -423,22 +433,20 @@ export class GateDesk {
 
 }
 
-type ArrivalFilter = "pending" | "authorized" | "rejected" | "";
+type ArrivalFilter = "pending" | "occurrence" | "authorized" | "rejected" | "";
 type ArrivalBoard = "warehouse" | "portaria" | "review";
-const ARRIVAL_FILTERS: ArrivalFilter[] = ["pending", "authorized", "rejected", ""];
+const ARRIVAL_FILTERS: ArrivalFilter[] = ["pending", "occurrence", "authorized", "rejected", ""];
 
 @Component({
   standalone: true,
   imports: [RouterLink, IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
     <app-page-header title="Chegadas" [subtitle]="subtitle()"><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar</ion-button></app-page-header>
-    @if (board !== "review") {
-      <div class="actions">
-        @for (option of filters; track option.value) {
-          <ion-button size="small" [fill]="filter() === option.value ? 'solid' : 'outline'" (click)="choose(option.value)">{{ option.label }}</ion-button>
-        }
-      </div>
-    }
+    <div class="actions">
+      @for (option of filters; track option.value) {
+        <ion-button size="small" [fill]="filter() === option.value ? 'solid' : 'outline'" (click)="choose(option.value)">{{ option.label }}</ion-button>
+      }
+    </div>
     @if (board === "warehouse") {
       <p class="notice">Um aviso com foto não cria agendamento nem registra entrada ou saída automaticamente. <a routerLink="/agenda">Consultar recebimentos</a></p>
     }
@@ -462,13 +470,15 @@ export class Arrivals implements OnInit {
   private live = inject(GateLive);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  readonly board: ArrivalBoard = this.api.can("purchasing") && !this.api.can("warehouse", "management") ? "review" : this.api.can("gatehouse") && !this.api.can("warehouse", "management") ? "portaria" : "warehouse";
+  // Compras não vê chegadas pendentes do Armazém: só ocorrências, recusas e o que já decidiu.
   readonly filters = [
     { value: "pending" as const, label: "Aguardando" },
+    { value: "occurrence" as const, label: "Ocorrência" },
     { value: "authorized" as const, label: "Pode passar" },
     { value: "rejected" as const, label: "Recusada" },
     { value: "" as const, label: "Todas" },
-  ];
-  readonly board: ArrivalBoard = this.api.can("purchasing") && !this.api.can("warehouse", "management") ? "review" : this.api.can("gatehouse") && !this.api.can("warehouse", "management") ? "portaria" : "warehouse";
+  ].filter(option => this.board !== "review" || option.value !== "pending");
   filter = signal<ArrivalFilter>(this.initialFilter());
   rows = signal<Arrival[]>([]);
   error = signal("");
@@ -491,12 +501,13 @@ export class Arrivals implements OnInit {
     void this.load();
   }
   subtitle() {
-    if (this.board === "review") return "Recusas registradas pelo Armazém, para consulta da nota. Esta tela não altera decisões de entrada.";
+    if (this.board === "review") return "Ocorrências abertas pelo Armazém: aprove a entrada indicando a reserva da agenda ou recuse. As recusas ficam para consulta da nota.";
     if (this.board === "portaria") return "Avisos com foto enviados por você. O filtro inicial mostra só o que ainda aguarda o armazém.";
-    return this.api.can("warehouse") ? "Aceite libera a entrada na portaria. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto." : "Consulta de todos os avisos de chegada. A abertura da foto não altera a ciência do Armazém.";
+    return this.api.can("warehouse") ? "Aceite libera a entrada na portaria. Ocorrência envia a chegada para Compras aprovar ou recusar a entrada. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto." : "Consulta de todos os avisos de chegada. A abertura da foto não altera a ciência do Armazém.";
   }
   emptyLabel() {
     if (this.filter() === "pending") return "Nenhuma chegada aguardando.";
+    if (this.filter() === "occurrence") return "Nenhuma ocorrência aguardando Compras.";
     if (this.filter() === "authorized") return "Nenhuma chegada liberada.";
     if (this.filter() === "rejected") return "Nenhuma chegada recusada.";
     return "Nenhuma chegada informada.";
@@ -514,20 +525,22 @@ export class Arrivals implements OnInit {
     if (this.board === "portaria") {
       if (message.event === "created") return;
       const driver = message.arrival.driver_name;
-      this.notice.set(message.event === "authorized" ? `${driver} pode passar.` : `Chegada de ${driver} recusada pelo Armazém. Nota disponível para consulta de Compras.`);
+      this.notice.set(message.event === "authorized" ? `${driver} pode passar.`
+        : message.event === "occurrence" ? `Chegada de ${driver} em ocorrência: aguardando Compras aprovar ou recusar a entrada.`
+        : `Chegada de ${driver} recusada. Nota disponível para consulta de Compras.`);
       void this.load(this.page);
       return;
     }
     if (this.board === "review") {
-      if (message.event !== "rejected") return;
-      this.notice.set(`Recusa de ${message.arrival.driver_name} registrada pelo Armazém. Nota disponível para consulta.`);
+      if (message.event === "created") return;
+      if (message.event === "occurrence") this.notice.set(`Nova ocorrência do Armazém: placa ${message.arrival.vehicle_plate}, motorista ${message.arrival.driver_name}.`);
     }
     const filter = this.filter();
     this.rows.update((rows) => filter && message.arrival.decision !== filter && !rows.some((row) => row.id === message.arrival.id) ? rows : applyArrival(rows, message, this.board));
   }
   private initialFilter(): ArrivalFilter {
-    if (this.board === "review") return "rejected";
     const requested = this.route.snapshot.queryParamMap.get("decisao");
+    if (this.board === "review") return requested !== null && requested !== "pending" && (ARRIVAL_FILTERS as string[]).includes(requested) ? requested as ArrivalFilter : "occurrence";
     if (requested !== null && (ARRIVAL_FILTERS as string[]).includes(requested)) return requested as ArrivalFilter;
     return this.board === "portaria" ? "pending" : "";
   }

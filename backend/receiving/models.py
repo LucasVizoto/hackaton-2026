@@ -218,6 +218,7 @@ class ReceivingEvent(UUIDModel):
 class GateArrival(UUIDModel):
     DECISIONS = [
         ("pending", "Pendente"),
+        ("occurrence", "Ocorrência com Compras"),
         ("authorized", "Autorizada"),
         ("rejected", "Recusada"),
     ]
@@ -246,6 +247,15 @@ class GateArrival(UUIDModel):
         null=True,
         on_delete=models.PROTECT,
         related_name="gate_arrivals_seen",
+    )
+    # Armazém encaminhou a chegada para Compras decidir a entrada (aprovar ou recusar).
+    occurrence_at = models.DateTimeField(null=True, blank=True)
+    occurrence_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="gate_arrivals_occurrences",
     )
     # Reserva que o Armazém confirmou ao aceitar; sem ela a agenda não sabe que o caminhão chegou.
     appointment = models.OneToOneField(

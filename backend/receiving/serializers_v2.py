@@ -132,9 +132,14 @@ class ReceiptLineSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
+    vehicle_plate = serializers.CharField(source="appointment.vehicle_plate", read_only=True)
+    driver_name = serializers.CharField(source="appointment.driver_name", read_only=True)
+    supplier_name = serializers.CharField(source="appointment.supplier.name", read_only=True, default="")
+
     class Meta:
         model = InternalNotification
-        fields = ["id", "appointment", "recipient_role", "kind", "message", "created_at", "acknowledged_at"]
+        fields = ["id", "appointment", "recipient_role", "kind", "message", "created_at", "acknowledged_at",
+                  "vehicle_plate", "driver_name", "supplier_name"]
 
 
 class VisitSerializer(WarehouseVisitSerializer):

@@ -259,7 +259,7 @@ class NotificationsV2(mixins.ListModelMixin, viewsets.GenericViewSet):
 
     def get_queryset(self):
         require_role(self.request.user, "warehouse", "purchasing", "gatehouse", "management")
-        query = InternalNotification.objects.select_related("appointment")
+        query = InternalNotification.objects.select_related("appointment__supplier")
         if user_role(self.request.user) not in {"admin", "management"}:
             query = query.filter(recipient_role=user_role(self.request.user))
         if self.request.query_params.get("unread") == "true":
