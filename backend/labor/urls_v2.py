@@ -1,6 +1,7 @@
 from django.urls import path
 
 from labor.views import BulletinCloseView, BulletinReopenView
+from labor.views_allocation import AllocationNormsView, DayPlanView
 from labor.views_v2 import (RatesViewV2, BulletinListV2, BulletinDetailV2, BulletinPreviewV2,
     BulletinHistoryView, TransferWorkerView, ActivityListView, ActivityDetailView,
     OccurrenceListView, OccurrenceResolveView, ProductionListView, ProductionDetailView, WorkerStatementView)
@@ -21,4 +22,6 @@ urlpatterns = [
     path('production-records/', ProductionListView.as_view()),
     path('production-records/<uuid:pk>/', ProductionDetailView.as_view()),
     path('workers/<uuid:pk>/statement/', WorkerStatementView.as_view()),
+    path('allocation/norms/', AllocationNormsView.as_view()),
+    path('allocation/day-plan/', DayPlanView.as_view()),
 ]

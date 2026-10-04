@@ -88,13 +88,18 @@ class Command(BaseCommand):
                 )
             workers.append(worker)
         equipment = []
-        for index, code in enumerate(("ADUBO", "INSUMOS", "MAQUINAS"), 1):
-            item, _ = Equipment.objects.get_or_create(
+        # Inventário do PRD: Adubo 2 a gás que apoiam o Insumos; Insumos 1 fixa; Pátio 1 dedicada.
+        for index, (code, quantity, mobile) in enumerate(
+            (("ADUBO", 2, True), ("INSUMOS", 1, False), ("MAQUINAS", 1, False)), 1
+        ):
+            item, _ = Equipment.objects.update_or_create(
                 code=f"DEMO-E{index}",
                 defaults={
-                    "name": f"Empilhadeira sintética {index}",
+                    "name": f"Empilhadeira a gás sintética {index}",
                     "warehouse": warehouses[code],
-                    "mobile": True,
+                    "mobile": mobile,
+                    "kind": "EMPILHADEIRA_GAS",
+                    "quantity": quantity,
                 },
             )
             equipment.append(item)
