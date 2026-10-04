@@ -9,22 +9,30 @@ import { GateLive } from "./core/gate-live";
 import { BrandMark, ThemeToggle } from "./shared/ui";
 import { ArrivalAlert } from "./shared/arrival-alert";
 
-interface NavigationItem { route: string; label: string; shortLabel?: string; icon: string; roles?: string[]; }
+interface NavigationTab { route: string; label: string; roles?: string[]; }
+interface NavigationItem { route: string; label: string; shortLabel?: string; icon: string; roles?: string[]; tabs?: NavigationTab[]; }
 const MODULES: NavigationItem[] = [
-  { route: "/agenda", label: "Agenda", icon: "calendar-outline", roles: ["supplier", "purchasing", "warehouse", "management"] },
-  { route: "/compras", label: "Compras", icon: "checkmark-circle-outline", roles: ["purchasing", "management"] },
-  { route: "/portaria", label: "Portaria", icon: "trail-sign-outline", roles: ["gatehouse", "management"] },
-  { route: "/portaria/avisos", label: "Aviso com foto", icon: "notifications-outline", roles: ["gatehouse"] },
-  { route: "/portaria/chegadas", label: "Chegadas enviadas", shortLabel: "Chegadas", icon: "document-text-outline", roles: ["gatehouse"] },
-  { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
-  { route: "/escala", label: "Escala", icon: "calendar-outline", roles: ["warehouse", "management"] },
-  { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse", "management"] },
-  { route: "/revisoes", label: "Chegadas recusadas", icon: "warning-outline", roles: ["purchasing", "management"] },
-  { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse", "management"] },
-  { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse", "management"] },
-  { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"] },
-  { route: "/integracoes", label: "Integrações", icon: "grid-outline", roles: ["warehouse", "purchasing", "management"] },
-  { route: "/qualidade", label: "Origem dos dados", shortLabel: "Origem", icon: "shield-checkmark-outline", roles: ["management", "warehouse", "purchasing"] },
+  { route: "/agenda", label: "Agenda", icon: "calendar-outline", roles: ["supplier", "purchasing", "warehouse", "management"], tabs: [
+    { route: "/agenda", label: "Agenda" },
+    { route: "/compras", label: "Conferência de compras", roles: ["purchasing", "management"] },
+  ] },
+  { route: "/portaria", label: "Portaria", icon: "trail-sign-outline", roles: ["gatehouse", "management"], tabs: [
+    { route: "/portaria", label: "Agenda da portaria" },
+    { route: "/portaria/avisos", label: "Aviso com foto", roles: ["gatehouse"] },
+    { route: "/chegadas", label: "Chegadas enviadas", roles: ["gatehouse"] },
+  ] },
+  { route: "/escala", label: "Equipe", icon: "people-outline", roles: ["warehouse", "management"], tabs: [
+    { route: "/escala", label: "Escala" },
+    { route: "/pessoas", label: "Pessoas" },
+    { route: "/equipamentos", label: "Equipamentos" },
+    { route: "/boletins", label: "Boletins" },
+  ] },
+  { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"], tabs: [
+    { route: "/gestao", label: "Indicadores" },
+    { route: "/gestao/logistica", label: "Logística e Entregas" },
+    { route: "/chegadas", label: "Chegadas", roles: ["warehouse", "purchasing", "management"] },
+    { route: "/nao-recebimentos", label: "Não recebimentos", roles: ["warehouse", "management"] },
+  ] },
 ];
 @Component({ selector: "app-root", standalone: true,
   imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle, ArrivalAlert],
@@ -34,19 +42,20 @@ const MODULES: NavigationItem[] = [
       <div class="shell">
         <aside class="sidebar">
           <a [routerLink]="homeRoute()" class="brand" aria-label="Cocapec Recebimento"><app-brand /></a>
-          <nav class="navigation" aria-label="Módulos">@for (item of navItems(); track item.route) { <a [routerLink]="item.route" [class.active]="active(item.route)" [attr.aria-current]="active(item.route) ? 'page' : null"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.label }}{{ arrivalCount(item.route) }}</span></a> }</nav>
+          <nav class="navigation" aria-label="Módulos">@for (item of navItems(); track item.route) { <a [routerLink]="item.route" [class.active]="groupActive(item)" [attr.aria-current]="groupActive(item) ? 'page' : null"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.label }}{{ arrivalCount(item.route) }}</span></a> }</nav>
           <div class="sidebar-note"><ion-icon name="leaf-outline" aria-hidden="true" /><span>Agenda, operação<br />e boletim diário.</span></div>
           <div class="user"><span class="avatar" aria-hidden="true">{{ initials() }}</span><div><strong>{{ api.user()?.username }}</strong><small>{{ roleLabel() }}</small></div></div>
         </aside>
         <main #mainContent class="main" id="main-content" tabindex="-1">
-          <header class="topbar"><div class="topbar-context"><button type="button" class="icon-button tablet-menu" aria-label="Abrir módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /></button><span>{{ currentModule() }}</span><span class="context-divider" aria-hidden="true"></span><small>Recebimento Cocapec</small></div><div class="topbar-actions">@if (unreadArrivals()) { <a [routerLink]="alertRoute()" class="arrival-alert">{{ alertLabel() }}</a> }<span class="topbar-user">{{ roleLabel() }}</span><app-theme-toggle /><ion-button fill="clear" size="small" (click)="api.logout()"><ion-icon name="log-out-outline" aria-hidden="true" slot="start" />Sair</ion-button></div></header>
+          <header class="topbar"><div class="topbar-context"><button type="button" class="icon-button tablet-menu" aria-label="Abrir módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /></button><span>{{ currentModule() }}</span><span class="context-divider" aria-hidden="true"></span><small>Recebimento Cocapec</small></div><div class="topbar-actions">@if (unreadArrivals()) { <a routerLink="/chegadas" [queryParams]="alertQuery()" class="arrival-alert">{{ alertLabel() }}</a> }<span class="topbar-user">{{ roleLabel() }}</span><app-theme-toggle /><ion-button fill="clear" size="small" (click)="api.logout()"><ion-icon name="log-out-outline" aria-hidden="true" slot="start" />Sair</ion-button></div></header>
           @if (live.status() === "disconnected") { <p class="notice" role="status">Atualização em tempo real desconectada. Reconectando; use Atualizar para consultar os registros.</p> }
+          @if (tabs().length > 1) { <nav class="module-tabs" [attr.aria-label]="'Seções de ' + currentModule()">@for (tab of tabs(); track tab.route) { <a [routerLink]="tab.route" [class.active]="path() === tab.route" [attr.aria-current]="path() === tab.route ? 'page' : null">{{ tab.label }}</a> }</nav> }
           <router-outlet />
         </main>
         <app-arrival-alert [hidden]="path() === '/chegadas'" />
-        <nav class="pill-nav" aria-label="Módulos principais">@for (item of primaryItems(); track item.route) { <a [routerLink]="item.route" [class.active]="active(item.route)" [attr.aria-current]="active(item.route) ? 'page' : null" [attr.aria-label]="item.label"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.shortLabel || item.label }}</span></a> }@if (extraItems().length) { <button type="button" [class.active]="extraActive()" [attr.aria-expanded]="menuOpen()" aria-label="Mais módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /><span>Mais</span></button> }</nav>
+        <nav class="pill-nav" aria-label="Módulos principais">@for (item of primaryItems(); track item.route) { <a [routerLink]="item.route" [class.active]="groupActive(item)" [attr.aria-current]="groupActive(item) ? 'page' : null" [attr.aria-label]="item.label"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.shortLabel || item.label }}</span></a> }@if (extraItems().length) { <button type="button" [class.active]="extraActive()" [attr.aria-expanded]="menuOpen()" aria-label="Mais módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /><span>Mais</span></button> }</nav>
       </div>
-      <ion-popover [isOpen]="menuOpen()" (didDismiss)="menuOpen.set(false)" cssClass="navigation-popover" [backdropDismiss]="true"><ng-template><div class="module-menu"><div class="module-menu-head"><h2>Módulos</h2><button class="icon-button" type="button" aria-label="Fechar módulos" (click)="menuOpen.set(false)"><ion-icon name="close-outline" aria-hidden="true" /></button></div><nav class="navigation" aria-label="Todos os módulos">@for (item of navItems(); track item.route) { <a [routerLink]="item.route" [class.active]="active(item.route)" [attr.aria-current]="active(item.route) ? 'page' : null" (click)="menuOpen.set(false)"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.label }}{{ arrivalCount(item.route) }}</span></a> }</nav></div></ng-template></ion-popover>
+      <ion-popover [isOpen]="menuOpen()" (didDismiss)="menuOpen.set(false)" cssClass="navigation-popover" [backdropDismiss]="true"><ng-template><div class="module-menu"><div class="module-menu-head"><h2>Módulos</h2><button class="icon-button" type="button" aria-label="Fechar módulos" (click)="menuOpen.set(false)"><ion-icon name="close-outline" aria-hidden="true" /></button></div><nav class="navigation" aria-label="Todos os módulos">@for (item of navItems(); track item.route) { <a [routerLink]="item.route" [class.active]="groupActive(item)" [attr.aria-current]="groupActive(item) ? 'page' : null" (click)="menuOpen.set(false)"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.label }}{{ arrivalCount(item.route) }}</span></a> }</nav></div></ng-template></ion-popover>
     } @else { <router-outlet /> }
   </ion-app>`,
 })
@@ -65,12 +74,28 @@ export class AppComponent {
   });
   readonly primaryItems = computed(() => {
     const role = this.api.user()?.role;
-    const priority = role === "warehouse" || role === "admin" ? ["/agenda", "/chegadas", "/boletins"] : ["gatehouse", "portaria"].includes(role ?? "") ? ["/portaria", "/portaria/avisos", "/portaria/chegadas"] : role === "purchasing" ? ["/agenda", "/compras", "/revisoes"] : ["/agenda", "/gestao", "/qualidade"];
+    const priority = ["gatehouse", "portaria"].includes(role ?? "") ? ["/portaria"] : role === "supplier" ? ["/agenda"] : ["/agenda", "/escala", "/gestao"];
     return priority.map(route => this.navItems().find(item => item.route === route)).filter((item): item is NavigationItem => !!item);
   });
   readonly extraItems = computed(() => this.navItems().filter(item => !this.primaryItems().includes(item)));
-  readonly extraActive = computed(() => this.extraItems().some(item => this.active(item.route)));
-  readonly currentModule = computed(() => [...this.navItems()].sort((a,b)=>b.route.length-a.route.length).find(item => this.active(item.route))?.label ?? "Recebimento");
+  readonly extraActive = computed(() => this.extraItems().some(item => this.groupActive(item)));
+  readonly currentGroup = computed(() => {
+    const path = this.path();
+    let best: NavigationItem | undefined;
+    let length = -1;
+    for (const item of this.navItems()) {
+      for (const route of this.visibleTabs(item).map(tab => tab.route)) {
+        if ((path === route || path.startsWith(route + "/")) && route.length > length) { best = item; length = route.length; }
+      }
+    }
+    return best;
+  });
+  readonly tabs = computed(() => {
+    const group = this.currentGroup();
+    const tabs = group?.tabs ? this.visibleTabs(group) : [];
+    return tabs.some(tab => tab.route === this.path()) ? tabs : [];
+  });
+  readonly currentModule = computed(() => this.currentGroup()?.label ?? "Recebimento");
   readonly initials = computed(() => this.api.user()?.username.slice(0, 2).toUpperCase() ?? "");
   constructor() {
     addIcons({ calendarOutline, checkmarkCircleOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline });
@@ -104,12 +129,10 @@ export class AppComponent {
   arrivalCount(route: string) {
     const count = this.unreadArrivals();
     if (!count) return "";
-    if (route === "/chegadas" && this.api.can("warehouse", "management")) return ` (${count})`;
-    if (route === "/revisoes" && this.api.user()?.role === "purchasing") return ` (${count})`;
-    return "";
+    return route === "/gestao" && this.watchesArrivals() ? ` (${count})` : "";
   }
-  alertRoute() {
-    return this.api.user()?.role === "purchasing" ? "/revisoes" : "/chegadas";
+  alertQuery() {
+    return this.api.user()?.role === "purchasing" ? { decisao: "rejected" } : {};
   }
   alertLabel() {
     const count = this.unreadArrivals();
@@ -130,6 +153,7 @@ export class AppComponent {
       /* A contagem volta na próxima navegação. */
     }
   }
-  active(route: string): boolean { return this.path() === route || (this.path().startsWith(route + "/") && !MODULES.some(item => item.route !== route && item.route.startsWith(route + "/") && this.path().startsWith(item.route))); }
+  visibleTabs(item: NavigationItem): NavigationTab[] { return (item.tabs ?? [item]).filter(tab => !tab.roles || this.api.can(...tab.roles)); }
+  groupActive(item: NavigationItem): boolean { return this.currentGroup() === item; }
   roleLabel() { return ({ admin: "Administrador", supplier: "Fornecedor", purchasing: "Compras", warehouse: "Armazém", management: "Gestão", gatehouse: "Portaria", portaria: "Portaria" } as Record<string, string>)[this.api.user()?.role ?? ""] ?? ""; }
 }
