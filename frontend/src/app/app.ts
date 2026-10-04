@@ -3,7 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from "@angular/router
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { IonApp, IonButton, IonIcon, IonPopover } from "@ionic/angular/standalone";
 import { addIcons } from "ionicons";
-import { calendarOutline, checkmarkCircleOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline } from "ionicons/icons";
+import { calendarOutline, checkmarkCircleOutline, cubeOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline } from "ionicons/icons";
 import { Api } from "./core/api";
 import { GateLive } from "./core/gate-live";
 import { BrandMark, ThemeToggle } from "./shared/ui";
@@ -21,6 +21,7 @@ const MODULES: NavigationItem[] = [
     { route: "/portaria/avisos", label: "Aviso com foto", roles: ["gatehouse"] },
     { route: "/chegadas", label: "Chegadas enviadas", roles: ["gatehouse"] },
   ] },
+  { route: "/descarga", label: "Descarga", icon: "cube-outline", roles: ["warehouse", "management"] },
   { route: "/escala", label: "Equipe", icon: "people-outline", roles: ["warehouse", "management"], tabs: [
     { route: "/escala", label: "Escala" },
     { route: "/pessoas", label: "Pessoas" },
@@ -74,7 +75,7 @@ export class AppComponent {
   });
   readonly primaryItems = computed(() => {
     const role = this.api.user()?.role;
-    const priority = ["gatehouse", "portaria"].includes(role ?? "") ? ["/portaria"] : role === "supplier" ? ["/agenda"] : ["/agenda", "/escala", "/gestao"];
+    const priority = ["gatehouse", "portaria"].includes(role ?? "") ? ["/portaria"] : role === "supplier" ? ["/agenda"] : role === "warehouse" ? ["/agenda", "/descarga", "/escala"] : ["/agenda", "/escala", "/gestao"];
     return priority.map(route => this.navItems().find(item => item.route === route)).filter((item): item is NavigationItem => !!item);
   });
   readonly extraItems = computed(() => this.navItems().filter(item => !this.primaryItems().includes(item)));
@@ -98,7 +99,7 @@ export class AppComponent {
   readonly currentModule = computed(() => this.currentGroup()?.label ?? "Recebimento");
   readonly initials = computed(() => this.api.user()?.username.slice(0, 2).toUpperCase() ?? "");
   constructor() {
-    addIcons({ calendarOutline, checkmarkCircleOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline });
+    addIcons({ calendarOutline, checkmarkCircleOutline, cubeOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline });
     const timer = window.setInterval(() => {
       if (this.watchesArrivals()) void this.loadArrivals(); else this.unreadArrivals.set(0);
     }, 20000);
