@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .gate import (
+    GateArrivalCandidatesView,
     GateArrivalDecisionView,
     GateArrivalFileView,
     GateArrivalListView,
@@ -25,6 +26,7 @@ router.register("non-receipts", NonReceiptViewSet)
 urlpatterns = [
     path("gate-arrivals/", GateArrivalListView.as_view()),
     path("gate-arrivals/<uuid:pk>/decision/", GateArrivalDecisionView.as_view()),
+    path("gate-arrivals/<uuid:pk>/candidates/", GateArrivalCandidatesView.as_view()),
     path("gate-arrivals/<uuid:pk>/seen/", GateArrivalSeenView.as_view()),
     path("gate-arrivals/<uuid:pk>/file/", GateArrivalFileView.as_view()),
     path("slots/availability/", AvailabilityView.as_view()),

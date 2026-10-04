@@ -120,8 +120,11 @@ def values(bulletin):
     if bulletin.status == "CLOSED":
         calculation = bulletin.calculation
     elif daily:
-        calculation = daily_calculation(lines, people, bulletin.floor_per_day, sources,
-                                        tariffs_on(bulletin.reference_date))
+        # O fechamento reprecifica pela tabela vigente; o rascunho mostra o mesmo valor que será fechado.
+        tariffs = tariffs_on(bulletin.reference_date)
+        for item in [*lines, *sources]:
+            item["price"] = str(tariffs["rates"][item["category"]])
+        calculation = daily_calculation(lines, people, tariffs["floor"], sources, tariffs)
     elif bulletin.financial_version == "boletim-v2":
         calculation = calculate_v2(lines, people, bulletin.floor_per_day, daily_services, sources)
     else:

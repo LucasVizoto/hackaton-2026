@@ -30,6 +30,16 @@ export interface ScheduleItem {
   visits?: ScheduleVisit[];
   slot?: { date: string; time: string };
 }
+export interface GateArrivalItem {
+  id: string;
+  vehicle_plate: string;
+  tractor_plate: string;
+  driver_name: string;
+  invoice_number: string;
+  created_at: string;
+  decision: "pending" | "authorized" | "rejected";
+  appointment?: string | null;
+}
 export interface ScheduleRange {
   from: string;
   to: string;
@@ -190,6 +200,24 @@ const STATUS_LABELS: Record<string, string> = {
       @if(availabilityError()){<p class="error" role="alert">Não foi possível consultar as vagas: {{availabilityError()}}</p>}
       @if (printError()) {
         <p class="error" role="alert">{{ printError() }}</p>
+      }
+      @if (visibleArrivals().length) {
+        <section class="cal-arrivals" aria-labelledby="cal-arrivals-title">
+          <h3 id="cal-arrivals-title">Chegadas na portaria sem agendamento ({{ visibleArrivals().length }})</h3>
+          <p>A portaria registrou estes caminhões, mas eles ainda não estão vinculados a uma reserva da agenda.</p>
+          <ul>
+            @for (arrival of visibleArrivals(); track arrival.id) {
+              <li>
+                <span [class]="'cal-dot ' + arrivalTone(arrival)" aria-hidden="true"></span>
+                <strong>{{ arrivalWhen(arrival) }}</strong>
+                <span>{{ arrival.vehicle_plate }}@if (arrival.tractor_plate !== arrival.vehicle_plate) { · cavalo {{ arrival.tractor_plate }}}</span>
+                <span>{{ arrival.driver_name }}</span>
+                <span>NF {{ arrival.invoice_number }}</span>
+                <span class="cal-arrival-decision">{{ arrivalDecision(arrival) }}</span>
+              </li>
+            }
+          </ul>
+        </section>
       }
       @if (!busy() && emptyMessage()) {
         <p class="cal-empty" role="status">{{ emptyMessage() }}</p>
@@ -369,6 +397,12 @@ const STATUS_LABELS: Record<string, string> = {
       .cal-dot.pending { background: var(--warning); }
       .cal-dot.rejected, .cal-dot.cancelled, .cal-dot.not_received { background: var(--danger); }
 
+      .cal-arrivals { margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--line); border-left: 4px solid var(--warning); border-radius: var(--radius-card); background: var(--surface); }
+      .cal-arrivals h3 { margin: 0 0 4px; font-size: 15px; }
+      .cal-arrivals p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+      .cal-arrivals ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+      .cal-arrivals li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 14px; }
+      .cal-arrival-decision { color: var(--muted); }
       .cal-empty { margin: 0; color: var(--muted); font-size: 14px; }
       .cal-empty-box { display: grid; justify-items: start; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); }
       .cal-empty-box p { margin: 0; }
@@ -479,6 +513,7 @@ export class ScheduleCalendar implements OnInit {
   warehouses = input<{ id: string; name: string; code?: string }[]>([]);
   mode = input<"agenda" | "compras" | "operacao" | "portaria">("agenda");
   busy = input(false);
+  arrivals = input<GateArrivalItem[]>([]);
   canSchedule = input(false);
   rangeChange = output<ScheduleRange>();
   view = signal<View>("week");
@@ -525,6 +560,13 @@ export class ScheduleCalendar implements OnInit {
   );
   readonly visible = computed(() =>
     this.appointments().filter((item) => this.matchesStatus(item) && this.matchesMoega(item)),
+  );
+  readonly visibleArrivals = computed(() =>
+    this.arrivals()
+      // Vinculada a uma reserva, a chegada já aparece no card do agendamento.
+      .filter((arrival) => !arrival.appointment)
+      .filter((arrival) => arrival.decision === "pending" || this.dayInRange(iso(new Date(arrival.created_at))))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at)),
   );
   readonly printable = computed(() => {
     if (this.view() !== "day") return [];
@@ -701,6 +743,18 @@ export class ScheduleCalendar implements OnInit {
     const menu = this.menu()?.nativeElement;
     if (menu?.open && !(event && menu.contains(event.target as Node))) menu.open = false;
   }
+  arrivalWhen(arrival: GateArrivalItem) {
+    const at = new Date(arrival.created_at);
+    const sameDay = this.view() === "day" && iso(at) === this.anchorIso();
+    const format = sameDay ? { hour: "2-digit", minute: "2-digit" } as const : { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" } as const;
+    return new Intl.DateTimeFormat("pt-BR", format).format(at);
+  }
+  arrivalTone(arrival: GateArrivalItem) {
+    return arrival.decision === "authorized" ? "arrived" : arrival.decision === "rejected" ? "rejected" : "pending";
+  }
+  arrivalDecision(arrival: GateArrivalItem) {
+    return { pending: "Aguardando o armazém", authorized: "Entrada autorizada", rejected: "Recusada" }[arrival.decision];
+  }
   statusLabel(value:string){return STATUS_LABELS[value] ?? value;}
   vacancies(units:number){return units===1 ? '1 vaga' : `${units} vagas`;}
   readonly emptyMessage = computed(() => {
@@ -751,7 +805,9 @@ export class ScheduleCalendar implements OnInit {
     return [iso(start), iso(addDays(start, 41))];
   }
   private inRange(item: ScheduleItem) {
-    const day = this.itemDate(item);
+    return this.dayInRange(this.itemDate(item));
+  }
+  private dayInRange(day: string) {
     if (this.view() === "day") return day === this.anchorIso();
     if (this.view() === "week") return this.weekDays().some((d) => d.iso === day);
     const anchor = this.anchor();

@@ -34,10 +34,19 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
   return next;
 }
 
+interface ArrivalCandidate {
+  id: string;
+  time: string;
+  supplier_name: string;
+  vehicle_plate: string;
+  invoice_numbers: string[];
+  matches: boolean;
+}
+
 @Component({
   selector: "app-arrival-list",
   standalone: true,
-  imports: [IonButton, IonModal],
+  imports: [IonButton, IonModal, RouterLink],
   template: `<div class="arrival-grid decisions">
     @for (item of rows(); track item.id) {
       <article class="arrival-card">
@@ -55,18 +64,43 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
           }
           @if (item.decision === "authorized") {
             <span class="pass">A portaria pode liberar a entrada.</span>
+            @if (item.appointment) {
+              <a class="pass" [routerLink]="['/agenda', item.appointment]">Entrada registrada na reserva</a>
+            } @else if (board() === "warehouse") {
+              <span>Sem reserva vinculada.</span>
+            }
           }
           @if (item.decision === "rejected") {
             <span class="hold">Recusa registrada pelo Armazém. Compras pode consultar a nota.</span>
           }
         </div>
         <div class="arrival-actions">
-          @if (board() === "warehouse" && api.can('warehouse') && item.decision === "pending") {
-            <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized')">Aceitar</ion-button>
+          @if (board() === "warehouse" && api.can('warehouse') && item.decision === "pending" && pickId() !== item.id) {
+            <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="startAccept(item)">Aceitar</ion-button>
             <ion-button size="small" color="danger" fill="outline" [disabled]="busyId() === item.id" (click)="decide(item, 'rejected')">Recusar</ion-button>
           }
           <ion-button fill="outline" size="small" [disabled]="opening()" (click)="open(item)">Ver nota</ion-button>
         </div>
+        @if (pickId() === item.id) {
+          <div class="arrival-link">
+            <label>
+              Reserva da agenda
+              <select [value]="choice()" (change)="choose($event)" [disabled]="busyId() === item.id">
+                @for (option of candidates(); track option.id) {
+                  <option [value]="option.id">{{ option.time }} · {{ option.supplier_name }} · {{ option.vehicle_plate || "sem placa" }} · NF {{ option.invoice_numbers.join(", ") }}{{ option.matches ? " (confere)" : "" }}</option>
+                }
+                <option value="">Sem reserva (caminhão não agendado)</option>
+              </select>
+            </label>
+            @if (!candidates().length) {
+              <span>Nenhuma reserva do dia da chegada aguarda caminhão.</span>
+            }
+            <div class="arrival-actions">
+              <ion-button size="small" color="success" [disabled]="busyId() === item.id" (click)="decide(item, 'authorized', choice())">Confirmar entrada</ion-button>
+              <ion-button size="small" fill="outline" [disabled]="busyId() === item.id" (click)="pickId.set('')">Voltar</ion-button>
+            </div>
+          </div>
+        }
         @if (openId() === item.id && imageError()) {
           <p class="error">{{ imageError() }}</p>
         }
@@ -104,6 +138,9 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
       .arrival-card .pass { color: var(--success); }
       .arrival-card .hold { color: var(--danger); }
       .arrival-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .arrival-link { display: grid; gap: 8px; }
+      .arrival-link label { display: grid; gap: 4px; font-size: 14px; }
+      .arrival-link select { max-width: 100%; }
       .photo-viewer { display: flex; flex-direction: column; height: 100%; padding: 12px; }
       .photo-scroll { overflow: auto; flex: 1; }
       .photo-scroll img { display: block; max-width: none; }
@@ -127,6 +164,10 @@ export class ArrivalList {
   decisionError = signal("");
   errorId = signal("");
   busyId = signal("");
+  // Ao aceitar, o Armazém indica a reserva: é o vínculo que faz a agenda mostrar o caminhão no pátio.
+  pickId = signal("");
+  candidates = signal<ArrivalCandidate[]>([]);
+  choice = signal("");
   when = dateTime;
   tone(item: Arrival) {
     if (item.decision === "authorized") return "approved";
@@ -138,12 +179,32 @@ export class ArrivalList {
     if (item.decision === "rejected") return "Recusada";
     return "Aguardando";
   }
-  async decide(item: Arrival, decision: "authorized" | "rejected") {
+  async startAccept(item: Arrival) {
     this.busyId.set(item.id);
     this.decisionError.set("");
     this.errorId.set("");
     try {
-      const saved = await this.api.post<Arrival>(`gate-arrivals/${item.id}/decision/`, { decision });
+      const { results } = await this.api.get<{ results: ArrivalCandidate[] }>(`gate-arrivals/${item.id}/candidates/`);
+      this.candidates.set(results);
+      this.choice.set(results.find((row) => row.matches)?.id ?? "");
+      this.pickId.set(item.id);
+    } catch (e) {
+      this.errorId.set(item.id);
+      this.decisionError.set(apiError(e));
+    } finally {
+      this.busyId.set("");
+    }
+  }
+  choose(event: Event) {
+    this.choice.set((event.target as HTMLSelectElement).value);
+  }
+  async decide(item: Arrival, decision: "authorized" | "rejected", appointment = "") {
+    this.busyId.set(item.id);
+    this.decisionError.set("");
+    this.errorId.set("");
+    try {
+      const saved = await this.api.post<Arrival>(`gate-arrivals/${item.id}/decision/`, appointment ? { decision, appointment } : { decision });
+      this.pickId.set("");
       this.updated.emit(saved);
     } catch (e) {
       this.errorId.set(item.id);

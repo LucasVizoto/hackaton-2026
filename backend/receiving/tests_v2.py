@@ -4,7 +4,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
-from unittest import skipUnless
+from unittest import mock, skipUnless
 
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -513,6 +513,39 @@ class ReceivingV2Tests(TestCase):
                          "occurred_at": AT + timedelta(days=1), "reason": "Data incompatível"})
         visit.refresh_from_db()
         self.assertEqual(visit.checked_in_at, AT)
+
+    def test_gate_entry_outside_reservation_date_or_in_future_is_refused(self):
+        ap = self.create()
+        self.approve(ap)
+        for wrong in (AT - timedelta(days=1), AT.replace(hour=23, minute=59) + timedelta(hours=1)):
+            with self.assertRaises(ValidationError):
+                self.command(ap, "gate-check-in", {"occurred_at": wrong}, self.gate)
+        ap.refresh_from_db()
+        self.assertIsNone(ap.gate_checked_in_at)
+        self.assertEqual(ap.operation_status, "waiting")
+
+    def test_marks_cannot_be_registered_or_corrected_into_the_future(self):
+        ap = self.create()
+        self.approve(ap)
+        self.arrive(ap)
+        visit = ap.visits.get()
+        with mock.patch("receiving.workflow.current_time", return_value=AT + timedelta(minutes=10)):
+            with self.assertRaises(ValidationError):
+                self.command(ap, "check-in", {"visit_id": visit.pk, "occurred_at": AT + timedelta(minutes=30)})
+            self.command(ap, "check-in", {"visit_id": visit.pk, "occurred_at": AT + timedelta(minutes=14)})
+            with self.assertRaises(ValidationError):
+                self.command(ap, "correct-time", {"target": "warehouse_check_in", "visit_id": visit.pk,
+                             "occurred_at": AT + timedelta(minutes=20), "reason": "Futuro"})
+
+    def test_gate_entry_correction_cannot_move_to_other_date(self):
+        ap = self.create()
+        self.approve(ap)
+        self.arrive(ap)
+        with self.assertRaises(ValidationError):
+            self.command(ap, "correct-time", {"target": "gate_check_in", "occurred_at": AT - timedelta(days=3),
+                         "reason": "Data errada"}, self.gate)
+        ap.refresh_from_db()
+        self.assertEqual(ap.gate_checked_in_at, AT)
 
     def test_v1_cannot_turn_legacy_record_into_machine_load(self):
         old = services.create_appointment(self.external, supplier=self.supplier, invoice=self.invoice,

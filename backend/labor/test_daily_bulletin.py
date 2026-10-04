@@ -131,7 +131,11 @@ class DailyBulletinTests(DailyBulletinBase):
         self.client.force_authenticate(self.operator)
         old = self.client.get(f"/api/v2/bulletins/{closed['id']}/").data
         self.assertEqual(old["calculation"]["resumo"]["totalAPagar"], "991.90")
-        new = self.close(self.client.get(f"/api/v2/bulletins/{draft['id']}/").data)
+        shown = self.client.get(f"/api/v2/bulletins/{draft['id']}/").data
+        self.assertEqual(shown["calculation"]["floor_per_day"], "95.0000")
+        self.assertEqual(next(line["price"] for line in shown["lines"] if line["category"] == "FERTILIZANTES"), "0.4000")
+        new = self.close(shown)
+        self.assertEqual(new["calculation"]["resumo"], shown["calculation"]["resumo"])
         self.assertEqual(new["calculation"]["floor_per_day"], "95.0000")
         self.assertEqual(new["calculation"]["tariff_table"]["valid_from"], "2025-11-01")
         current = self.client.get("/api/v2/tariff-tables/", {"date": "2025-11-20"}).data

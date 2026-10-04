@@ -3,7 +3,7 @@ import tempfile
 import threading
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from unittest import skipUnless
+from unittest import mock, skipUnless
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
@@ -27,7 +27,15 @@ AT = datetime(2026, 10, 5, 8, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
 RESOURCES = {"worker_count": 2, "equipment_ids": [], "resources_confirmed": True}
 
 
+def freeze_receiving_clock(instance):
+    """Os cenários usam a data fixa DAY; o relógio do servidor fica no fim desse dia para aceitar seus marcos."""
+    clock = mock.patch("receiving.workflow.current_time", return_value=AT.replace(hour=23, minute=59))
+    clock.start()
+    instance.addCleanup(clock.stop)
+
+
 def fixtures(instance):
+    freeze_receiving_clock(instance)
     instance.supplier = Supplier.objects.create(
         code="SYN-001", name="Fornecedor sintético", origin="demo_sintetico"
     )

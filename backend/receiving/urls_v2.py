@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import AttachmentDownload
 from .gate import (
+    GateArrivalCandidatesView,
     GateArrivalDecisionView,
     GateArrivalFileView,
     GateArrivalListView,
@@ -21,6 +22,7 @@ router.register("purchase-orders", PurchaseOrdersV2, basename="v2-purchase-order
 urlpatterns = [
     path("gate-arrivals/", GateArrivalListView.as_view()),
     path("gate-arrivals/<uuid:pk>/decision/", GateArrivalDecisionView.as_view()),
+    path("gate-arrivals/<uuid:pk>/candidates/", GateArrivalCandidatesView.as_view()),
     path("gate-arrivals/<uuid:pk>/seen/", GateArrivalSeenView.as_view()),
     path("gate-arrivals/<uuid:pk>/file/", GateArrivalFileView.as_view()),
     path("slots/availability/", AvailabilityV2.as_view()),

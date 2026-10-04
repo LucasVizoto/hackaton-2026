@@ -99,6 +99,7 @@ export const routes: Routes = [
   { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people-list").then(m => m.PeopleList) },
   { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "equipamentos", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/equipment-catalog").then(m => m.EquipmentCatalog) },
+  { path: "descarga", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/unloading").then(m => m.Unloading) },
   { path: "escala", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/staff-roster").then(m => m.StaffRoster) },
   // O acerto da quinzena é uma visão de Boletins; o endereço antigo continua funcionando.
   { path: "acerto", redirectTo: () => inject(Router).createUrlTree(["/boletins"], { queryParams: { visao: "quinzena" } }) },

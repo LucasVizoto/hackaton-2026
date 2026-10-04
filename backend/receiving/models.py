@@ -247,6 +247,10 @@ class GateArrival(UUIDModel):
         on_delete=models.PROTECT,
         related_name="gate_arrivals_seen",
     )
+    # Reserva que o Armazém confirmou ao aceitar; sem ela a agenda não sabe que o caminhão chegou.
+    appointment = models.OneToOneField(
+        "Appointment", null=True, blank=True, on_delete=models.PROTECT, related_name="gate_arrival"
+    )
 
     class Meta:
         ordering = ["-created_at"]

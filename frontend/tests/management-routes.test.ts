@@ -35,7 +35,7 @@ test("management can consult all modules but cannot enter creation routes or gai
     for (const username of ["gestao_demo", "outro_gestor"]) {
       api.user.set({ id: 12, username, role: "management", supplier_id: null });
       for (const path of ["agenda", "compras", "portaria", "portaria/chegadas", "chegadas", "revisoes",
-        "nao-recebimentos", "boletins", "boletins/:id", "pessoas", "pessoas/:id", "equipamentos", "escala", "gestao", "gestao/logistica"]) {
+        "nao-recebimentos", "boletins", "boletins/:id", "pessoas", "pessoas/:id", "equipamentos", "escala", "descarga", "gestao", "gestao/logistica"]) {
         const route = routes.find(route => route.path === path)!;
         for (const guard of route.canActivate ?? []) {
           assert.equal(runInInjectionContext(injector, () => (guard as CanActivateFn)(null!, null!)), true, path);
@@ -91,5 +91,22 @@ test("every arrival role reaches the unified arrivals screen and old arrival and
     assert.equal(routes.find(route => route.path === "portaria/chegadas")!.redirectTo, "/chegadas");
     assert.ok(routes.find(route => route.path === "revisoes")!.redirectTo);
     for (const removed of ["qualidade", "integracoes"]) assert.equal(routes.find(route => route.path === removed)!.redirectTo, "/gestao", removed);
+  } finally { injector.destroy(); }
+});
+
+test("unloading board is for the warehouse and management only", () => {
+  const redirected = {};
+  const injector = createEnvironmentInjector([
+    { provide: Api, useClass: Api }, { provide: HttpClient, useValue: {} },
+    { provide: Router, useValue: { createUrlTree: () => redirected } },
+  ], null!);
+  try {
+    const api = runInInjectionContext(injector, () => injector.get(Api));
+    const route = routes.find(route => route.path === "descarga")!;
+    for (const role of ["warehouse", "management", "admin", "purchasing", "supplier", "gatehouse"]) {
+      api.user.set({ id: 13, username: role, role, supplier_id: null });
+      const results = route.canActivate!.map(guard => runInInjectionContext(injector, () => (guard as CanActivateFn)(null!, null!)));
+      assert.equal(results.every(result => result === true), ["warehouse", "management", "admin"].includes(role), role);
+    }
   } finally { injector.destroy(); }
 });
