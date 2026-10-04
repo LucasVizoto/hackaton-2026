@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { invoiceCodeFromText } from "../src/app/features/invoice-code";
+import { invoiceCodeFromText, invoiceDocumentFromText, invoiceFieldsFromText, invoiceFieldsFromXml, linesFromPdfItems, readInvoicePdf } from "../src/app/features/invoice-code";
 
 test("preenche o número da nota e não a chave de acesso completa", () => {
   const danfe = [
@@ -69,6 +69,68 @@ test("rejeita chaves com UF, mês, modelo, emissão ou número incompatível", (
 test("duas chaves diferentes sem um número impresso inequívoco não geram sugestão", () => {
   const otherKey = accessKey.slice(0, 25) + "000000001" + accessKey.slice(34);
   assert.equal(invoiceCodeFromText(`${accessKey}\n${otherKey}`), "");
+});
+
+test("a leitura devolve o número impresso e a chave completa", () => {
+  const danfe = ["NF-e Nº 000.315.407", "CHAVE DE ACESSO", accessKey].join("\n");
+  assert.deepEqual(invoiceFieldsFromText(danfe), { number: "315407", accessKey });
+});
+
+test("itens do PDF na mesma linha preservam número e chave", () => {
+  const text = linesFromPdfItems([
+    { str: "NF-e Nº", transform: [1, 0, 0, 1, 40, 300], width: 48 },
+    { str: "000.315.407", transform: [1, 0, 0, 1, 100, 300], width: 70 },
+    { str: "3526", transform: [1, 0, 0, 1, 40, 260], width: 28 },
+    { str: "0961 1565 0100 9960 5501 3000 3154 9719 7114 5230", transform: [1, 0, 0, 1, 80, 260], width: 280 },
+  ]);
+  assert.deepEqual(invoiceFieldsFromText(text), {
+    number: "315407",
+    accessKey: "35260961156501009960550130003154971971145230",
+  });
+});
+
+function samplePdf(lines: string[]): Blob {
+  const commands = ["BT", "/F1 12 Tf", ...lines.map((line, index) => `${index ? "0 -22 Td" : "40 360 Td"} (${line}) Tj`), "ET"].join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 640 480] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${commands.length} >>\nstream\n${commands}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(body));
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(body);
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets.slice(1)) body += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new Blob([Buffer.from(body)], { type: "application/pdf" });
+}
+
+test("vários Nº no documento não apagam o número que está na chave", () => {
+  const text = `Nº 000.123.456\nNº 000.123.457\nCHAVE DE ACESSO\n${accessKey}`;
+  assert.equal(invoiceCodeFromText(text), "");
+  assert.deepEqual(invoiceDocumentFromText(text), { number: "315497", accessKey });
+});
+
+test("XML preenche o nNF e a chave", () => {
+  const xml = `<?xml version="1.0"?><NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${accessKey}"><ide><nNF>000315497</nNF></ide></infNFe></NFe>`;
+  assert.deepEqual(invoiceFieldsFromXml(xml), { number: "315497", accessKey });
+});
+
+test("PDF com texto preenche o número da chave, também na segunda nota", async () => {
+  const { createRequire } = await import("node:module");
+  const { pathToFileURL } = await import("node:url");
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const require = createRequire(import.meta.url);
+  pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.worker.min.mjs")).href;
+  const file = samplePdf(["NF-e No 000315407", "Nº 123", "CHAVE DE ACESSO", accessKey]);
+  assert.deepEqual(await readInvoicePdf(file), { number: "315497", accessKey });
+  assert.deepEqual(await readInvoicePdf(file), { number: "315497", accessKey });
 });
 
 test("números impressos conflitantes não permitem fallback para uma chave plausível", () => {

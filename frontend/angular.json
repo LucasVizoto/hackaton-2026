@@ -15,7 +15,11 @@
             "index": "src/index.html",
             "styles": ["src/styles.scss"],
             "outputPath": { "base": "dist", "browser": "browser" },
-            "assets": [{ "glob": "**/*", "input": "public" }]
+            "assets": [
+              { "glob": "**/*", "input": "public" },
+              { "glob": "pdf.worker.min.mjs", "input": "node_modules/pdfjs-dist/legacy/build", "output": "pdfjs" },
+              { "glob": "**/*", "input": "node_modules/pdfjs-dist/standard_fonts", "output": "pdfjs/standard_fonts" }
+            ]
           },
           "configurations": {
             "production": {
@@ -45,5 +49,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": "bf62c0e1-85e9-4ba1-9712-8941dbae335c"
   }
 }

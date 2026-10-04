@@ -209,7 +209,7 @@ app-brand { display: inline-flex; gap: 12px; align-items: center; }
 .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin: 0 0 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 20px; }
 .filters label { min-width: 150px; flex: 1; max-width: 270px; }
 .form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
-.form-grid .wide { grid-column: 1 / -1; }
+.form-grid .wide, .form-grid > app-slot-picker { grid-column: 1 / -1; min-width: 0; }
 label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 600; }
 input,select,textarea { font: inherit; color: var(--text); border: 1px solid var(--control-line); border-radius: var(--radius-control); padding: 10px 12px; min-height: 44px; max-width: 100%; width: 100%; background: var(--surface); }
 input::placeholder,textarea::placeholder { color: var(--muted); opacity: 1; }
@@ -228,7 +228,7 @@ textarea { min-height: 100px; resize: vertical; }
 .slot-option { position: relative; display: grid; gap: 2px; min-height: 72px; padding: 12px 14px; border: 1px solid var(--control-line); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; }
 .slot-option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .slot-option strong { font-size: 18px; }
-.slot-option span { color: var(--muted); font-size: 13px; }
+.slot-option span { display: block; color: var(--muted); font-size: 13px; line-height: 1.35; overflow-wrap: break-word; }
 .slot-option:hover:not(.is-disabled) { border-color: var(--green); background: var(--brand-soft); }
 .slot-option:focus-within { outline: 3px solid var(--focus); outline-offset: 3px; }
 .slot-option.is-selected { border: 2px solid var(--green); background: var(--brand-soft); }
