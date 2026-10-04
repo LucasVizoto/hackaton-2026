@@ -8,6 +8,7 @@ export interface CatalogEntry {
   label?: string;
   origin?: string;
   is_active?: boolean;
+  contract_type?: string;
   warehouse?: string|null;
   mobile?:boolean;
   purpose?:string;

@@ -1,5 +1,6 @@
 import { DatePipe } from "@angular/common";
-import { Component, inject, OnInit, signal } from "@angular/core";
+import { Component, DestroyRef, inject, OnInit, signal } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import {
   FormArray,
   FormBuilder,
@@ -7,7 +8,9 @@ import {
   Validators,
 } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { Capacitor } from "@capacitor/core";
 import { IonButton, IonSpinner } from "@ionic/angular/standalone";
+import { debounceTime } from "rxjs";
 import {
   Api,
   apiError,
@@ -18,10 +21,12 @@ import {
 } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { IndividualAllocation, RuleOccurrence } from "../core/labor-v2";
+import { lineAmount, lineQuantity } from "../core/money-line";
 import { exportCsv, quantity } from "../core/workflow";
 import { ProductionRecords, ProductionRecord } from "./production-records";
 import { LaborPayroll } from "./labor-payroll";
 import { decimal, occurrenceLabel } from "../core/presentation";
+import { openBulletinPdf, type BulletinPrintInput } from "./bulletin-print";
 import {
   EmptyState,
   FeedbackState,
@@ -314,7 +319,7 @@ export class BulletinList implements OnInit {
       [title]="bulletin() ? 'Boletim diário' : 'Novo boletim'"
       subtitle="Registre a produção, confirme a equipe e confira a apuração."
     >
-      <div actions class="actions"><ion-button fill="outline" [disabled]="!bulletin()" (click)="exportRecord()">Exportar registro</ion-button><ion-button fill="outline" (click)="print()">Imprimir</ion-button><ion-button fill="outline" routerLink="/boletins">Voltar aos boletins</ion-button></div>
+      <div actions class="actions"><ion-button fill="outline" [disabled]="!bulletin()" (click)="exportRecord()">Exportar registro</ion-button><ion-button fill="outline" (click)="printBulletin()" [disabled]="!canPrint()">Imprimir</ion-button><ion-button fill="outline" routerLink="/boletins">Voltar aos boletins</ion-button></div>
     </app-page-header>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
@@ -358,16 +363,13 @@ export class BulletinList implements OnInit {
         </div>
         @if (!bulletin() && !closed()) {
           <details>
-            <summary>Reproduzir exemplos oficiais com equipe sintética</summary>
+            <summary>Reproduzir quantidades do exemplo oficial</summary>
             <p class="muted">
-              Preenche as quantidades de referência e onze matrículas
-              sintéticas. A prévia é calculada pela API.
+              Preenche fertilizante, agroquímico e serviços diversos. A equipe não entra aqui: ela vem da escala da data.
             </p>
             <div class="actions">
-              <ion-button fill="outline" type="button" (click)="example(false)"
-                >Exemplo: 11 diárias</ion-button
-              ><ion-button fill="outline" type="button" (click)="example(true)"
-                >Exemplo: 10,5 diárias</ion-button
+              <ion-button fill="outline" type="button" (click)="example()"
+                >Preencher quantidades do exemplo</ion-button
               >
             </div>
           </details>
@@ -377,19 +379,22 @@ export class BulletinList implements OnInit {
         <h2>Produção por categoria</h2>
         <p class="muted">
           Informe as quantidades de descarga (fornecedor), remoção (cooperado) e transferência (entre armazéns).
+          A quantidade total é a soma das três. O total da linha é essa quantidade vezes a tarifa. O piso usa a soma exata, em centavos na apuração.
           {{ daily() ? "Lance por armazém onde a equipe trabalhou. As tarifas seguem a tabela vigente na data." : "As tarifas oficiais acompanham cada categoria." }}
         </p>
         @if (daily()) {
           <fieldset class="section" [disabled]="closed() || !api.can('warehouse')"><legend>Armazéns onde a equipe trabalhou</legend><div class="actions">@for (w of catalog.warehouses(); track w.id) {<label class="check"><input type="checkbox" [checked]="selected().includes(w.id)" (change)="toggleWarehouse(w.id)" />{{ w.name }}</label>}</div></fieldset>
           @for (wid of selected(); track wid) {
             <h3 class="section">{{ warehouseName(wid) }}</h3>
-            <div class="table-wrap" formArrayName="lines" tabindex="0" role="region" [attr.aria-label]="'Produção em ' + warehouseName(wid)">
-              <table><thead><tr><th>Categoria</th><th class="numeric">Tarifa (R$)</th><th class="numeric">Descarga</th><th class="numeric">Remoção</th><th class="numeric">Transferência</th></tr></thead>
+            <div class="table-wrap" formArrayName="lines" tabindex="0" role="region" [attr.aria-label]="'Produção em ' + warehouseName(wid) + ', com quantidade total e valor da linha'">
+              <table><thead><tr><th>Categoria</th><th class="numeric">Tarifa (R$)</th><th class="numeric">Descarga</th><th class="numeric">Remoção</th><th class="numeric">Transferência</th><th class="numeric">Qtd. total</th><th class="numeric">Total R$</th></tr></thead>
                 <tbody>@for (row of lines.controls; track row; let i = $index) { @if (row.controls.warehouse.value === wid) {<tr [formGroupName]="i">
                   <td class="wrap">{{ rateLabel(row.controls.category.value) }}</td><td class="numeric">{{ decimal(ratePrice(row.controls.category.value, wid)) }}</td>
                   <td><input class="table-input" type="text" inputmode="decimal" formControlName="unloading" [attr.aria-label]="'Descarga ' + rateLabel(row.controls.category.value) + ' em ' + warehouseName(wid)" /></td>
                   <td><input class="table-input" type="text" inputmode="decimal" formControlName="removal" [attr.aria-label]="'Remoção ' + rateLabel(row.controls.category.value) + ' em ' + warehouseName(wid)" /></td>
                   <td><input class="table-input" type="text" inputmode="decimal" formControlName="transfer" [attr.aria-label]="'Transferência ' + rateLabel(row.controls.category.value) + ' em ' + warehouseName(wid)" /></td>
+                  <td class="numeric">{{ lineQtyLabel(row) }}</td>
+                  <td class="numeric">{{ lineAmountLabel(row, wid) }}</td>
                 </tr>} }</tbody></table>
             </div>
           } @empty { <p class="muted">Nenhum armazém selecionado. Sábado de organização interna pode fechar sem produção: paga-se o piso das pessoas presentes e o custo fica não atribuído.</p> }
@@ -399,7 +404,7 @@ export class BulletinList implements OnInit {
           formArrayName="lines"
           tabindex="0"
           role="region"
-          aria-label="Produção por categoria, descarga, remoção e transferência"
+          aria-label="Produção por categoria, descarga, remoção, transferência, quantidade total e valor da linha"
         >
           <table>
             <thead>
@@ -409,6 +414,8 @@ export class BulletinList implements OnInit {
                 <th class="numeric">Descarga</th>
                 <th class="numeric">Remoção</th>
                 <th class="numeric">Transferência</th>
+                <th class="numeric">Qtd. total</th>
+                <th class="numeric">Total R$</th>
               </tr>
             </thead>
             <tbody>
@@ -460,6 +467,8 @@ export class BulletinList implements OnInit {
                       "
                     />
                   </td>
+                  <td class="numeric">{{ lineQtyLabel(row) }}</td>
+                  <td class="numeric">{{ lineAmountLabel(row) }}</td>
                 </tr>
               }
             </tbody>
@@ -480,33 +489,34 @@ export class BulletinList implements OnInit {
           <div>
             <h2>Equipe participante</h2>
             <p class="muted">
-              Até 20 pessoas, por matrícula, cada uma uma vez no dia, com diária completa (1) ou meia (0,5), mesmo quando atua em vários armazéns.
+              Até 20 chapas, cada matrícula uma vez, em diária completa. Puxe a escala da data: quem faltou não entra.
             </p>
           </div>
           @if (!closed() && !legacy() && api.can("warehouse")) {
-            @if (daily()) {<ion-button type="button" fill="outline" (click)="fillFromRoster()" [disabled]="busy()">Preencher pela escala</ion-button>}
+            @if (daily()) {<ion-button type="button" fill="outline" (click)="fillFromRoster(true)" [disabled]="busy()">Puxar chapas da escala</ion-button>}
             <ion-button
               type="button"
               fill="outline"
               (click)="addParticipant()"
               [disabled]="participants.length >= 20"
-              >Adicionar participante</ion-button
+              >Inserir chapa</ion-button
             >
           }
         </div>
+        @if (rosterNote()) { <p class="field-help" role="status">{{ rosterNote() }}</p> }
         @if (participants.length) {
           <div
             class="table-wrap"
             formArrayName="participants"
             tabindex="0"
             role="region"
-            aria-label="Equipe participante, matrículas e frações de diária"
+            aria-label="Equipe participante por matrícula"
           >
             <table>
               <thead>
                 <tr>
                   <th>Matrícula / nome</th>
-                  <th>Fração</th>
+                  @if (!daily()) { <th>Fração</th> }
                   <th><span class="sr-only">Ações</span></th>
                 </tr>
               </thead>
@@ -514,6 +524,9 @@ export class BulletinList implements OnInit {
                 @for (p of participants.controls; track p; let i = $index) {
                   <tr [formGroupName]="i">
                     <td>
+                      @if (p.controls.worker.value) {
+                        <button type="button" class="worker-name" (click)="openWorker(p.controls.worker.value)">{{ workerLabel(p.controls.worker.value) }}</button>
+                      } @else {
                       <select
                         formControlName="worker"
                         [attr.aria-label]="'Participante ' + (i + 1)"
@@ -530,7 +543,9 @@ export class BulletinList implements OnInit {
                           </option>
                         }
                       </select>
+                      }
                     </td>
+                    @if (!daily()) {
                     <td>
                       <select
                         formControlName="fraction"
@@ -540,6 +555,7 @@ export class BulletinList implements OnInit {
                         <option value="0.5">0,5 diária</option>
                       </select>
                     </td>
+                    }
                     <td>
                       @if (!closed() && !legacy() && api.can("warehouse")) {
                         <button
@@ -559,12 +575,11 @@ export class BulletinList implements OnInit {
           </div>
         } @else {
           <p class="muted">
-            Nenhum participante. Produção positiva sem equipe não pode ser
-            fechada como custo confiável.
+            Ninguém escalado nesta data. Insira os chapas que entram neste boletim.
           </p>
         }
         <p class="site-note">
-          Registre presença e serviços em Pessoas. Saída às 10h, horas extras e frações sem regra definida exigem uma pendência. Não deduza a fração do horário de saída.
+          Cada chapa entra com uma diária completa. Presença e hora extra continuam no registro de Pessoas e não alteram esta lista.
         </p>
       </section>
       <section class="panel">
@@ -585,6 +600,8 @@ export class BulletinList implements OnInit {
             >
           }
         </div>
+        @if (previewing()) { <p class="field-help" role="status">Atualizando a prévia…</p> }
+        @if (previewHold()) { <p class="field-help" role="status">{{ previewHold() }}</p> }
         @if (calculation(); as c) {
           <div class="financial-summary" aria-live="polite">
             <div class="financial-total">
@@ -624,11 +641,11 @@ export class BulletinList implements OnInit {
           </details>
         } @else {
           <p class="muted">
-            Calcule a prévia para conferir produção, piso coletivo e total a pagar.
+            A prévia aparece aqui conforme a produção e a equipe são informadas.
           </p>
         }
       </section>
-      <section class="panel"><h2>Parcelas por pessoa</h2>@if(allocations().length){<div class="table-wrap" tabindex="0" role="region" aria-label="Parcelas individuais conciliadas"><table><thead><tr><th>Pessoa</th><th>Fração</th><th>Produção atribuída</th><th>Complemento</th><th>Total</th><th>Ajuste de centavos</th></tr></thead><tbody>@for(a of allocations();track a.worker){<tr><td><a [routerLink]="['/pessoas',a.worker]" [queryParams]="{date_from:form.controls.reference_date.value,date_to:form.controls.reference_date.value,origin:displayOrigin()}">{{workerLabel(a.worker)}}</a></td><td>{{decimal(a.fraction)}}</td><td>{{money(a.display.production)}}</td><td>{{money(a.display.supplement)}}</td><td><strong>{{money(a.display.total_payable)}}</strong></td><td>{{money(a.display.rounding_adjustment)}}</td></tr>}</tbody></table></div><div class="actions section"><ion-button type="button" fill="outline" (click)="export()">Exportar parcelas</ion-button><ion-button type="button" fill="outline" (click)="print()">Imprimir</ion-button></div>}@else{<p class="muted">{{bulletin()?.allocation_status==='pending_rule'?'Uma regra pendente impede atribuir parcelas a este boletim.':legacy()||closed()?'Este registro histórico não possui parcelas individuais preservadas.':'Calcule a prévia para consultar as parcelas individuais.'}}</p>}</section>
+      <section class="panel"><h2>Parcelas por pessoa</h2>@if(allocations().length){<div class="table-wrap" tabindex="0" role="region" aria-label="Parcelas individuais conciliadas"><table><thead><tr><th>Pessoa</th><th>Fração</th><th>Produção atribuída</th><th>Complemento</th><th>Total</th><th>Ajuste de centavos</th></tr></thead><tbody>@for(a of allocations();track a.worker){<tr><td><button type="button" class="worker-name" (click)="openWorker(a.worker)">{{workerLabel(a.worker)}}</button></td><td>{{decimal(a.fraction)}}</td><td>{{money(a.display.production)}}</td><td>{{money(a.display.supplement)}}</td><td><strong>{{money(a.display.total_payable)}}</strong></td><td>{{money(a.display.rounding_adjustment)}}</td></tr>}</tbody></table></div><div class="actions section"><ion-button type="button" fill="outline" (click)="export()">Exportar parcelas</ion-button><ion-button type="button" fill="outline" (click)="printBulletin()" [disabled]="!canPrint()">Imprimir</ion-button></div>}@else{<p class="muted">{{bulletin()?.allocation_status==='pending_rule'?'Uma regra pendente impede atribuir parcelas a este boletim.':legacy()||closed()?'Este registro histórico não possui parcelas individuais preservadas.':previewing()?'Atualizando as parcelas…':'As parcelas aparecem com a prévia, assim que a equipe estiver válida.'}}</p>}</section>
       <div class="actions">
         @if (!closed() && !legacy() && api.can("warehouse")) {
           <ion-button type="submit" [disabled]="busy() || form.invalid">
@@ -689,7 +706,29 @@ export class BulletinList implements OnInit {
       Complemento não significa automaticamente ociosidade. Nenhuma folha ou
       custo de RH integra este cálculo.
     </p>
+    @if (workerCard(); as worker) {
+      <div class="worker-modal" role="presentation" (click)="workerCard.set(null)">
+        <div class="panel" role="dialog" aria-modal="true" aria-labelledby="worker-card-title" tabindex="-1" id="worker-card" (click)="$event.stopPropagation()" (keydown.escape)="workerCard.set(null)">
+          <h2 id="worker-card-title">{{ worker.name }}</h2>
+          <dl class="metadata">
+            <div><dt>Matrícula</dt><dd>{{ worker.registration }}</dd></div>
+            <div><dt>Contrato</dt><dd>{{ worker.contract }}</dd></div>
+            <div><dt>Situação</dt><dd>{{ worker.active }}</dd></div>
+            <div><dt>Origem</dt><dd>{{ worker.origin }}</dd></div>
+          </dl>
+          <div class="actions section"><ion-button type="button" fill="outline" (click)="workerCard.set(null)">Fechar</ion-button></div>
+        </div>
+      </div>
+    }
   </div>`,
+  styles: [`
+    .worker-name { background: none; border: 0; padding: 0; color: var(--text); font: inherit; font-weight: 600; text-align: left; cursor: pointer; text-decoration: none; }
+    .worker-name:hover { color: var(--green); }
+    .worker-name:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    .worker-modal { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: var(--scrim); }
+    .worker-modal .panel { width: min(440px, 100%); margin: 0; }
+    .worker-modal .metadata { grid-template-columns: 1fr; gap: 12px; }
+  `],
 })
 export class BulletinEditor implements OnInit {
   api = inject(Api);
@@ -697,9 +736,17 @@ export class BulletinEditor implements OnInit {
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
   bulletin = signal<Bulletin | null>(null);
   calculation = signal<Calculation | null>(null);
   busy = signal(false);
+  previewing = signal(false);
+  previewHold = signal("");
+  printBusy = signal(false);
+  rosterNote = signal("");
+  workerCard = signal<{ name: string; registration: string; contract: string; active: string; origin: string } | null>(null);
+  private previewGeneration = 0;
+  private rosterGeneration = 0;
   error = signal("");
   success = signal("");
   showReopen = signal(false);
@@ -755,7 +802,65 @@ export class BulletinEditor implements OnInit {
   percent(value:string){return new Intl.NumberFormat("pt-BR",{style:"percent",maximumFractionDigits:1}).format(Number(value));}
   toggleWarehouse(id:string){if(this.closed()||this.legacy())return;if(this.selected().includes(id)){for(let i=this.lines.length-1;i>=0;i--)if(this.lines.at(i).controls.warehouse.value===id)this.lines.removeAt(i);this.selected.update(list=>list.filter(x=>x!==id));}else{this.catalog.rates().forEach(r=>this.lines.push(this.line(r.code,undefined,id)));this.selected.update(list=>[...list,id]);}}
   async loadDailyRates(){if(!this.daily()||this.closed())return;try{const t=await this.api.get<{current:{rates:{code:string;price:string}[]}}>(`tariff-tables/?date=${this.form.controls.reference_date.value}`);this.dailyRates.set(Object.fromEntries(t.current.rates.map(r=>[r.code,r.price])));}catch{this.dailyRates.set({});}}
-  async fillFromRoster(){if(!this.daily()||this.closed()||this.busy())return;this.error.set("");try{const team=await this.api.get<{participants:{worker:string;fraction:string;confirmed:boolean}[];unconfirmed:number}>(`roster/team/?${new URLSearchParams({date:this.form.controls.reference_date.value,origin:this.displayOrigin()==='demo_sintetico'||this.form.controls.origin.value==='demo_sintetico'?'demo_sintetico':'operacional_registrado'})}`);if(!team.participants.length){this.error.set("Ninguém escalado nesta data. Monte a escala em Escala ou adicione os participantes.");return;}this.participants.clear();team.participants.slice(0,20).forEach(p=>this.participants.push(this.participant({worker:p.worker,fraction:p.fraction})));this.success.set(team.unconfirmed?`Equipe preenchida pela escala. ${team.unconfirmed} pessoa(s) sem presença confirmada: confira antes de fechar.`:"Equipe preenchida pela escala com presenças confirmadas.");}catch(e){this.error.set(apiError(e));}}
+  async fillFromRoster(fromUser = false) {
+    if (!this.daily() || this.closed()) return;
+    if (this.bulletin() && !fromUser) return;
+    const generation = ++this.rosterGeneration;
+    const date = this.form.controls.reference_date.value;
+    try {
+      const preferred = this.bulletin()?.origin === "demo_sintetico" || this.form.controls.origin.value === "demo_sintetico"
+        ? "demo_sintetico"
+        : "operacional_registrado";
+      let team = await this.rosterTeam(date, preferred);
+      if (generation !== this.rosterGeneration) return;
+      if (!this.bulletin() && !team.participants.length && !team.absences) {
+        const other = preferred === "demo_sintetico" ? "operacional_registrado" : "demo_sintetico";
+        const alternate = await this.rosterTeam(date, other);
+        if (generation !== this.rosterGeneration) return;
+        if (alternate.participants.length || alternate.absences) {
+          team = alternate;
+          this.form.controls.origin.setValue(other, { emitEvent: false });
+        }
+      }
+      if (generation !== this.rosterGeneration) return;
+      this.participants.clear();
+      team.participants.slice(0, 20).forEach((person) => this.participants.push(this.participant({ worker: person.worker, fraction: "1.0" })));
+      this.rosterNote.set(this.rosterMessage(team));
+    } catch (e) {
+      if (generation === this.rosterGeneration) this.error.set(apiError(e));
+    }
+  }
+  private rosterTeam(date: string, origin: string) {
+    return this.api.get<{ participants: { worker: string }[]; unconfirmed: number; absences: number; absent?: { registration: string; name: string }[] }>(
+      `roster/team/?${new URLSearchParams({ date, origin })}`,
+    );
+  }
+  private rosterMessage(team: { unconfirmed: number; absences: number; absent?: { registration: string; name: string }[] }) {
+    const names = (team.absent ?? []).map((person) => `${person.registration} · ${person.name}`);
+    const missing = names.length
+      ? `${names.join("; ")} ${names.length === 1 ? "faltou e não entra" : "faltaram e não entram"} no boletim.`
+      : team.absences === 1
+        ? "1 chapa faltou e não entra no boletim."
+        : team.absences > 1
+          ? `${team.absences} chapas faltaram e não entram no boletim.`
+          : "";
+    const pending = team.unconfirmed
+      ? "A escala inclui chapas ainda sem presença confirmada. Cada uma entra com uma diária completa."
+      : "";
+    return [missing, pending].filter(Boolean).join(" ");
+  }
+  openWorker(id: string) {
+    const worker = this.catalog.workers().find((item) => item.id === id);
+    if (!worker) return;
+    this.workerCard.set({
+      name: worker.name,
+      registration: worker.registration || "Não informada",
+      contract: worker.contract_type === "TERCEIRIZADO" ? "Terceirizado / reforço de safra" : worker.contract_type === "EFETIVO" ? "Contrato anual" : "Não informado",
+      active: worker.is_active === false ? "Inativa" : "Ativa",
+      origin: originLabel(worker.origin ?? ""),
+    });
+    queueMicrotask(() => document.getElementById("worker-card")?.focus());
+  }
   async addAdjustment(){const b=this.bulletin();if(!b||!this.daily()||this.busy()||this.adjustmentForm.invalid)return;this.busy.set(true);this.error.set('');try{const v=this.adjustmentForm.getRawValue();await this.api.post('labor-adjustments/',{...v,amount:quantity(v.amount),reference_date:b.reference_date,origin:b.origin});await this.refresh();this.adjustmentForm.reset({worker:'',kind:'OVERTIME',amount:'',reason:''});this.success.set('Ajuste lançado; o boletim não muda e o valor entra no acerto da quinzena.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
   pendingCalculation(){const c=this.calculation();return !!(c?.provisional || c?.status==='pending_rule' || c?.allocation_status==='pending_rule' || this.bulletin()?.unresolved_occurrences?.length);}
   closed() {
@@ -773,15 +878,21 @@ export class BulletinEditor implements OnInit {
         if (query.get("origem") === "demo_sintetico") this.form.controls.origin.setValue("demo_sintetico");
       }
       await this.loadDailyRates();
-      this.form.controls.reference_date.valueChanges.subscribe(() => void this.loadDailyRates());
-      this.loaded.set(true);
-      if (!id && query.get("escala")) await this.fillFromRoster();
-      this.form.valueChanges.subscribe(() => {
-        this.dirty.set(true);
-        this.calculation.set(null);
-        this.allocations.set([]);
-        this.success.set("");
+      this.form.controls.reference_date.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+        void this.loadDailyRates();
+        void this.fillFromRoster();
       });
+      this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+        this.dirty.set(true);
+        this.success.set("");
+        if (!this.canAttemptPreview()) return;
+        const draft = this.readDraft();
+        this.previewHold.set("hold" in draft ? draft.hold : "");
+        this.previewing.set("payload" in draft);
+      });
+      this.form.valueChanges.pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef)).subscribe(() => void this.preview());
+      this.loaded.set(true);
+      if (!id) await this.fillFromRoster();
     } catch (e) {
       this.error.set(apiError(e));
     } finally {
@@ -789,6 +900,7 @@ export class BulletinEditor implements OnInit {
     }
   }
   apply(b: Bulletin) {
+    this.invalidatePreview();
     this.bulletin.set(b);
     this.auditHistory.set([]);this.historyLoaded.set(false);
     this.form.enable({ emitEvent: false });
@@ -833,6 +945,20 @@ export class BulletinEditor implements OnInit {
     void this.loadTargets();
     this.dirty.set(false);
   }
+  lineQtyLabel(row: { controls: { unloading: { value: string }; removal: { value: string }; transfer: { value: string } } }) {
+    return this.shown(lineQuantity(row.controls.unloading.value, row.controls.removal.value, row.controls.transfer.value));
+  }
+  lineAmountLabel(row: { controls: { category: { value: string }; unloading: { value: string }; removal: { value: string }; transfer: { value: string } } }, warehouse?: string) {
+    const quantity = lineQuantity(row.controls.unloading.value, row.controls.removal.value, row.controls.transfer.value);
+    if (quantity === null) return "—";
+    const amount = lineAmount(quantity, this.ratePrice(row.controls.category.value, warehouse));
+    return amount === null ? "Não disponível" : this.shown(amount, 4);
+  }
+  private shown(value: string | null, digits = 4) {
+    if (value === null) return "—";
+    const formatted = decimal(value, digits);
+    return formatted === "Não disponível" ? "—" : formatted;
+  }
   rateLabel(code: string) {
     return this.catalog.rates().find((r) => r.code === code)?.label ?? code;
   }
@@ -873,18 +999,101 @@ export class BulletinEditor implements OnInit {
       lines: lines.map(({warehouse: _ignored, ...line}) => { void _ignored; return line; }),
     };
   }
+  private canAttemptPreview() {
+    return this.loaded() && !this.legacy() && !this.closed() && !this.busy() && this.api.can("warehouse");
+  }
+  private invalidatePreview() {
+    this.previewGeneration += 1;
+    this.previewing.set(false);
+    this.previewHold.set("");
+  }
+  private readDraft(): { payload: ReturnType<BulletinEditor["payload"]> } | { hold: string } | { skip: true } {
+    if (!this.canAttemptPreview()) return { skip: true };
+    if (this.form.invalid) return { hold: "A prévia atualiza quando as quantidades e a equipe estiverem válidas." };
+    try {
+      return { payload: this.payload() };
+    } catch {
+      return { hold: "Aguardando uma quantidade válida para atualizar a prévia." };
+    }
+  }
   async preview() {
-    if(this.legacy()||!this.loaded()||this.busy())return;
-    this.busy.set(true);
+    const draft = this.readDraft();
+    if (!("payload" in draft)) {
+      if (!this.busy()) this.previewing.set(false);
+      if ("hold" in draft) this.previewHold.set(draft.hold);
+      return;
+    }
+    const generation = ++this.previewGeneration;
+    this.previewHold.set("");
+    this.previewing.set(true);
+    try {
+      const result = await this.api.post<Calculation>("bulletins/preview/", { ...draft.payload, origin: this.displayOrigin(), bulletin: this.bulletin()?.id });
+      if (generation !== this.previewGeneration) return;
+      this.calculation.set(result);
+      this.allocations.set(this.bulletin()?.unresolved_occurrences?.length ? [] : result.individual_allocations ?? []);
+      this.error.set("");
+    } catch (e) {
+      if (generation !== this.previewGeneration) return;
+      this.previewHold.set(apiError(e));
+    } finally {
+      if (generation === this.previewGeneration) this.previewing.set(false);
+    }
+  }
+  canPrint() {
+    return !!this.calculation() && !this.previewing() && !this.printBusy() && (this.form.valid || this.form.disabled);
+  }
+  private printModel(): BulletinPrintInput {
+    const calculation = this.calculation();
+    if (!calculation) throw new Error("Calcule a prévia antes de imprimir.");
+    const saved = this.bulletin();
+    const warehouses = this.daily()
+      ? this.selected().map((id) => this.warehouseName(id))
+      : [saved?.warehouse_name || this.warehouseName(this.form.getRawValue().warehouse) || "Armazém"];
+    const worker = (id: string) => this.catalog.workers().find((item) => item.id === id);
+    return {
+      referenceDate: this.form.controls.reference_date.value,
+      warehouses,
+      revision: saved?.revision ?? null,
+      provisional: this.pendingCalculation(),
+      closed: this.closed(),
+      lines: this.lines.getRawValue().map((row) => ({
+        warehouse: this.daily() ? this.warehouseName(row.warehouse) : warehouses[0],
+        label: this.rateLabel(row.category),
+        unloading: row.unloading,
+        removal: row.removal,
+        transfer: row.transfer,
+        price: this.ratePrice(row.category, row.warehouse),
+      })),
+      calculation,
+      people: this.participants.getRawValue().map((person) => {
+        const known = worker(person.worker);
+        return { registration: known?.registration ?? "", name: known?.name ?? "", fraction: person.fraction };
+      }),
+      allocations: this.pendingCalculation() ? [] : this.allocations().map((item) => {
+        const known = worker(item.worker);
+        return {
+          registration: item.registration ?? known?.registration ?? "",
+          name: item.name ?? known?.name ?? "",
+          fraction: item.fraction,
+          production: item.display.production,
+          supplement: item.display.supplement,
+          total: item.display.total_payable,
+        };
+      }),
+    };
+  }
+  async printBulletin() {
+    if (!this.canPrint() || this.printBusy()) return;
+    const preview = Capacitor.isNativePlatform() ? null : window.open("", "_blank");
+    this.printBusy.set(true);
     this.error.set("");
     try {
-      const result=await this.api.post<Calculation>("bulletins/preview/", {...this.payload(),bulletin:this.bulletin()?.id});
-      this.calculation.set(result);
-      this.allocations.set(this.bulletin()?.unresolved_occurrences?.length?[]:result.individual_allocations??[]);
+      await openBulletinPdf(this.printModel(), preview, Capacitor.isNativePlatform() ? (blob, name) => this.api.saveBlob(blob, name) : undefined);
     } catch (e) {
+      preview?.close();
       this.error.set(apiError(e));
     } finally {
-      this.busy.set(false);
+      this.printBusy.set(false);
     }
   }
   async save() {
@@ -964,32 +1173,15 @@ export class BulletinEditor implements OnInit {
   export(){exportCsv(`parcelas-${this.form.controls.reference_date.value}.csv`,[['Pessoa','Fração','Produção atribuída','Complemento','Total','Ajuste de centavos'],...this.allocations().map(a=>[this.workerLabel(a.worker),a.fraction,a.display.production,a.display.supplement,a.display.total_payable,a.display.rounding_adjustment])]);}
   historyToggled(event:Event){if((event.target as HTMLDetailsElement).open&&!this.historyLoaded())void this.loadHistory();}
   async loadHistory(){const b=this.bulletin();if(!b||this.historyBusy())return;this.historyBusy.set(true);this.historyError.set('');try{const history=await this.api.get<BulletinAudit[]>(`bulletins/${b.id}/history/`);if(this.bulletin()?.id===b.id){this.auditHistory.set(history);this.historyLoaded.set(true);}}catch(e){this.historyError.set(apiError(e));}finally{this.historyBusy.set(false);}}
-  exportRecord(){const b=this.bulletin();if(!b)return;exportCsv(`boletim-${b.reference_date}-${b.revision}.csv`,[['Tipo','Referência','Detalhe','Valor / quantidade','Descarga','Remoção','Transferência'],['Registro',b.id,b.warehouse_name,b.reference_date],['Estado',b.financial_version,b.status,b.revision],['Origem',b.origin],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Produção',b.calculation.production],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Total',b.calculation.total_payable],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Complemento',b.calculation.supplement],...b.lines.map(l=>['Categoria',l.category,(l.warehouse_name?l.warehouse_name+' · ':'')+(l.label??this.rateLabel(l.category)),l.price,l.unloading,l.removal,l.transfer]),...(b.adjustments??[]).map(a=>['Ajuste',a.registration,a.kind_label+' · '+a.reason,a.amount]),...b.participants.map(p=>['Participante',p.registration??p.worker,p.name??this.workerLabel(p.worker),p.fraction]),...(b.daily_services??[]).map(d=>['Serviço de diária',d.kind,'Quantidade',d.quantity]),...(b.unresolved_occurrences??[]).map(o=>['Pendência',o.code,o.description,o.worker??'Coletivo'])]);}
-  print(){window.print();}
-  async example(half: boolean) {
+  exportRecord(){const b=this.bulletin();if(!b)return;exportCsv(`boletim-${b.reference_date}-${b.revision}.csv`,[['Tipo','Referência','Detalhe','Valor / quantidade','Descarga','Remoção','Transferência','Qtd. total','Total'],['Registro',b.id,b.warehouse_name,b.reference_date],['Estado',b.financial_version,b.status,b.revision],['Origem',b.origin],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Produção',b.calculation.production],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Total',b.calculation.total_payable],['Apuração',b.calculation.provisional?'Provisória':'Preservada','Complemento',b.calculation.supplement],...b.lines.map(l=>{const qty=lineQuantity(l.unloading,l.removal,l.transfer);return ['Categoria',l.category,(l.warehouse_name?l.warehouse_name+' · ':'')+(l.label??this.rateLabel(l.category)),l.price,l.unloading,l.removal,l.transfer,qty??'',lineAmount(qty,l.price??'')??''];}),...(b.adjustments??[]).map(a=>['Ajuste',a.registration,a.kind_label+' · '+a.reason,a.amount]),...b.participants.map(p=>['Participante',p.registration??p.worker,p.name??this.workerLabel(p.worker),p.fraction]),...(b.daily_services??[]).map(d=>['Serviço de diária',d.kind,'Quantidade',d.quantity]),...(b.unresolved_occurrences??[]).map(o=>['Pendência',o.code,o.description,o.worker??'Coletivo'])]);}
+  async example() {
     this.error.set("");
-    const workers = this.catalog
-      .workers()
-      .filter((w) => w.origin === "demo_sintetico")
-      .slice(0, 11);
-    if (workers.length < 11) {
-      this.error.set(
-        "Exemplo indisponível: a equipe sintética de 11 participantes não está cadastrada. Contate o administrador do ambiente.",
-      );
-      return;
-    }
-    this.form.controls.origin.setValue("demo_sintetico");
     if (this.daily() && !this.selected().length) {
       const adubo = this.catalog.warehouses().find((w) => w.code === "ADUBO") ?? this.catalog.warehouses()[0];
       if (adubo) this.toggleWarehouse(adubo.id);
     }
-    this.lines.controls.forEach((r) =>
-      r.patchValue({ unloading: "0", removal: "0", transfer: "0" }),
-    );
-    const quantities: Record<
-      string,
-      { unloading: string; removal: string; transfer: string }
-    > = {
+    this.lines.controls.forEach((r) => r.patchValue({ unloading: "0", removal: "0", transfer: "0" }));
+    const quantities: Record<string, { unloading: string; removal: string; transfer: string }> = {
       FERTILIZANTES: { unloading: "2378", removal: "400", transfer: "0" },
       AGROQUIMICO: { unloading: "30", removal: "0", transfer: "0" },
       SERVICOS_DIVERSOS: { unloading: "0", removal: "40", transfer: "0" },
@@ -999,19 +1191,7 @@ export class BulletinEditor implements OnInit {
       const q = quantities[r.controls.category.value];
       if (q && (!this.daily() || r.controls.warehouse.value === first)) r.patchValue(q);
     });
-    this.participants.clear();
-    workers.forEach((w, i) =>
-      this.participants.push(
-        this.participant({
-          worker: w.id,
-          fraction: half && i === 10 ? "0.5" : "1.0",
-        }),
-      ),
-    );
-    if (!this.daily() && !this.form.controls.warehouse.value)
-      this.form.controls.warehouse.setValue(
-        this.catalog.warehouses()[0]?.id ?? "",
-      );
-    await this.preview();
+    if (!this.daily() && !this.form.controls.warehouse.value) this.form.controls.warehouse.setValue(this.catalog.warehouses()[0]?.id ?? "");
+    if (this.daily()) await this.fillFromRoster(true);
   }
 }
