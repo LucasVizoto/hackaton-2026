@@ -1,6 +1,6 @@
 import "zone.js";
 import "@angular/compiler";
-// Browser-only acceptance runner: real Management class, synthetic API only in tests.
+// Browser-only acceptance runner: real Dashboard class, synthetic API only in tests.
 const cases: {name:string;run:()=>Promise<void>}[]=[];
 function test(name:string,run:()=>Promise<void>){cases.push({name,run});}
 const assert={
@@ -12,14 +12,14 @@ import { createEnvironmentInjector, runInInjectionContext, signal } from "@angul
 import { FormBuilder } from "@angular/forms";
 import { Api } from "../src/app/core/api";
 import { Catalog } from "../src/app/core/catalog";
-import { Management } from "../src/app/features/management";
+import { Dashboard } from "../src/app/features/dashboard";
 
 function deferred<T>() { let resolve!:(value:T)=>void; const promise=new Promise<T>(r=>{resolve=r;}); return {promise,resolve}; }
 const costs=(count=0)=>({summary:{bulletin_count:count},daily_series:[],weekly_supplement:{groups:[],leaders:[],closed_bulletins:0,period:{date_from:"2026-10-01",date_to:"2026-10-04"}}});
 const flush=()=>new Promise(resolve=>setTimeout(resolve, 0));
 function fixture(api:object) {
   const injector=createEnvironmentInjector([{provide:Api,useValue:api},{provide:Catalog,useValue:{warehouses:signal([])}},FormBuilder],null!);
-  const component=runInInjectionContext(injector,()=>new Management());
+  const component=runInInjectionContext(injector,()=>new Dashboard());
   component.filters.patchValue({date_from:"2026-10-01",date_to:"2026-10-04"});
   return {component,dispose:()=>{component.ngOnDestroy();injector.destroy();}};
 }

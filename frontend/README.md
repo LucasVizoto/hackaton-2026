@@ -15,9 +15,13 @@ npm run android:sync
 
 O login usa contas criadas pelo seed local, com senha definida privadamente em `.env`. O token existe somente em memória; recarga pede novo login. A API preserva os dados.
 
-Rotas: `/agenda`, `/agenda/novo`, `/agenda/:id`, `/compras`, `/operacao`, `/nao-recebimentos`, `/nao-recebimentos/:id`, `/boletins`, `/boletins/novo`, `/boletins/:id`, `/gestao`, `/qualidade`. Os perfis vêm do servidor, sem seletor visual de permissão.
+Rotas: `/agenda`, `/agenda/novo`, `/agenda/:id`, `/compras`, `/operacao`, `/nao-recebimentos`, `/nao-recebimentos/:id`, `/boletins`, `/boletins/novo`, `/boletins/:id`, `/descarga`, `/dashboard`, `/gestao/logistica`, `/gestao`, `/qualidade`. Os perfis vêm do servidor, sem seletor visual de permissão.
 
-Criar recebimento: anexo privado, data/horário, acondicionamento. Detalhe: decisões independentes, destinos/etapas, chegada, entrada, conclusão/recursos, cancelamento com retenção e atribuição explícita, reagendamento por natureza. Boletim: 14 categorias, três modalidades, matrículas/frações, prévia da API, rascunho, fechamento e reabertura com motivo. Gestão: filtros por origem/período/local e cenários condicionais.
+Dashboard é um módulo próprio no menu, disponível para Gestão, Armazém, Compras e administrador. No celular aparece na navegação principal de Gestão, Compras e administrador. Armazém mantém Agenda, Descarga e Equipe na barra principal e acessa Dashboard em Mais. Gestão fica em Mais, com Logística e Entregas, Chegadas e Não recebimentos. O endereço antigo `/gestao` redireciona para `/dashboard`.
+
+O componente `Dashboard` fica em `src/app/features/dashboard.ts` e é carregado sob demanda pela rota `/dashboard`. Reutiliza os componentes de gráficos e consulta os indicadores financeiros e operacionais da API existente.
+
+Criar recebimento: anexo privado, data/horário, acondicionamento. Detalhe: decisões independentes, destinos/etapas, chegada, entrada, conclusão/recursos, cancelamento com retenção e atribuição explícita, reagendamento por natureza. Boletim: 14 categorias, três modalidades, matrículas/frações, prévia da API, rascunho, fechamento e reabertura com motivo. Dashboard: filtros por origem/período/local e cenários condicionais.
 
 Os exemplos preenchem apenas matrículas sintéticas e quantidades de referência; o cálculo é feito por `bulletins/preview/`. O painel usa operação registrada por padrão e separa `demo_sintetico`.
 

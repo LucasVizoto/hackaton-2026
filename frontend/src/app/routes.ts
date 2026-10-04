@@ -80,11 +80,12 @@ export const routes: Routes = [
       import("./features/bulletins").then((m) => m.BulletinEditor),
   },
   {
-    path: "gestao",
+    path: "dashboard",
     canActivate: [auth, roles("warehouse", "management", "purchasing")],
     loadComponent: () =>
-      import("./features/management").then((m) => m.Management),
+      import("./features/dashboard").then((m) => m.Dashboard),
   },
+  { path: "gestao", pathMatch: "full", redirectTo: "/dashboard" },
   {
     path: "gestao/logistica",
     canActivate: [auth, roles("warehouse", "management", "purchasing")],

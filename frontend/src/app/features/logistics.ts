@@ -13,7 +13,7 @@ import { DonutChart } from "../shared/donut-chart";
   imports: [RouterLink, IonButton, PageHeader, MetricCard, BarChart, DonutChart, LoadingState, FeedbackState, EmptyState],
   template: `<div class="page logistics-page">
     <app-page-header title="Logística e Entregas">
-      <a routerLink="/gestao">Voltar à Gestão</a><ion-button type="button" [disabled]="busy()" (click)="load()">{{ busy() && snapshot() ? 'Atualizando…' : 'Atualizar' }}</ion-button>
+      <a routerLink="/dashboard">Voltar ao Dashboard</a><ion-button type="button" [disabled]="busy()" (click)="load()">{{ busy() && snapshot() ? 'Atualizando…' : 'Atualizar' }}</ion-button>
     </app-page-header>
     @if (error()) { <div app-feedback tone="error">{{ error() }} @if (snapshot()) { Os valores abaixo são da última consulta concluída. }</div> }
     <p role="status" class="sr-only">@if (busy() && snapshot()) { Atualizando indicadores. }</p>
