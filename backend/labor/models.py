@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
@@ -270,3 +272,32 @@ class WorkerAdjustment(UUIDModel):
         constraints = [
             models.CheckConstraint(condition=~models.Q(amount=0), name="adjustment_nonzero"),
         ]
+
+
+class RosterShift(UUIDModel):
+    """Escala planejada do chapa num dia. Planejamento e presença; o pagamento continua sendo o boletim."""
+    PERIODS = [("FULL", "Integral"), ("MORNING", "Manhã"), ("AFTERNOON", "Tarde")]
+    ACTIVITIES = [("OPERATION", "Descarga e carregamento"), ("ORGANIZATION", "Organização interna")]
+    ATTENDANCE = [("PLANNED", "Escalado"), ("PRESENT", "Presente"), ("ABSENT", "Falta")]
+    worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT, related_name="roster_shifts")
+    date = models.DateField(db_index=True)
+    origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado")
+    warehouse = models.ForeignKey("catalog.Warehouse", on_delete=models.PROTECT, null=True, blank=True)
+    period = models.CharField(max_length=10, choices=PERIODS, default="FULL")
+    activity = models.CharField(max_length=15, choices=ACTIVITIES, default="OPERATION")
+    attendance = models.CharField(max_length=10, choices=ATTENDANCE, default="PLANNED")
+    notes = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="roster_created")
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="roster_updated")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["date", "worker__registration"]
+        constraints = [models.UniqueConstraint(fields=["worker", "date", "origin"], name="one_roster_shift_per_worker_day")]
+
+    @property
+    def fraction(self):
+        if self.attendance == "ABSENT":
+            return Decimal(0)
+        return Decimal("1") if self.period == "FULL" else Decimal("0.5")
