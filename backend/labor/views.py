@@ -1,4 +1,5 @@
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 from rest_framework import serializers
@@ -22,7 +23,7 @@ from labor.services import (
 
 
 def require_v1_compatible(bulletin):
-    if (bulletin.daily_services.exists() or bulletin.production_records.exists()
+    if (bulletin.financial_version == "boletim-v3" or bulletin.daily_services.exists() or bulletin.production_records.exists()
             or bulletin.rule_occurrences.exists()):
         raise ValidationError({'code': 'API_V2_REQUIRED', 'detail': 'Este boletim usa recursos v2; atualize o cliente antes de editar ou fechar.'})
 
@@ -66,9 +67,14 @@ class BulletinListView(APIView):
         filters.is_valid(raise_exception=True)
         data = filters.validated_data
         query = DailyBulletin.objects.select_related("warehouse")
-        for key in ("warehouse", "origin", "status"):
+        for key in ("origin", "status"):
             if data.get(key):
                 query = query.filter(**{key: data[key]})
+        if data.get("warehouse"):
+            # O boletim do dia aparece no filtro de um armazém quando há produção lançada nele.
+            query = query.filter(
+                Q(warehouse=data["warehouse"]) | Q(warehouse__isnull=True, lines__warehouse=data["warehouse"])
+            ).distinct()
         if data.get("date_from"):
             query = query.filter(reference_date__gte=data["date_from"])
         if data.get("date_to"):
@@ -82,6 +88,8 @@ class BulletinListView(APIView):
         serializer = BulletinInput(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        if not data.get("warehouse"):
+            raise ValidationError({"warehouse": "A API v1 exige o armazém; o boletim do dia usa a API v2."})
         try:
             with transaction.atomic():
                 bulletin = DailyBulletin.objects.create(
@@ -109,7 +117,7 @@ class BulletinDetailView(APIView):
         require_role(request.user, "warehouse")
         with transaction.atomic():
             bulletin = get_object_or_404(
-                DailyBulletin.objects.select_for_update().select_related("warehouse"), pk=pk
+                DailyBulletin.objects.select_for_update(of=("self",)).select_related("warehouse"), pk=pk
             )
             check_revision(bulletin, request.data.get("revision"))
             require_v1_compatible(bulletin)

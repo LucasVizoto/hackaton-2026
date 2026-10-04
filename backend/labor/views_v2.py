@@ -20,7 +20,8 @@ from labor.models import (DailyBulletin, BulletinParticipant, BulletinRevision, 
 from labor.serializers_v2 import BulletinInputV2, BulletinPreviewInputV2, ActivityInput, OccurrenceInput, ProductionInput
 from labor.constants import FLOOR
 from labor.bulletin import snapshot_summary
-from labor.services import check_revision, reopen_bulletin, replace_contents, service_rates, values
+from labor.services import (ALLOCATED_VERSIONS, DAILY, check_revision, daily_calculation, reopen_bulletin,
+                            replace_contents, service_rates, tariffs_on, values, warehouse_label)
 from labor.views import BulletinListView, BulletinDetailView, RatesView
 
 
@@ -58,13 +59,22 @@ class BulletinListV2(BulletinListView):
         serializer = BulletinInputV2(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        daily = not data.get('warehouse')
+        same_day = DailyBulletin.objects.filter(reference_date=data['reference_date'], origin=data['origin'])
+        if daily and same_day.filter(warehouse__isnull=False).exists():
+            raise ValidationError('Já existem boletins por armazém nesta data no modelo anterior. Corrija-os; '
+                                  'o boletim do dia não os duplica.')
+        if not daily and same_day.filter(financial_version=DAILY).exists():
+            raise ValidationError('Esta data já tem o boletim único do dia; lance a produção do armazém nele.')
         try:
             with transaction.atomic():
-                bulletin = DailyBulletin.objects.create(warehouse=data['warehouse'], reference_date=data['reference_date'],
-                    origin=data['origin'], created_by=request.user, financial_version='boletim-v2')
+                bulletin = DailyBulletin.objects.create(
+                    warehouse=data.get('warehouse'), reference_date=data['reference_date'], origin=data['origin'],
+                    created_by=request.user, financial_version=DAILY if daily else 'boletim-v2',
+                    floor_per_day=tariffs_on(data['reference_date'])['floor'] if daily else FLOOR)
                 replace_contents(bulletin, data)
         except IntegrityError:
-            raise ValidationError('Já existe boletim para este local/data ou participação financeira para a pessoa/data.') from None
+            raise ValidationError('Já existe boletim para esta data ou participação financeira para a pessoa/data.') from None
         return Response(values(bulletin), status=201)
 
 
@@ -85,7 +95,7 @@ class BulletinDetailV2(BulletinDetailView):
             raise ValidationError('Local, data e origem não mudam nesta revisão.')
         serializer = BulletinInputV2(data={**request.data, 'origin': bulletin.origin}, partial=True)
         serializer.is_valid(raise_exception=True)
-        if bulletin.financial_version != 'boletim-v2':
+        if bulletin.financial_version not in ALLOCATED_VERSIONS:
             raise ValidationError('Boletim legado conserva seu cálculo; use a revisão compatível na API v1.')
         snapshot(bulletin, request.user, 'Antes da edição')
         replace_contents(bulletin, serializer.validated_data)
@@ -107,12 +117,26 @@ class BulletinPreviewV2(APIView):
         sources, pending = [], False
         if bulletin:
             require_draft(bulletin)
-            if (bulletin.warehouse_id, bulletin.reference_date, bulletin.origin) != (data['warehouse'].pk, data['reference_date'], data['origin']):
+            warehouse = data.get('warehouse')
+            if (bulletin.warehouse_id, bulletin.reference_date, bulletin.origin) != (warehouse.pk if warehouse else None, data['reference_date'], data['origin']):
                 raise ValidationError({'bulletin': 'Local, data e origem devem coincidir com o boletim da prévia.'})
             sources = values(bulletin)['production_records']
             pending = bulletin.rule_occurrences.filter(resolved_at=None).exists()
-        rates = service_rates()
         people = [{**p, 'worker': str(p['worker'].pk)} for p in data['participants']]
+        if not data.get('warehouse'):
+            if data.get('daily_services'):
+                raise ValidationError({'daily_services': 'Desativadas no boletim do dia.'})
+            tariffs = tariffs_on(data['reference_date'])
+            lines = [{**line, 'warehouse': str(line['warehouse'].pk), 'warehouse_code': line['warehouse'].code,
+                      'price': tariffs['rates'][line['category']],
+                      **{key: str(line.get(key, 0)) for key in ('unloading', 'removal', 'transfer')}}
+                     for line in data['lines']]
+            result = daily_calculation(lines, people, tariffs['floor'], sources, tariffs)
+            if pending:
+                result.update(status='pending_rule', provisional=True)
+            return Response({**result, 'allocation_status': 'pending_rule' if pending else 'preview',
+                             'individual_allocations': [] if pending else allocate_individuals(result, people)})
+        rates = service_rates()
         result = calculate_v2([{**line, 'price': rates[line['category']]} for line in data['lines']], people,
             floor=bulletin.floor_per_day if bulletin else FLOOR, production_records=sources,
             daily_services=[{**item, 'quantity': str(item['quantity']), 'price': str(DAILY_SERVICE_PRICES[item['kind']])}
@@ -346,10 +370,11 @@ class ProductionListView(APIView):
                 bulletin = DailyBulletin.objects.select_for_update().get(pk=data['bulletin'].pk)
                 check_revision(bulletin, data.pop('revision'))
                 require_draft(bulletin)
-                if bulletin.financial_version != 'boletim-v2':
+                if bulletin.financial_version not in ALLOCATED_VERSIONS:
                     raise ValidationError('Origem de produção exige boletim v2.')
+                rates = tariffs_on(bulletin.reference_date)['rates'] if bulletin.financial_version == DAILY else service_rates()
                 record = ProductionRecord.objects.create(**data, origin=bulletin.origin,
-                    price=service_rates()[data['category']], created_by=request.user)
+                    price=rates[data['category']], created_by=request.user)
                 bulletin.revision += 1
                 bulletin.save(update_fields=['revision'])
                 snapshot(bulletin, request.user, 'Produção com origem única registrada')
@@ -444,7 +469,7 @@ class WorkerStatementView(APIView):
                 legacy += 1
                 issues.append({'code': 'LEGACY_UNALLOCATED', 'description': 'Fechado legado sem parcela individual registrada.'})
             days.append({'date': str(bulletin.reference_date), 'origin': bulletin.origin, 'bulletin': str(bulletin.pk),
-                         'status': bulletin.status, 'warehouse': str(bulletin.warehouse_id), 'warehouse_name': bulletin.warehouse.name,
+                         'status': bulletin.status, 'warehouse': warehouse_label(bulletin)[0], 'warehouse_name': warehouse_label(bulletin)[1],
                          'fraction': str(participant.fraction),
                          'allocation': {'exact': allocation.exact, 'display': allocation.display,
                                         'policy_version': allocation.policy_version} if allocation else None,

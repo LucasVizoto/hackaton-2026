@@ -16,8 +16,36 @@ class ServiceRate(UUIDModel):
         ]
 
 
+class TariffTable(UUIDModel):
+    """Tarifas e piso com data de vigência. Cada boletim usa a tabela vigente na sua data."""
+    valid_from = models.DateField(unique=True)
+    floor_per_day = models.DecimalField(max_digits=18, decimal_places=4)
+    notes = models.TextField(blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-valid_from"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(floor_per_day__gte=0), name="tariff_floor_nonnegative")
+        ]
+
+
+class TariffRate(UUIDModel):
+    table = models.ForeignKey(TariffTable, on_delete=models.CASCADE, related_name="rates")
+    code = models.CharField(max_length=40, choices=CATEGORY_CHOICES)
+    price = models.DecimalField(max_digits=18, decimal_places=4)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["table", "code"], name="one_rate_per_tariff_table"),
+            models.CheckConstraint(condition=models.Q(price__gte=0), name="tariff_rate_nonnegative"),
+        ]
+
+
 class DailyBulletin(UUIDModel):
-    warehouse = models.ForeignKey("catalog.Warehouse", on_delete=models.PROTECT)
+    # Nulo no boletim único do dia (boletim-v3); preenchido nos boletins por armazém anteriores.
+    warehouse = models.ForeignKey("catalog.Warehouse", on_delete=models.PROTECT, null=True, blank=True)
     reference_date = models.DateField()
     origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES)
     status = models.CharField(
@@ -39,12 +67,17 @@ class DailyBulletin(UUIDModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["warehouse", "reference_date"], name="one_bulletin_per_warehouse_date"
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["reference_date", "origin"], condition=models.Q(warehouse__isnull=True),
+                name="one_daily_bulletin_per_date_origin",
+            ),
         ]
 
 
 class BulletinLine(UUIDModel):
     bulletin = models.ForeignKey(DailyBulletin, on_delete=models.CASCADE, related_name="lines")
+    warehouse = models.ForeignKey("catalog.Warehouse", on_delete=models.PROTECT, null=True, blank=True)
     category = models.CharField(max_length=40, choices=CATEGORY_CHOICES)
     unloading = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     removal = models.DecimalField(max_digits=18, decimal_places=4, default=0)
@@ -54,7 +87,12 @@ class BulletinLine(UUIDModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["bulletin", "category"], name="one_category_per_bulletin"
+                fields=["bulletin", "category"], condition=models.Q(warehouse__isnull=True),
+                name="one_category_per_bulletin",
+            ),
+            models.UniqueConstraint(
+                fields=["bulletin", "warehouse", "category"], condition=models.Q(warehouse__isnull=False),
+                name="one_category_per_bulletin_warehouse",
             ),
             models.CheckConstraint(
                 condition=models.Q(unloading__gte=0, removal__gte=0, transfer__gte=0, price__gte=0),
@@ -190,6 +228,7 @@ class LaborRuleOccurrence(UUIDModel):
 class ProductionRecord(UUIDModel):
     """A source event belongs to one bulletin; activities never duplicate its production."""
     bulletin = models.ForeignKey(DailyBulletin, on_delete=models.PROTECT, related_name="production_records")
+    warehouse = models.ForeignKey("catalog.Warehouse", on_delete=models.PROTECT, null=True, blank=True)
     source_key = models.CharField(max_length=200)
     origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES)
     category = models.CharField(max_length=40, choices=CATEGORY_CHOICES)
@@ -203,4 +242,31 @@ class ProductionRecord(UUIDModel):
         constraints = [
             models.UniqueConstraint(fields=["source_key", "origin"], name="unique_production_source_origin"),
             models.CheckConstraint(condition=models.Q(quantity__gte=0, price__gte=0), name="production_record_nonnegative"),
+        ]
+
+
+class WorkerAdjustment(UUIDModel):
+    """Acréscimo ou desconto individual. Não altera produção, piso nem complemento do boletim."""
+    KINDS = [("OVERTIME", "Hora extra confirmada"), ("EARLY_LEAVE", "Saída antecipada"),
+             ("SPECIAL_DAILY", "Diária especial"), ("DISCOUNT", "Desconto"), ("OTHER", "Outro")]
+    worker = models.ForeignKey("catalog.Worker", on_delete=models.PROTECT, related_name="adjustments")
+    reference_date = models.DateField(db_index=True)
+    origin = models.CharField(max_length=30, choices=ORIGIN_CHOICES)
+    bulletin = models.ForeignKey(DailyBulletin, on_delete=models.PROTECT, null=True, blank=True,
+                                 related_name="adjustments")
+    kind = models.CharField(max_length=20, choices=KINDS)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    reason = models.TextField()
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name="labor_adjustments")
+    created_at = models.DateTimeField(auto_now_add=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                                     related_name="cancelled_labor_adjustments")
+    cancel_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["reference_date", "created_at"]
+        constraints = [
+            models.CheckConstraint(condition=~models.Q(amount=0), name="adjustment_nonzero"),
         ]
