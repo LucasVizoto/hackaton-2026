@@ -98,6 +98,8 @@ export const routes: Routes = [
   { path: "portaria", canActivate: [auth, roles("gatehouse", "management")], loadComponent: () => import("./features/receiving").then(m => m.AppointmentList), data: {mode: "portaria"} },
   { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
+  { path: "escala", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/staff-roster").then(m => m.StaffRoster) },
+  { path: "acerto", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/labor-payroll").then(m => m.LaborPayroll) },
   { path: "integracoes", canActivate: [auth, roles("warehouse", "purchasing", "management")], loadComponent: () => import("./features/integrations").then(m => m.IntegrationsPage) },
-  { path: "**", redirectTo: "" },
+  { path: "**", loadComponent: () => import("./features/not-found").then(m => m.NotFound) },
 ];

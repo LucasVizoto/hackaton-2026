@@ -282,3 +282,7 @@ Os formulários da Portaria e das notas do novo agendamento receberam acabamento
 Uma chegada sintética foi salva pela UI em banco isolado e relida na listagem e no ORM, preservando `000123` e os bytes da foto original. A leitura não criou notas, agendamentos ou notificações. Os 51 testes frontend, typecheck, lint e build passaram após a última alteração de código. Não houve chamada paga ao provedor, alteração de regra de negócio, deploy, commit ou push nesta etapa.
 
 A ferramenta de navegador bloqueou a abertura da prévia local do PDF por política de segurança; a conferência dessa abertura permanece pendente. A cópia do PDF e a câmera/HEIC no Android não foram homologadas nesta rodada. Evidências, mudanças e demais limites estão no [relatório de acabamento](v2/ocr-ui-polish.md).
+
+# Remediação pré-banca
+
+Os resultados das rodadas anteriores deste documento foram preservados. A remediação local sobre `5b57e1d`, sem commit/push ou novo APK, tem [relatório próprio com correções, testes, cenário limpo e limites](remediacao_pre_banca.md). Não atribua testes antigos de Android, publicação ou importação às alterações atuais.

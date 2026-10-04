@@ -1,6 +1,7 @@
 """Local, idempotent synthetic fixtures. Never reads the private historical package."""
 
 import os
+import base64
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
@@ -14,17 +15,21 @@ from rest_framework.test import APIClient
 from catalog.models import Equipment, Supplier, Warehouse, Worker
 from core.models import UserProfile
 from core.permissions import canonical_role
+from imports.models import ImportBatch, SeedRun
 from labor.constants import RATE_TABLE
-from labor.models import DailyBulletin, ServiceRate
+from labor.models import DailyBulletin, ServiceRate, WorkerDay, LaborActivity
 from labor.services import close_bulletin, replace_contents
-from receiving import services
-from receiving.models import Appointment, Invoice, NonReceipt
+from receiving import services, workflow
+from receiving.models import Appointment, Invoice, NonReceipt, GateArrival
 
 DEMO = "demo_sintetico"
 
 
 class Command(BaseCommand):
     help = "Cria contas e dados sintéticos separados, sem sobrescrever registros existentes."
+
+    def add_arguments(self, parser):
+        parser.add_argument('--presentation', action='store_true', help='Cenário v2 para apresentação em banco separado, sem misturar resíduos de QA.')
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -83,18 +88,28 @@ class Command(BaseCommand):
                 )
             workers.append(worker)
         equipment = []
-        for index, code in enumerate(("ADUBO", "INSUMOS", "MAQUINAS"), 1):
-            item, _ = Equipment.objects.get_or_create(
+        # Inventário do PRD: Adubo 2 a gás que apoiam o Insumos; Insumos 1 fixa; Pátio 1 dedicada.
+        for index, (code, quantity, mobile) in enumerate(
+            (("ADUBO", 2, True), ("INSUMOS", 1, False), ("MAQUINAS", 1, False)), 1
+        ):
+            item, _ = Equipment.objects.update_or_create(
                 code=f"DEMO-E{index}",
                 defaults={
-                    "name": f"Empilhadeira sintética {index}",
+                    "name": f"Empilhadeira a gás sintética {index}",
                     "warehouse": warehouses[code],
-                    "mobile": True,
+                    "mobile": mobile,
+                    "kind": "EMPILHADEIRA_GAS",
+                    "quantity": quantity,
                 },
             )
             equipment.append(item)
         for code, label, price in RATE_TABLE:
             ServiceRate.objects.get_or_create(code=code, defaults={"label": label, "price": price})
+
+        if options['presentation']:
+            self.presentation(users, warehouses, suppliers, workers, equipment)
+            self.stdout.write(self.style.SUCCESS('Cenário de apresentação sintético v2 pronto. Não use este banco para QA ou dados reais.'))
+            return
 
         # One real numerical reference reproduced with fake participants, never a historical series.
         official = [
@@ -207,9 +222,9 @@ class Command(BaseCommand):
             )
         )
 
-    def bulletin(self, actor, warehouse, day, lines, workers, *, half_registration=None):
+    def bulletin(self, actor, warehouse, day, lines, workers, *, half_registration=None, version='boletim-v1'):
         bulletin, created = DailyBulletin.objects.get_or_create(
-            warehouse=warehouse, reference_date=day, defaults={"origin": DEMO, "created_by": actor}
+            warehouse=warehouse, reference_date=day, defaults={"origin": DEMO, "created_by": actor, "financial_version": version}
         )
         if not created:
             if bulletin.origin == "historico_importado" and day == date(2025, 11, 17) and warehouse.code == "ADUBO":
@@ -232,13 +247,73 @@ class Command(BaseCommand):
         )
         close_bulletin(bulletin.pk, actor, 1)
 
+    def presentation(self, users, warehouses, suppliers, workers, equipment):
+        """Curated synthetic scenario; never deletes or relabels existing business data."""
+        marker = 'Demonstração sintética — '
+        if SeedRun.objects.exists() or ImportBatch.objects.exists() or NonReceipt.objects.exists():
+            raise CommandError('Use banco exclusivo de apresentação, sem importações históricas nem ocorrências avulsas de QA. Nenhum registro será removido.')
+        if Appointment.objects.exclude(notes__startswith=marker).exists() or GateArrival.objects.exclude(driver_name__startswith='Motorista sintético').exists():
+            raise CommandError('Use um banco separado e vazio ou já preparado por --presentation. Nenhum dado de QA ou operacional será ocultado ou removido.')
+        if Appointment.objects.exclude(origin=DEMO, workflow_version=2).exists() or Invoice.objects.exclude(origin=DEMO).exists():
+            raise CommandError('O cenário de apresentação exige recebimentos v2 e documentos exclusivamente sintéticos.')
+        if DailyBulletin.objects.exclude(origin=DEMO, financial_version='boletim-v2').exists():
+            raise CommandError('O cenário de apresentação exige banco separado dos boletins históricos e das fixtures legadas.')
+        invoices = [self.invoice(users['supplier' if index == 0 else 'supplier_b'], supplier, f'SYN-00{index + 1}') for index, supplier in enumerate(suppliers)]
+        for index, (day, code, team) in enumerate(((date(2026, 10, 1), 'ADUBO', workers[:11]), (date(2026, 10, 2), 'INSUMOS', workers[11:15]))):
+            notes = marker + ('descarga de fertilizantes concluída' if index == 0 else 'descarga de insumos concluída')
+            if not Appointment.objects.filter(notes=notes).exists():
+                ap = workflow.create(users['supplier' if index == 0 else 'supplier_b'], {
+                    'invoice_ids': [invoices[index]], 'date': day, 'time': '08:00', 'packaging': 'paletizada',
+                    'vehicle_plate': f'DEMO{index + 1}A23', 'driver_name': f'Motorista sintético {index + 1}', 'notes': notes})
+
+                def command(actor, action, data):
+                    ap.refresh_from_db()
+                    return workflow.perform(actor, ap.pk, action, {'expected_revision': ap.revision, **data})
+
+                command(users['purchasing'], 'purchase-review', {'decision': 'approved', 'order_reference': 'Pedido sintético de referência', 'comparison_notes': 'Conferência para cenário sintético, sem validade fiscal.'})
+                command(users['warehouse'], 'warehouse-review', {'warehouse_ids': [warehouses[code].pk]})
+                command(users['gatehouse'], 'gate-check-in', {'occurred_at': self.at(day, 8, 5)})
+                visit = ap.visits.get()
+                command(users['warehouse'], 'check-in', {'visit_id': visit.pk, 'occurred_at': self.at(day, 8, 15)})
+                item = invoices[index].items.get()
+                command(users['warehouse'], 'receipt-lines', {'invoice': invoices[index].pk, 'invoice_item': item.pk,
+                    'observed_quantity': item.quantity, 'accepted_quantity': item.quantity, 'rejected_quantity': Decimal(0)})
+                command(users['warehouse'], 'check-out', {'visit_id': visit.pk, 'occurred_at': self.at(day, 8, 45),
+                    'worker_count': len(team), 'equipment_ids': [equipment[index].pk], 'resources_confirmed': True})
+                command(users['gatehouse'], 'gate-check-out', {'occurred_at': self.at(day, 8, 55)})
+            lines = [{'category': 'FERTILIZANTES', 'unloading': Decimal(2378), 'removal': Decimal(400)},
+                     {'category': 'AGROQUIMICO', 'unloading': Decimal(30)}, {'category': 'SERVICOS_DIVERSOS', 'removal': Decimal(40)}] if index == 0 else [{'category': 'AGROQUIMICO', 'unloading': Decimal(800)}]
+            self.bulletin(users['warehouse'], warehouses[code], day, lines, team, version='boletim-v2')
+            for worker in team:
+                worker_day, _ = WorkerDay.objects.get_or_create(worker=worker, reference_date=day, origin=DEMO)
+                LaborActivity.objects.get_or_create(worker_day=worker_day, warehouse=warehouses[code], activity_type='RECEIVING',
+                    defaults={'attendance_state': 'PRESENT', 'used': True, 'created_by': users['warehouse'], 'notes': marker + 'presença para apresentação'})
+        pending = marker + 'entrega aguardando conferência'
+        if not Appointment.objects.filter(notes=pending).exists():
+            pending_invoice = self.invoice(users['supplier'], suppliers[0], 'SYN-003')
+            workflow.create(users['supplier'], {'invoice_ids': [pending_invoice], 'date': date(2026, 10, 5),
+                'time': '08:00', 'packaging': 'paletizada', 'vehicle_plate': 'DEMO3A23', 'driver_name': 'Motorista sintético 3', 'notes': pending})
+        driver = 'Motorista sintético — consulta de recusa'
+        if not GateArrival.objects.filter(driver_name=driver).exists():
+            photo = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==')
+            client = APIClient()
+            client.force_authenticate(users['gatehouse'])
+            created = client.post('/api/v2/gate-arrivals/', {'driver_name': driver, 'vehicle_plate': 'DEMO4A23',
+                'tractor_plate': 'DEMO5A23', 'invoice_number': '900000003', 'file': SimpleUploadedFile('nota-sintetica.png', photo, content_type='image/png')}, format='multipart', HTTP_HOST='localhost')
+            if created.status_code != 201:
+                raise CommandError(f'Falha ao criar chegada sintética: {created.data}')
+            client.force_authenticate(users['warehouse'])
+            decided = client.post(f"/api/v2/gate-arrivals/{created.data['id']}/decision/", {'decision': 'rejected'}, format='json', HTTP_HOST='localhost')
+            if decided.status_code != 200:
+                raise CommandError(f'Falha ao registrar recusa sintética: {decided.data}')
+
     def invoice(self, user, supplier, number):
         existing = Invoice.objects.filter(supplier=supplier, number=number, origin=DEMO).first()
         if existing:
             return existing
         # Older demonstrations used an alphanumeric label as nNF. Preserve those
         # existing documents; only newly generated XML uses a valid numeric nNF.
-        number = {"SYN-001": "900000001", "SYN-002": "900000002"}.get(number, number)
+        number = {"SYN-001": "900000001", "SYN-002": "900000002", "SYN-003": "900000004"}.get(number, number)
         existing = Invoice.objects.filter(supplier=supplier, number=number, origin=DEMO).first()
         if existing:
             return existing

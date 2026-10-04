@@ -33,6 +33,20 @@ class Supplier(UUIDModel):
         ordering = ["name"]
 
 
+CONTRACT_TYPES = [("EFETIVO", "Contrato anual"), ("TERCEIRIZADO", "Terceirizado / reforço de safra")]
+EQUIPMENT_KINDS = [
+    ("", "Não classificado"),
+    ("EMPILHADEIRA_GAS", "Empilhadeira a gás"),
+    ("EMPILHADEIRA_ELETRICA", "Empilhadeira elétrica / retrátil"),
+    ("TRANSPALETEIRA_ELETRICA", "Transpaleteira elétrica"),
+    ("PALETEIRA_ELETRICA", "Paleteira elétrica"),
+    ("PALETEIRA_MANUAL", "Paleteira manual"),
+    ("CARRINHO", "Carrinho de mão"),
+    ("TRATOR", "Trator"),
+    ("OUTRO", "Outro"),
+]
+
+
 class Worker(UUIDModel):
     registration = models.CharField(max_length=40, unique=True)
     name = models.CharField(max_length=160)
@@ -40,6 +54,7 @@ class Worker(UUIDModel):
         max_length=30, choices=ORIGIN_CHOICES, default="operacional_registrado"
     )
     is_active = models.BooleanField(default=True)
+    contract_type = models.CharField(max_length=20, choices=CONTRACT_TYPES, default="EFETIVO")
 
     class Meta:
         ordering = ["registration"]
@@ -54,6 +69,8 @@ class Equipment(UUIDModel):
     mobile = models.BooleanField(default=False, null=True, blank=True)
     purpose = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    kind = models.CharField(max_length=30, choices=EQUIPMENT_KINDS, blank=True, default="")
+    quantity = models.PositiveSmallIntegerField(default=1)
 
     class Meta:
         ordering = ["name"]

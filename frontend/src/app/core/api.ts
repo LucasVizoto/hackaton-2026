@@ -7,6 +7,8 @@ import {
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Router } from "@angular/router";
 import { firstValueFrom, fromEvent, takeUntil } from "rxjs";
+import { collectPages, pagePath } from "./pagination";
+import { errorFieldLabel } from "./error-labels";
 export interface User {
   id: number;
   username: string;
@@ -77,6 +79,9 @@ export class Api {
     url.searchParams.set("stream_version", "2");
     return url.toString();
   }
+  async getAll<T>(path: string, signal?: AbortSignal): Promise<T[]> {
+    return collectPages(page => this.get<Page<T>>(pagePath(path, page), signal));
+  }
   async post<T>(path: string, body: unknown, signal?: AbortSignal) {
     await this.configure();
     if (signal?.aborted) throw new DOMException("Consulta cancelada", "AbortError");
@@ -86,6 +91,10 @@ export class Api {
   async patch<T>(path: string, body: unknown) {
     await this.configure();
     return firstValueFrom(this.http.patch<T>(`${this.base}/${path}`, body));
+  }
+  async delete(path: string) {
+    await this.configure();
+    return firstValueFrom(this.http.delete(`${this.base}/${path}`));
   }
   async login(username: string, password: string) {
     const r = await this.post<{ token: string; user: User }>("auth/login/", {
@@ -207,7 +216,7 @@ function errorDetails(value: unknown): string {
       .filter(([key]) => key !== "code")
       .map(
         ([key, v]) =>
-          `${["detail", "message", "non_field_errors"].includes(key) ? "" : key + ": "}${errorDetails(v)}`,
+          `${["detail", "message", "non_field_errors"].includes(key) ? "" : errorFieldLabel(key) + ": "}${errorDetails(v)}`,
       )
       .join(" · ");
   return String(value);

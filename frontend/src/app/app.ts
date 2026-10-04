@@ -7,6 +7,7 @@ import { calendarOutline, checkmarkCircleOutline, documentTextOutline, gridOutli
 import { Api } from "./core/api";
 import { GateLive } from "./core/gate-live";
 import { BrandMark, ThemeToggle } from "./shared/ui";
+import { ArrivalAlert } from "./shared/arrival-alert";
 
 interface NavigationItem { route: string; label: string; shortLabel?: string; icon: string; roles?: string[]; }
 const MODULES: NavigationItem[] = [
@@ -16,8 +17,10 @@ const MODULES: NavigationItem[] = [
   { route: "/portaria/avisos", label: "Aviso com foto", icon: "notifications-outline", roles: ["gatehouse"] },
   { route: "/portaria/chegadas", label: "Chegadas enviadas", shortLabel: "Chegadas", icon: "document-text-outline", roles: ["gatehouse"] },
   { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
+  { route: "/escala", label: "Escala", icon: "calendar-outline", roles: ["warehouse", "management"] },
+  { route: "/acerto", label: "Acerto da quinzena", shortLabel: "Acerto", icon: "document-text-outline", roles: ["warehouse", "management"] },
   { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse", "management"] },
-  { route: "/revisoes", label: "Revisões", icon: "warning-outline", roles: ["purchasing", "management"] },
+  { route: "/revisoes", label: "Chegadas recusadas", icon: "warning-outline", roles: ["purchasing", "management"] },
   { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse", "management"] },
   { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse", "management"] },
   { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"] },
@@ -25,7 +28,7 @@ const MODULES: NavigationItem[] = [
   { route: "/qualidade", label: "Origem dos dados", shortLabel: "Origem", icon: "shield-checkmark-outline", roles: ["management", "warehouse", "purchasing"] },
 ];
 @Component({ selector: "app-root", standalone: true,
-  imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle],
+  imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle, ArrivalAlert],
   template: `<ion-app>
     @if (api.user()) {
       <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
@@ -41,6 +44,7 @@ const MODULES: NavigationItem[] = [
           @if (live.status() === "disconnected") { <p class="notice" role="status">Atualização em tempo real desconectada. Reconectando; use Atualizar para consultar os registros.</p> }
           <router-outlet />
         </main>
+        <app-arrival-alert [hidden]="path() === '/chegadas'" />
         <nav class="pill-nav" aria-label="Módulos principais">@for (item of primaryItems(); track item.route) { <a [routerLink]="item.route" [class.active]="active(item.route)" [attr.aria-current]="active(item.route) ? 'page' : null" [attr.aria-label]="item.label"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.shortLabel || item.label }}</span></a> }@if (extraItems().length) { <button type="button" [class.active]="extraActive()" [attr.aria-expanded]="menuOpen()" aria-label="Mais módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /><span>Mais</span></button> }</nav>
       </div>
       <ion-popover [isOpen]="menuOpen()" (didDismiss)="menuOpen.set(false)" cssClass="navigation-popover" [backdropDismiss]="true"><ng-template><div class="module-menu"><div class="module-menu-head"><h2>Módulos</h2><button class="icon-button" type="button" aria-label="Fechar módulos" (click)="menuOpen.set(false)"><ion-icon name="close-outline" aria-hidden="true" /></button></div><nav class="navigation" aria-label="Todos os módulos">@for (item of navItems(); track item.route) { <a [routerLink]="item.route" [class.active]="active(item.route)" [attr.aria-current]="active(item.route) ? 'page' : null" (click)="menuOpen.set(false)"><ion-icon [name]="item.icon" aria-hidden="true" /><span>{{ item.label }}{{ arrivalCount(item.route) }}</span></a> }</nav></div></ng-template></ion-popover>
@@ -110,7 +114,7 @@ export class AppComponent {
   }
   alertLabel() {
     const count = this.unreadArrivals();
-    if (this.api.user()?.role === "purchasing") return count === 1 ? "1 revisão" : `${count} revisões`;
+    if (this.api.user()?.role === "purchasing") return count === 1 ? "1 chegada recusada" : `${count} chegadas recusadas`;
     return `${count} chegada${count === 1 ? "" : "s"}`;
   }
   private watchesArrivals() {

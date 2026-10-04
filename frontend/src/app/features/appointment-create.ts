@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, NgZone, OnInit, signal, viewChild } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { IonButton } from "@ionic/angular/standalone";
@@ -10,17 +11,18 @@ import { invoiceFieldsFromXml } from "./invoice-code";
 import { InvoiceReader } from "../core/invoice-reader";
 import { InvoiceReadSession } from "./invoice-reading";
 import { FeedbackState, LoadingState, PageHeader } from "../shared/ui";
+import { RainAlert } from "../shared/rain-alert";
 import { SlotPicker } from "../shared/slot-picker";
 
 interface PreviousAppointment {id:string;supplier:string;supplier_name:string;date:string;vehicle_plate:string;}
 interface InvoiceDraft { key:string; file:File|null; number:string; accessKey:string; uploadedId:string; uploadedIdentity:string; origin:string; reading:boolean; readNotice:string; readError:boolean; documentNotice:string; documentError:boolean; }
 @Component({standalone:true,changeDetection:ChangeDetectionStrategy.OnPush,
-  imports:[ReactiveFormsModule,RouterLink,IonButton,FeedbackState,LoadingState,PageHeader,SlotPicker],
+  imports:[ReactiveFormsModule,RouterLink,IonButton,FeedbackState,LoadingState,PageHeader,SlotPicker,RainAlert],
   template:`<div class="page form-page invoice-form"><app-page-header title="Agendar recebimento" subtitle="Um caminhão, uma reserva e todas as notas do mesmo fornecedor."><a routerLink="/agenda">Voltar à agenda</a></app-page-header>
   @if(error()) {<div app-feedback tone="error">{{error()}}</div>}
   @if(!loaded()) {<app-loading-state label="Carregando fornecedores…" />}
   <form [formGroup]="form" (ngSubmit)="save()"><fieldset [disabled]="busy() || !loaded()">
-  <section class="panel"><h2><span class="step-number">1</span> Carga e horário</h2><div class="form-grid"><label>Acondicionamento<select formControlName="packaging"><option value="paletizada">Paletizada</option><option value="big_bag">Big bag</option><option value="batida">Batida — horário exclusivo</option><option value="machine_implement">Máquina / implemento</option></select></label><label>Data<input type="date" formControlName="date" [min]="minDate" /></label><app-slot-picker [date]="form.controls.date.value" [packaging]="form.controls.packaging.value" [initialTime]="preferredTime" (selection)="slotChanged($event)" /></div></section>
+  <section class="panel"><h2><span class="step-number">1</span> Carga e horário</h2><div class="form-grid"><label>Acondicionamento<select formControlName="packaging"><option value="paletizada">Paletizada</option><option value="big_bag">Big bag</option><option value="batida">Batida — horário exclusivo</option><option value="machine_implement">Máquina / implemento</option></select></label><label>Data<span class="date-with-weather"><input type="date" formControlName="date" [min]="minDate" /><app-rain-alert [date]="selectedDate()" /></span></label><app-slot-picker [date]="selectedDate()" [packaging]="form.controls.packaging.value" [initialTime]="preferredTime" [weather]="true" (selection)="slotChanged($event)" /></div></section>
   <section class="panel">
     @if(previous();as prior){<h2>Nova solicitação vinculada</h2><p>{{prior.supplier_name}} · {{prior.vehicle_plate}} · {{prior.date}}</p><label>Motivo da nova solicitação<textarea formControlName="resubmission_reason" required></textarea></label><p class="field-help">O recebimento anterior permanece no histórico. Esta solicitação exige documentos, reserva e novas aprovações.</p>}
     <h2><span class="step-number">2</span> Notas fiscais</h2>
@@ -74,6 +76,8 @@ export class AppointmentCreate implements OnInit {
   isPdf=(file:File|null)=>!!file&&/\.pdf$/i.test(file.name);
   reading=()=>this.notes().some(note=>note.reading);
   form=this.fb.nonNullable.group({supplier:[""],resubmission_reason:[""],articulated:[false],booking_kind:["scheduled"],vehicle_plate:["",Validators.required],tractor_plate:[""],carrier_name:[""],driver_name:[""],packaging:["paletizada",Validators.required],notes:[""],date:[nextBusinessDay(),Validators.required],time:["",Validators.required]});
+  readonly selectedDate=signal(this.form.controls.date.value);
+  constructor(){this.form.controls.date.valueChanges.pipe(takeUntilDestroyed()).subscribe(value=>this.selectedDate.set(value));}
   async ngOnInit(){const query=this.route.snapshot.queryParamMap,date=query.get("date");if(date&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=this.minDate){this.form.controls.date.setValue(date);this.preferredTime=query.get("time")||"";}this.addNote();try{if(this.api.can('warehouse','purchasing')){this.form.controls.supplier.addValidators(Validators.required);await this.catalog.load();}const previousId=this.route.snapshot.queryParamMap.get('previous_appointment');if(previousId){const prior=await this.api.get<PreviousAppointment>(`appointments/${previousId}/`);this.previous.set(prior);if(this.api.can('warehouse','purchasing'))this.form.controls.supplier.setValue(prior.supplier);this.form.controls.resubmission_reason.addValidators(Validators.required);this.form.controls.resubmission_reason.updateValueAndValidity();}this.loaded.set(true);}catch(e){this.error.set(apiError(e));}}
   addNote(){this.notes.update(notes=>[...notes,{key:crypto.randomUUID(),file:null,number:"",accessKey:"",uploadedId:"",uploadedIdentity:"",origin:"",reading:false,readNotice:"",readError:false,documentNotice:"",documentError:false}]);}
   removeNote(key:string){const remaining=this.notes().find(note=>note.key!==key);this.readings.get(key)?.cancel();this.readings.delete(key);this.revokePdf(key);this.notes.update(notes=>notes.filter(note=>note.key!==key));if(remaining)this.host.nativeElement.querySelector<HTMLInputElement>(`#note-number-${remaining.key}`)?.focus();}

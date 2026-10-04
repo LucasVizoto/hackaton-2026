@@ -2,6 +2,8 @@
 
 O sistema funciona com todas as integrações externas desligadas. `OPTIONAL_INTEGRATIONS_ENABLED=false` é o padrão. A entrega inclui adaptadores e testes com respostas simuladas; não comprova envio real, conta externa conectada ou homologação de provedor.
 
+A assinatura de conferência é um registro local, disponível independentemente desses adaptadores. Armazém registra nome e declaração na revisão concluída de um recebimento v2. A página de Integrações consulta novamente as assinaturas após gravar; o detalhe do recebimento também mostra a consulta, conforme as permissões da API. O registro informa data, revisão atual/anterior, declaração e resumo do manifesto; identificador e hash ficam nos detalhes técnicos. Isso não constitui assinatura fiscal/criptográfica homologada nem valida retroativamente recebimentos legados.
+
 A leitura de fotos da Portaria e de PDFs sem texto confiável usa o SDK OpenAI no backend, pela rota `integrations/invoice-reading/`. A extração local de XML e PDFs com texto coerente permanece disponível. `OPENAI_INVOICE_READING_ENABLED=false` é o padrão e controla esse recurso independentemente das demais integrações. Número e chave são sugestões para conferência humana; falhas permitem preenchimento manual e preservam o arquivo selecionado. Consulte [configuração, avaliação e ativação do OCR](ocr.md). A qualidade com documentos reais ainda exige homologação.
 
 ## Disponibilidade e responsabilidades

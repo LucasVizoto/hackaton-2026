@@ -164,3 +164,5 @@ WHATSAPP_TEMPLATE_LANGUAGE = os.environ.get("WHATSAPP_TEMPLATE_LANGUAGE", "pt_BR
 WHATSAPP_RECIPIENTS = [item.strip() for item in os.environ.get("WHATSAPP_RECIPIENTS", "").split(",") if item.strip()]
 WEATHER_LATITUDE = os.environ.get("WEATHER_LATITUDE")
 WEATHER_LONGITUDE = os.environ.get("WEATHER_LONGITUDE")
+HGBRASIL_WEATHER_KEY = os.environ.get("HGBRASIL_WEATHER_KEY", "")
+HGBRASIL_WOEID = os.environ.get("HGBRASIL_WOEID", "431819")

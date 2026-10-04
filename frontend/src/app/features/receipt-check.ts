@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal, untracked } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { IonButton } from "@ionic/angular/standalone";
-import { Api, apiError, Page } from "../core/api";
+import { Api, apiError } from "../core/api";
 import { allowed, quantity } from "../core/workflow";
 import { decimal } from "../core/presentation";
 import { FeedbackState } from "../shared/ui";
@@ -21,7 +21,7 @@ export class ReceiptCheck {
  error=signal("");success=signal("");busy=signal(false);reviewId=signal("");editingId="";decimal=decimal;
  form=this.fb.nonNullable.group({purchase_order_line:[""],previous_receipt_line:[""],invoice:["",Validators.required],invoice_item:[""],description:[""],unit:[""],declared_quantity:[""],observed_quantity:["",Validators.required],accepted_quantity:["",Validators.required],rejected_quantity:["0",Validators.required],discrepancy_reason:[""]});
  constructor(){effect(()=>{const a=this.appointment();untracked(()=>void this.loadRelated(a));});}
- async loadRelated(a:Appointment){const generation=++this.relatedGeneration;try{const [orders,previous]=await Promise.all([this.api.get<Page<PurchaseOrder>>(`purchase-orders/?supplier=${a.supplier}&page_size=100`),this.api.get<Page<Appointment>>(`appointments/?supplier=${a.supplier}&page_size=100`)]);if(generation!==this.relatedGeneration)return;this.orders.set(orders.results);this.previousLines.set(previous.results.filter(p=>p.id!==a.id&&p.supplier===a.supplier).flatMap(p=>(p.receipt_lines??[]).map(line=>({date:p.date,plate:p.vehicle_plate,line}))));}catch(e){if(generation===this.relatedGeneration)this.error.set(apiError(e));}}
+ async loadRelated(a:Appointment){const generation=++this.relatedGeneration;try{const [orders,previous]=await Promise.all([this.api.getAll<PurchaseOrder>(`purchase-orders/?supplier=${a.supplier}&page_size=100`),this.api.getAll<Appointment>(`appointments/?supplier=${a.supplier}&page_size=100`)]);if(generation!==this.relatedGeneration)return;this.orders.set(orders);this.previousLines.set(previous.filter(p=>p.id!==a.id&&p.supplier===a.supplier).flatMap(p=>(p.receipt_lines??[]).map(line=>({date:p.date,plate:p.vehicle_plate,line}))));}catch(e){if(generation===this.relatedGeneration)this.error.set(apiError(e));}}
  reviewForm=this.fb.nonNullable.group({decision:["approved"],decision_notes:["",Validators.required]});
  decisionLabel(value?:string){return ({approved:'Aprovada',pending:'Aguarda Compras',rejected:'Rejeitada'} as Record<string,string>)[value??'']??'Registrada';}
  can(code:string){return allowed(this.appointment().available_actions,code);}

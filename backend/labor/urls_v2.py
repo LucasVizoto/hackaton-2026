@@ -1,6 +1,10 @@
 from django.urls import path
 
 from labor.views import BulletinCloseView, BulletinReopenView
+from labor.views_allocation import AllocationNormsView, DayPlanView
+from labor.views_roster import RosterCopyWeekView, RosterShiftDetailView, RosterTeamView, RosterView
+from labor.views_payroll import (AdjustmentCancelView, AdjustmentListView, FortnightSettlementView,
+    TariffTableView)
 from labor.views_v2 import (RatesViewV2, BulletinListV2, BulletinDetailV2, BulletinPreviewV2,
     BulletinHistoryView, TransferWorkerView, ActivityListView, ActivityDetailView,
     OccurrenceListView, OccurrenceResolveView, ProductionListView, ProductionDetailView, WorkerStatementView)
@@ -21,4 +25,14 @@ urlpatterns = [
     path('production-records/', ProductionListView.as_view()),
     path('production-records/<uuid:pk>/', ProductionDetailView.as_view()),
     path('workers/<uuid:pk>/statement/', WorkerStatementView.as_view()),
+    path('allocation/norms/', AllocationNormsView.as_view()),
+    path('allocation/day-plan/', DayPlanView.as_view()),
+    path('tariff-tables/', TariffTableView.as_view()),
+    path('labor-adjustments/', AdjustmentListView.as_view()),
+    path('labor-adjustments/<uuid:pk>/cancel/', AdjustmentCancelView.as_view()),
+    path('settlements/fortnight/', FortnightSettlementView.as_view()),
+    path('roster/', RosterView.as_view()),
+    path('roster/copy-week/', RosterCopyWeekView.as_view()),
+    path('roster/team/', RosterTeamView.as_view()),
+    path('roster/<uuid:pk>/', RosterShiftDetailView.as_view()),
 ]

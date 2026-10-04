@@ -4,6 +4,9 @@ import { RouterLink } from "@angular/router";
 import { Api, apiError, dateTime, Page, today } from "../core/api";
 import { Catalog } from "../core/catalog";
 import { FeedbackState, PageHeader } from "../shared/ui";
+import { ReceiptSignatures } from "../shared/receipt-signatures";
+import { operationLabel } from "../core/presentation";
+import { originLabel } from "../core/api";
 
 interface Capability { available: boolean; reason: string; }
 interface OCRDocument { id:string;original_name:string;media_type:string;status:string;suggestion:string;created_at:string;created_by_name:string;original_path:string; }
@@ -15,7 +18,7 @@ interface WeatherData { forecast: { hourly?: { time: string[]; temperature_2m: n
 @Component({
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, FeedbackState, PageHeader],
+  imports: [FormsModule, RouterLink, FeedbackState, PageHeader, ReceiptSignatures],
   template: `
     <div class="page">
       <app-page-header title="Apoio à operação" subtitle="Prontidão, conferência e consultas com fonte identificada." />
@@ -54,7 +57,7 @@ interface WeatherData { forecast: { hourly?: { time: string[]; temperature_2m: n
             <label class="wide">Pergunta<textarea name="question" [(ngModel)]="question" maxlength="2000" required></textarea></label>
             <button type="submit" [disabled]="busy() || !available('assistant') || !question.trim()">Consultar indicadores</button>
           </form>
-          @if (answer(); as result) {<div class="section"><p style="white-space:pre-wrap">{{result.answer}}</p><p class="field-help">{{result.context.period.date_from}} a {{result.context.period.date_to}} · {{result.context.origin}}</p><p>Referências da consulta:</p><ul>@for(reference of result.references;track reference){<li>{{reference}}</li>}</ul><a routerLink="/gestao">Conferir indicadores e fontes no painel</a></div>}
+          @if (answer(); as result) {<div class="section"><p style="white-space:pre-wrap">{{result.answer}}</p><p class="field-help">{{result.context.period.date_from}} a {{result.context.period.date_to}} · {{originLabel(result.context.origin)}}</p><p>Referências da consulta:</p><ul>@for(reference of result.references;track reference){<li>{{reference}}</li>}</ul><a routerLink="/gestao">Conferir indicadores e fontes no painel</a></div>}
         </section>
       }
 
@@ -83,6 +86,7 @@ interface WeatherData { forecast: { hourly?: { time: string[]; temperature_2m: n
             <label class="wide">Declaração de conferência<textarea name="declaration" [(ngModel)]="declaration" required maxlength="3000"></textarea></label>
             <button type="submit" [disabled]="busy() || !receiptId || !signerName.trim() || !declaration.trim()">Registrar assinatura nesta versão</button>
           </form><p class="field-help">Registro de conferência; não garante substituição de documentos exigidos.</p>
+          @if(receiptId){<app-receipt-signatures [receipt]="receiptId" [refresh]="signatureRefresh()" />}
         </section>
       }
 
@@ -91,13 +95,13 @@ interface WeatherData { forecast: { hourly?: { time: string[]; temperature_2m: n
           <label>De<input name="historyFrom" type="date" [(ngModel)]="historyFrom" required /></label><label>Até<input name="historyTo" type="date" [(ngModel)]="historyTo" required /></label>
           <label>Origem<select name="historyOrigin" [(ngModel)]="historyOrigin"><option value="operacional_registrado">Operação registrada</option><option value="demo_sintetico">Demonstração sintética</option><option value="historico_importado">Histórico importado</option></select></label><button type="submit" [disabled]="busy() || !historySupplier">Consultar relacionamento</button>
         </form>
-        @if (history(); as result) {<p>{{result.count}} recebimento(s) no período. Abra um recebimento para consultar ocorrências e decisões.</p>@for (receipt of result.results; track receipt.id) {<p><a [routerLink]="['/agenda',receipt.id]">{{receipt.vehicle_plate || 'Sem placa'}} · {{receipt.operation_status}}</a></p>}@if(result.next){<p class="field-help">Exibidos os primeiros {{result.results.length}} registros. Reduza o período para detalhar.</p>}}
+        @if (history(); as result) {<p>{{result.count}} recebimento(s) no período. Abra um recebimento para consultar ocorrências e decisões.</p>@for (receipt of result.results; track receipt.id) {<p><a [routerLink]="['/agenda',receipt.id]">{{receipt.vehicle_plate || 'Sem placa'}} · {{operationLabel(receipt.operation_status)}}</a></p>}@if(result.next){<p class="field-help">Exibidos os primeiros {{result.results.length}} registros. Reduza o período para detalhar.</p>}}
       </section>
 
       <section class="panel"><h2>Previsão informativa</h2>
         @if (!available('weather')) {<p class="notice">{{unavailable('weather')}}</p>}
         <button type="button" (click)="loadWeather()" [disabled]="busy() || !available('weather')">Consultar previsão</button>
-        @if (weather()?.forecast?.hourly; as hourly) {<div class="table-wrap section"><table><thead><tr><th>Horário</th><th>Temperatura</th><th>Probabilidade de chuva</th></tr></thead><tbody>@for (time of hourly.time.slice(0,24); track time; let index=$index) {<tr><td>{{time}}</td><td>{{hourly.temperature_2m[index]}} °C</td><td>{{hourly.precipitation_probability[index]}}%</td></tr>}</tbody></table></div><p class="field-help">Fonte: Open-Meteo. A previsão não bloqueia a agenda.</p>}
+        @if (weather()?.forecast?.hourly; as hourly) {<div class="table-wrap section"><table><thead><tr><th>Horário</th><th>Temperatura</th><th>Probabilidade de chuva</th></tr></thead><tbody>@for (time of hourly.time.slice(0,24); track time; let index=$index) {<tr><td>{{dateTime(time)}}</td><td>{{hourly.temperature_2m[index]}} °C</td><td>{{hourly.precipitation_probability[index]}}%</td></tr>}</tbody></table></div><p class="field-help">Fonte: Open-Meteo. A previsão não bloqueia a agenda.</p>}
       </section>
       <section class="panel"><h2>Envios e sincronização</h2><p>Os serviços abaixo dependem da configuração de destinatários e contas no servidor.</p><ul>@for (channel of outbound; track channel.key) {<li>{{channel.name}} — {{available(channel.key) ? 'Configurado para processamento pelo servidor' : unavailable(channel.key)}}</li>}</ul><p class="field-help">Google Agenda recebe alterações do aplicativo. A capacidade continua sendo definida aqui.</p></section>
     </div>
@@ -107,6 +111,9 @@ export class IntegrationsPage implements OnInit {
   readonly api = inject(Api);
   readonly catalog = inject(Catalog);
   readonly dateTime = dateTime;
+  readonly operationLabel = operationLabel;
+  readonly originLabel = originLabel;
+  readonly signatureRefresh = signal(0);
   readonly capabilities = signal<Record<string, Capability>>({});
   readonly readiness = signal<Readiness[]>([]);
   readonly receipts = signal<ReceiptSummary[]>([]);
@@ -190,6 +197,7 @@ export class IntegrationsPage implements OnInit {
       if (!receipt) throw new Error("Selecione o recebimento que foi conferido.");
       await this.api.post(`appointments/${receipt.id}/signatures/`, {expected_revision: receipt.revision, signer_name: this.signerName, declaration: this.declaration});
       this.message.set("Assinatura de conferência registrada nesta versão.");
+      this.signatureRefresh.update(value => value + 1);
     });
   }
   async loadHistory() {

@@ -1,0 +1,1 @@
+{"extends":"../tsconfig.json","compilerOptions":{"types":[],"noEmit":true},"files":["browser-reconciliation.ts"]}

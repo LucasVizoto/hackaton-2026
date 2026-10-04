@@ -14,6 +14,7 @@ import {
 import { Catalog } from "../core/catalog";
 import { chartDateLabel, chartItems, operationalMetric } from "../core/chart-data";
 import { exportCsv } from "../core/workflow";
+import { qualityLabel, qualityValue, knownQualityField } from "../core/quality-presentation";
 import { decimal } from "../core/presentation";
 import {
   BarChart,
@@ -25,6 +26,7 @@ import {
   PageHeader,
 } from "../shared/ui";
 import { Bulletin } from "./bulletins";
+import { BalanceFilters, StaffingBalance } from "./staffing-balance";
 interface SourceRecords<T> {
   records: T[];
   count: number;
@@ -133,7 +135,7 @@ interface Scenario {
 const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, FeedbackState];
 @Component({
   standalone: true,
-  imports: [...imports, RouterLink, MetricCard, BarChart, FilterBlock, EmptyState],
+  imports: [...imports, RouterLink, MetricCard, BarChart, FilterBlock, EmptyState, StaffingBalance],
   template: `<div class="page">
     <app-page-header
       title="Gestão por local e período"
@@ -180,6 +182,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
     @if (busy()) {
       <app-loading-state label="Consultando indicadores…" />
     }
+    <app-staffing-balance [filters]="balanceFilters()" />
     @if (operations(); as o) {
       <section class="section">
         <h2>Operação e recursos</h2>
@@ -445,6 +448,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
           Piso aplicado a cada boletim antes de agregar. Pessoas distintas são
           contadas por matrícula; custos e frações não são deduplicados.
         </p>
+        <p class="field-help">Os indicadores arredondam a soma dos valores exatos. A conciliação abaixo soma os centavos gravados por boletim; os totais podem diferir pelo arredondamento.</p>
         <div class="metric-grid">
           <app-metric-card
             label="Produção"
@@ -470,7 +474,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
             tone="warning"
           />
         </div>
-        @if(c.presence;as p){<section class="panel section"><h3>Presença e utilização registradas</h3><div class="metric-grid"><app-metric-card label="Pessoas previstas" [value]="show(p.planned)" hint="Conforme registros de atividade" /><app-metric-card label="Pessoas presentes" [value]="show(p.present)" hint="Presença confirmada" /><app-metric-card label="Pessoas utilizadas" [value]="show(p.used)" hint="Serviço confirmado; separado de remuneração" /></div><p class="field-help">Cobertura: {{p.coverage}} registros distintos de pessoa e dia.</p></section>}
+        @if(c.presence;as p){<section class="panel section"><h3>Presença e utilização registradas</h3><div class="metric-grid"><app-metric-card label="Pessoas-dia previstas" [value]="show(p.planned)" hint="Atividade ainda prevista no dia" /><app-metric-card label="Pessoas-dia presentes" [value]="show(p.present)" hint="Presença confirmada no dia" /><app-metric-card label="Pessoas-dia utilizadas" [value]="show(p.used)" hint="Serviço confirmado no dia; separado de remuneração" /></div><p class="field-help">Cobertura: {{p.coverage}} pessoas-dia com atividade registrada. A mesma pessoa em dois dias conta duas vezes; atividades em vários locais no mesmo dia contam uma vez em cada indicador.</p></section>}
         @if(c.individuals;as individuals){<section class="panel section"><div class="page-head"><div><h3>Apuração por pessoa</h3><p class="muted">Produção atribuída e complemento de boletins fechados. Atuação por local permanece separada do armazém responsável pelo custo.</p></div><div class="actions"><ion-button fill="outline" (click)="exportIndividuals()" [disabled]="!individuals.records.length">Exportar pessoas</ion-button><ion-button fill="outline" (click)="print()">Imprimir</ion-button></div></div>@if(individuals.records.length){<div class="table-wrap" tabindex="0" role="region" aria-label="Custo individual por pessoa"><table><thead><tr><th>Pessoa</th><th>Diárias equivalentes</th><th>Produção atribuída</th><th>Complemento</th><th>Total</th><th>Armazéns do custo</th><th>Locais de atividade</th></tr></thead><tbody>@for(person of individuals.records;track person.worker){<tr><td><a [routerLink]="['/pessoas',person.worker]" [queryParams]="{date_from:c.period.date_from,date_to:c.period.date_to,origin:c.origin}">{{person.registration}} · {{person.name}}</a></td><td>{{decimal(person.equivalent_days)}}</td><td>{{money(person.display.production_attributed)}}</td><td>{{money(person.display.supplement)}}</td><td>{{money(person.display.total_payable)}}</td><td>{{names(person.cost_warehouses)}}</td><td>{{names(person.activity_warehouses)}}</td></tr>}</tbody></table></div>@if(individuals.truncated){<p class="notice">Exibindo {{individuals.returned_count}} de {{individuals.count}} pessoas. Reduza o período para exportar uma seleção completa.</p>}}@else{<p class="muted">Nenhuma parcela individual fechada disponível neste recorte.</p>}@if(c.reconciliation;as r){<dl class="metadata section"><div><dt>Soma das parcelas exibidas</dt><dd>{{money(r.individual_display_total)}}</dd></div><div><dt>Total coletivo do recorte</dt><dd>{{money(r.collective_display_total)}}</dd></div><div><dt>Diferença de conciliação</dt><dd>{{money(r.difference)}}</dd></div><div><dt>Boletins legados sem parcelas</dt><dd>{{r.legacy_bulletins_without_allocations}}</dd></div></dl>}</section>}
         <details class="section">
           <summary>Resumo financeiro completo</summary>
@@ -718,6 +722,7 @@ export class Management implements OnInit {
     equivalent_days: ["10.5", [Validators.required, Validators.min(0)]],
   });
   costs = signal<Costs | null>(null);
+  balanceFilters = signal<BalanceFilters | null>(null);
   operations = signal<Operations | null>(null);
   scenario = signal<Scenario | null>(null);
   bulletins = signal<Bulletin[]>([]);
@@ -795,6 +800,16 @@ export class Management implements OnInit {
       (
         {
           summary: "Resumo",
+          distinct_departed_trucks: "Caminhões que saíram da unidade",
+          valid_gate_wait: "Esperas medidas após entrada na unidade",
+          excluded_gate_wait: "Registros sem espera medida após entrada",
+          valid_total_stay: "Permanências totais medidas",
+          excluded_total_stay: "Registros sem permanência total medida",
+          worker_resource_coverage: "Cobertura de pessoas por descarga",
+          equipment_resource_coverage: "Cobertura de equipamentos por descarga",
+          planned: "Pessoas-dia previstas",
+          present: "Pessoas-dia presentes",
+          used: "Pessoas-dia utilizadas",
           warehouse_stays: "Permanência por armazém",
           average_minutes: "Permanência média (min)",
           visits: "Visitas medidas",
@@ -883,7 +898,7 @@ export class Management implements OnInit {
           nature: "Caso fortuito",
           other: "Outro",
         } as Record<string, string>
-      )[k] ?? k.replaceAll("_", " ")
+      )[k] ?? "Informação adicional"
     );
   }
   operationGroups() {
@@ -932,6 +947,8 @@ export class Management implements OnInit {
     this.busy.set(true);
     this.error.set("");
     this.scenario.set(null);
+    const { date_from, date_to, origin } = this.filters.getRawValue();
+    this.balanceFilters.set({ date_from, date_to, origin });
     try {
       const q = new URLSearchParams();
       Object.entries(this.filters.getRawValue()).forEach(([k, v]) => {
@@ -1052,6 +1069,7 @@ export class Management implements OnInit {
         </section>
       }
     }
+    <details class="panel"><summary>Detalhes técnicos da cobertura</summary><p>Resposta agregada da API, sem linhas originais. Campos adicionais permanecem disponíveis para diagnóstico.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{technical()}}</pre></details>
     <section class="panel">
       <h2>Limites conhecidos das fontes</h2>
       <ul>
@@ -1085,104 +1103,10 @@ export class DataQuality implements OnInit {
   data = signal<RecordData | null>(null);
   error = signal("");
   busy = signal(false);
-  entries = (v: RecordData) => Object.entries(v);
-  label = (k: string) =>
-    (
-      ({
-        batches: "Lotes de importação",
-        issues: "Pendências encontradas",
-        row_count: "Linhas",
-        kind: "Tipo",
-        origin: "Origem",
-        importer_version: "Versão do importador",
-        imported_at: "Importado em",
-        summary: "Resumo agregado",
-        accepted_rows: "Linhas aceitas",
-        pending_rows: "Linhas com pendências",
-        rejected_rows: "Linhas rejeitadas",
-        preserved_rows: "Linhas preservadas",
-        limitations: "Limitações das fontes",
-        raw_data_exposed: "Dados originais expostos",
-        products: "Produtos",
-        suppliers: "Fornecedores",
-        workers: "Matrículas de chapas",
-        movements: "Movimentações documentais",
-        labor_days: "Presença diária de mão de obra",
-        unique_products: "Produtos distintos",
-        unique_product_depot_pairs: "Pares distintos de produto e depósito",
-        unique_suppliers: "Fornecedores distintos",
-        unique_workers: "Matrículas distintas",
-        bulletins_imported: "Boletins importados",
-        document_rows: "Linhas documentais",
-        unique_orders: "Pedidos distintos",
-        unique_document_receipts: "Recebimentos documentais distintos",
-        first_date: "Primeira data",
-        last_date: "Última data",
-        orders_with_constant_reported_weight:
-          "Pedidos com peso informado constante",
-        trucks_identified: "Caminhões físicos identificados",
-        measured_timestamps_available: "Horários medidos disponíveis",
-        quantity_semantics_confirmed: "Significado da quantidade confirmado",
-        weight_semantics_confirmed: "Significado do peso confirmado",
-        observed_dates: "Datas observadas",
-        observed_months: "Meses observados",
-        missing_months_documented: "Meses ausentes documentados",
-        half_days_available: "Meias diárias disponíveis",
-        warehouse_allocation_available: "Distribuição por armazém disponível",
-        bulletin_cost_available: "Custo de boletim disponível",
-        missing_product_code: "Código de produto ausente",
-        conflicting_product_attributes: "Atributos de produto conflitantes",
-        duplicate_product_depot_rows: "Linhas de produto e depósito duplicadas",
-        missing_weight: "Peso ausente",
-        invalid_weight: "Peso inválido",
-        missing_supplier_code: "Código de fornecedor ausente",
-        missing_supplier_document: "Documento de fornecedor ausente",
-        documents_shared_by_codes:
-          "Documentos compartilhados por códigos de fornecedor",
-        duplicate_worker_registration: "Matrículas de chapas duplicadas",
-        missing_or_invalid_received_on:
-          "Data de recebimento ausente ou inválida",
-        missing_quantity: "Quantidade ausente",
-        invalid_quantity: "Quantidade inválida",
-        negative_quantity_preserved: "Quantidade negativa preservada",
-        missing_invoice_key: "Chave de nota fiscal ausente",
-        invalid_invoice_key: "Chave de nota fiscal inválida",
-        missing_purchase_order: "Pedido de compra ausente",
-        missing_receipt_number: "Número de recebimento ausente",
-        missing_or_invalid_order_date: "Data do pedido ausente ou inválida",
-        missing_or_invalid_document_date:
-          "Data do documento ausente ou inválida",
-        duplicate_day_preserved: "Datas duplicadas preservadas",
-        coffee_workers_above_total: "Chapas na operação de café acima do total",
-        product_missing_from_current_catalog:
-          "Produto ausente do catálogo atual",
-        product_depot_pair_missing_from_current_catalog:
-          "Par de produto e depósito ausente do catálogo atual",
-        supplier_missing_from_current_catalog:
-          "Fornecedor ausente do catálogo atual",
-      }) as Record<string, string>
-    )[k] ?? k.replaceAll("_", " ");
-  show = (v: unknown, field = ""): string =>
-    v === null || v === undefined
-      ? "Não disponível"
-      : field === "origin"
-        ? originLabel(String(v))
-        : field === "kind"
-          ? this.label(String(v))
-          : typeof v === "boolean"
-            ? v
-              ? "Sim"
-              : "Não"
-            : typeof v === "object"
-              ? Array.isArray(v)
-                ? v.map((x) => this.show(x)).join(" · ")
-                : Object.entries(v as RecordData)
-                    .map(([k, x]) => `${this.label(k)}: ${this.show(x, k)}`)
-                    .join(" · ") ||
-                  (field === "issues"
-                    ? "Nenhuma pendência registrada"
-                    : "Não disponível")
-              : String(v);
+  entries = (v: RecordData) => Object.entries(v).filter(([key]) => knownQualityField(key));
+  label = qualityLabel;
+  show = qualityValue;
+  technical = () => JSON.stringify(this.data(), null, 2);
   isRows(v: unknown) {
     return Array.isArray(v) && v.length > 0 && typeof v[0] === "object";
   }
@@ -1192,7 +1116,7 @@ export class DataQuality implements OnInit {
   columns(v: unknown) {
     return this.isRows(v)
       ? Object.keys((v as RecordData[])[0]).filter(
-          (k) => !k.endsWith("_id") && k !== "id",
+          (k) => !k.endsWith("_id") && k !== "id" && knownQualityField(k),
         )
       : [];
   }

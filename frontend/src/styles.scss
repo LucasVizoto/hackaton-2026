@@ -224,6 +224,19 @@ textarea { min-height: 100px; resize: vertical; }
 .step-number { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: 8px; border-radius: var(--radius-full); background: var(--green); color: var(--brand-contrast); font-size: 14px; vertical-align: 2px; }
 .slot-picker { border: 0; margin: 0; padding: 0; min-width: 0; }
 .slot-picker legend { font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+.date-with-weather { display: flex; align-items: center; gap: 8px; }
+.date-with-weather input { flex: 1; min-width: 0; }
+.date-with-weather app-rain-alert, .slot-option app-rain-alert { display: inline-grid; place-items: center; flex: 0 0 auto; line-height: 0; }
+.slot-option strong { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 36px; }
+.slot-option .rain-alert { position: relative; z-index: 2; }
+.rain-alert { position: relative; display: grid; place-items: center; width: 36px; height: 36px; margin: 0; padding: 0; flex-shrink: 0; border-radius: var(--radius-full); color: var(--blue); background: var(--info-soft); line-height: 0; }
+.rain-alert.is-sun { color: var(--warning); background: var(--warning-soft); }
+.rain-alert ion-icon { display: block; width: 22px; height: 22px; font-size: 22px; color: inherit; pointer-events: none; }
+.rain-alert:hover .rain-tooltip, .rain-alert:focus .rain-tooltip, .rain-alert:focus-visible .rain-tooltip { opacity: 1; visibility: visible; }
+.rain-alert:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.rain-tooltip, .slot-option .rain-tooltip, .slot-option:hover .rain-tooltip, .slot-option.is-selected .rain-tooltip { position: absolute; z-index: 8; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: min(280px, 70vw); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-overlay); font-size: 13px; font-weight: 600; line-height: 1.4; text-align: left; opacity: 0; visibility: hidden; pointer-events: none; }
+.rain-spinner { width: 16px; height: 16px; border: 2px solid var(--control-line); border-top-color: var(--green); border-radius: 50%; animation: rain-spin .8s linear infinite; }
+@keyframes rain-spin { to { transform: rotate(360deg); } }
 .slot-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .slot-option { position: relative; display: grid; gap: 2px; min-height: 72px; padding: 12px 14px; border: 1px solid var(--control-line); border-radius: var(--radius-control); background: var(--surface); cursor: pointer; }
 .slot-option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }

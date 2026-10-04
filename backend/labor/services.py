@@ -6,7 +6,9 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from catalog.models import Worker
-from labor.calculation import calculate, calculate_v2, allocate_individuals, DAILY_SERVICE_PRICES
+from labor.calculation import (
+    UNATTRIBUTED, calculate, calculate_v2, allocate_individuals, split_cost_by_warehouse, DAILY_SERVICE_PRICES,
+)
 from labor.constants import FLOOR, LABELS, PRICES, RATE_TABLE
 from labor.bulletin import snapshot_summary
 from labor.models import (
@@ -18,12 +20,69 @@ from labor.models import (
     WorkerDay,
     BulletinDailyService,
     IndividualAllocation,
+    TariffTable,
+    WorkerAdjustment,
 )
+
+DAILY = "boletim-v3"
+ALLOCATED_VERSIONS = ("boletim-v2", DAILY)
+DAILY_SCOPE_LABEL = "Boletim do dia (todos os armazéns)"
 
 
 def service_rates():
     stored = {rate.code: rate.price for rate in ServiceRate.objects.all()}
     return {code: stored.get(code, price) for code, price in PRICES.items()}
+
+
+def tariffs_on(day):
+    """Tabela vigente na data: a de maior início de vigência até ``day``; sem tabela, o padrão atual."""
+    table = TariffTable.objects.filter(valid_from__lte=day).prefetch_related("rates").order_by("-valid_from").first()
+    base = service_rates()
+    if table is None:
+        return {"floor": FLOOR, "rates": base, "table": None, "valid_from": None}
+    stored = {rate.code: rate.price for rate in table.rates.all()}
+    return {"floor": table.floor_per_day, "rates": {code: stored.get(code, price) for code, price in base.items()},
+            "table": str(table.pk), "valid_from": table.valid_from.isoformat()}
+
+
+def reprice_daily(bulletin):
+    """Rascunho do boletim do dia sempre usa a tabela vigente na sua data; fechado nunca muda."""
+    tariffs = tariffs_on(bulletin.reference_date)
+    for line in bulletin.lines.all():
+        price = tariffs["rates"][line.category]
+        if line.price != price:
+            line.price = price
+            line.save(update_fields=["price"])
+    for record in bulletin.production_records.all():
+        price = tariffs["rates"][record.category]
+        if record.price != price:
+            record.price = price
+            record.save(update_fields=["price"])
+    if bulletin.floor_per_day != tariffs["floor"]:
+        bulletin.floor_per_day = tariffs["floor"]
+        bulletin.save(update_fields=["floor_per_day"])
+    return tariffs
+
+
+def production_by_warehouse(lines, sources):
+    totals = {}
+    for item in lines:
+        amount = (Decimal(item["unloading"]) + Decimal(item["removal"]) + Decimal(item["transfer"])) * Decimal(item["price"])
+        key = item.get("warehouse_code") or UNATTRIBUTED
+        totals[key] = totals.get(key, Decimal(0)) + amount
+    for item in sources:
+        key = item.get("warehouse_code") or UNATTRIBUTED
+        totals[key] = totals.get(key, Decimal(0)) + Decimal(item["quantity"]) * Decimal(item["price"])
+    return totals
+
+
+def daily_calculation(lines, people, floor, sources, tariffs=None):
+    result = calculate_v2(lines, people, floor, (), sources)
+    result["calculation_version"] = DAILY
+    result["warehouse_costs"] = split_cost_by_warehouse(result, production_by_warehouse(lines, sources))
+    if tariffs is not None:
+        result["tariff_table"] = {"id": tariffs["table"], "valid_from": tariffs["valid_from"]}
+    return result
 
 
 def values(bulletin):
@@ -36,8 +95,10 @@ def values(bulletin):
             "removal": str(line.removal),
             "transfer": str(line.transfer),
             "price": str(line.price),
+            **({"warehouse": str(line.warehouse_id), "warehouse_code": line.warehouse.code,
+                "warehouse_name": line.warehouse.name} if line.warehouse_id else {}),
         }
-        for line in bulletin.lines.all()
+        for line in bulletin.lines.select_related("warehouse").order_by("warehouse__name", "category")
     ]
     people = [
         {
@@ -51,26 +112,40 @@ def values(bulletin):
     daily_services = [{"kind": item.kind, "quantity": str(item.quantity), "price": str(item.price)}
                       for item in bulletin.daily_services.all()]
     sources = [{"id": str(item.id), "source_key": item.source_key, "category": item.category,
-                "movement": item.movement, "quantity": str(item.quantity), "price": str(item.price)}
-               for item in bulletin.production_records.all()]
-    calculation = bulletin.calculation if bulletin.status == "CLOSED" else (
-        calculate_v2(lines, people, bulletin.floor_per_day, daily_services, sources)
-        if bulletin.financial_version == "boletim-v2" else calculate(lines, people, bulletin.floor_per_day)
-    )
-    if bulletin.financial_version == "boletim-v2":
+                "movement": item.movement, "quantity": str(item.quantity), "price": str(item.price),
+                "warehouse": str(item.warehouse_id) if item.warehouse_id else None,
+                "warehouse_code": item.warehouse.code if item.warehouse_id else None}
+               for item in bulletin.production_records.select_related("warehouse")]
+    daily = bulletin.financial_version == DAILY
+    if bulletin.status == "CLOSED":
+        calculation = bulletin.calculation
+    elif daily:
+        calculation = daily_calculation(lines, people, bulletin.floor_per_day, sources,
+                                        tariffs_on(bulletin.reference_date))
+    elif bulletin.financial_version == "boletim-v2":
+        calculation = calculate_v2(lines, people, bulletin.floor_per_day, daily_services, sources)
+    else:
+        calculation = calculate(lines, people, bulletin.floor_per_day)
+    if bulletin.financial_version in ALLOCATED_VERSIONS:
         calculation = {**calculation, "resumo": snapshot_summary(calculation)}
     allocations = [dict(worker=str(item.worker_id), fraction=str(item.fraction), exact=item.exact,
                         display=item.display, policy_version=item.policy_version)
                    for item in bulletin.allocations.filter(active=True)] if bulletin.status == "CLOSED" else (
-        allocate_individuals(calculation, people) if bulletin.financial_version == "boletim-v2" else []
+        allocate_individuals(calculation, people) if bulletin.financial_version in ALLOCATED_VERSIONS else []
     )
+    adjustments = [adjustment_values(item) for item in WorkerAdjustment.objects.filter(
+        reference_date=bulletin.reference_date, origin=bulletin.origin, cancelled_at=None,
+        worker_id__in=[p["worker"] for p in people],
+    ).select_related("worker", "created_by")] if daily else []
     if pending_rule:
         allocations = []
         calculation = {**calculation, "status": "pending_rule", "provisional": True}
     return {
         "id": str(bulletin.pk),
-        "warehouse": str(bulletin.warehouse_id),
-        "warehouse_name": bulletin.warehouse.name,
+        "warehouse": str(bulletin.warehouse_id) if bulletin.warehouse_id else None,
+        "warehouse_name": bulletin.warehouse.name if bulletin.warehouse_id else DAILY_SCOPE_LABEL,
+        "scope": "day" if daily else "warehouse",
+        "adjustments": adjustments,
         "reference_date": bulletin.reference_date.isoformat(),
         "origin": bulletin.origin,
         "status": bulletin.status,
@@ -97,6 +172,23 @@ def values(bulletin):
     }
 
 
+def warehouse_label(bulletin):
+    """(id, nome) do dono do custo: o armazém no modelo anterior; o dia inteiro no boletim único."""
+    if bulletin.warehouse_id:
+        return str(bulletin.warehouse_id), bulletin.warehouse.name
+    return None, DAILY_SCOPE_LABEL
+
+
+def adjustment_values(item):
+    return {"id": str(item.pk), "worker": str(item.worker_id), "registration": item.worker.registration,
+            "name": item.worker.name, "reference_date": item.reference_date.isoformat(), "origin": item.origin,
+            "bulletin": str(item.bulletin_id) if item.bulletin_id else None, "kind": item.kind,
+            "kind_label": item.get_kind_display(), "amount": format(item.amount, ".2f"), "reason": item.reason,
+            "created_by": item.created_by.get_username(), "created_at": item.created_at.isoformat(),
+            "cancelled_at": item.cancelled_at.isoformat() if item.cancelled_at else None,
+            "cancel_reason": item.cancel_reason}
+
+
 def preview(data):
     rates = service_rates()
     return calculate(
@@ -108,7 +200,18 @@ def preview(data):
 
 @transaction.atomic
 def replace_contents(bulletin, data):
-    if "lines" in data:
+    daily = bulletin.financial_version == DAILY
+    if "lines" in data and daily:
+        rates = tariffs_on(bulletin.reference_date)["rates"]
+        bulletin.lines.all().delete()
+        BulletinLine.objects.bulk_create([
+            BulletinLine(bulletin=bulletin, warehouse=line["warehouse"], category=line["category"],
+                         price=rates[line["category"]],
+                         **{key: line.get(key, Decimal(0)) for key in ("unloading", "removal", "transfer")})
+            for line in data["lines"]
+            if any(line.get(key, Decimal(0)) for key in ("unloading", "removal", "transfer"))
+        ])
+    elif "lines" in data:
         rates = service_rates()
         bulletin.lines.all().delete()
         indexed = {line["category"]: line for line in data["lines"]}
@@ -135,7 +238,7 @@ def replace_contents(bulletin, data):
             raise ValidationError({"participants": "Pessoa inativa não pode receber nova alocação."})
         prepared = []
         for person in people:
-            if bulletin.financial_version == "boletim-v2":
+            if bulletin.financial_version in ALLOCATED_VERSIONS:
                 conflict = BulletinParticipant.objects.filter(
                     worker=person["worker"], bulletin__reference_date=bulletin.reference_date,
                     bulletin__origin=bulletin.origin,
@@ -153,7 +256,10 @@ def replace_contents(bulletin, data):
         BulletinParticipant.objects.bulk_create(
             [BulletinParticipant(bulletin=bulletin, **person) for person in prepared]
         )
-    if "daily_services" in data:
+    if daily and data.get("daily_services"):
+        raise ValidationError({"daily_services": "As linhas Diária Completa e Meia Diária ficam desativadas no "
+                                                 "boletim do dia até a Cocapec explicar seu uso."})
+    if "daily_services" in data and not daily:
         bulletin.daily_services.all().delete()
         BulletinDailyService.objects.bulk_create([
             BulletinDailyService(bulletin=bulletin, price=DAILY_SERVICE_PRICES[item["kind"]], **item)
@@ -177,7 +283,7 @@ def check_revision(bulletin, expected):
 @transaction.atomic
 def close_bulletin(bulletin_id, actor, expected):
     bulletin = (
-        DailyBulletin.objects.select_for_update().select_related("warehouse").get(pk=bulletin_id)
+        DailyBulletin.objects.select_for_update(of=("self",)).select_related("warehouse").get(pk=bulletin_id)
     )
     check_revision(bulletin, expected)
     if bulletin.status != "DRAFT":
@@ -187,7 +293,9 @@ def close_bulletin(bulletin_id, actor, expected):
     people = list(bulletin.participants.select_related("worker"))
     if not people:
         raise ValidationError("Informe a equipe antes de fechar. Sem atividade permanece rascunho.")
-    if bulletin.financial_version == "boletim-v2":
+    if bulletin.financial_version == DAILY:
+        reprice_daily(bulletin)
+    if bulletin.financial_version in ALLOCATED_VERSIONS:
         replace_contents(bulletin, {"participants": [{"worker": p.worker, "fraction": p.fraction} for p in people]})
         people = list(bulletin.participants.select_related("worker"))
     worker_ids = [person.worker_id for person in people]
@@ -224,7 +332,7 @@ def close_bulletin(bulletin_id, actor, expected):
     bulletin.closed_at = timezone.now()
     bulletin.revision += 1
     bulletin.save(update_fields=["calculation", "status", "closed_at", "revision"])
-    if bulletin.financial_version == "boletim-v2":
+    if bulletin.financial_version in ALLOCATED_VERSIONS:
         by_worker = {str(p.worker_id): p for p in people}
         IndividualAllocation.objects.bulk_create([
             IndividualAllocation(
@@ -249,7 +357,7 @@ def reopen_bulletin(bulletin_id, actor, expected, reason):
     if not reason or not str(reason).strip():
         raise ValidationError({"reason": "Descreva o motivo da reabertura."})
     bulletin = (
-        DailyBulletin.objects.select_for_update().select_related("warehouse").get(pk=bulletin_id)
+        DailyBulletin.objects.select_for_update(of=("self",)).select_related("warehouse").get(pk=bulletin_id)
     )
     check_revision(bulletin, expected)
     if bulletin.status != "CLOSED":

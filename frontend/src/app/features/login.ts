@@ -5,6 +5,39 @@ import { Api, apiError } from "../core/api";
 
 const rememberedKey = "cocapec.rememberedUser";
 
+interface ScatteredBean {
+  x: string;
+  y: string;
+  size: string;
+  turn: string;
+  fade: number;
+  flip: number;
+}
+
+function scatteredBeans(count: number): ScatteredBean[] {
+  const beans: ScatteredBean[] = [];
+  for (let index = 0; index < count; index++) {
+    const edge = index % 4;
+    const along = rand(-6, 106);
+    const inset = rand(-8, 22);
+    const x = edge === 2 ? inset : edge === 3 ? rand(78, 106) : along;
+    const y = edge === 0 ? rand(-10, 24) : edge === 1 ? rand(68, 108) : rand(6, 94);
+    beans.push({
+      x: `${x.toFixed(1)}%`,
+      y: `${y.toFixed(1)}%`,
+      size: `${Math.round(rand(68, 142))}px`,
+      turn: `${Math.round(rand(-58, 58))}deg`,
+      fade: Number(rand(0.22, 0.52).toFixed(2)),
+      flip: Math.random() < 0.5 ? -1 : 1,
+    });
+  }
+  return beans;
+}
+
+function rand(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
 @Component({
   standalone: true,
   selector: "app-login",
@@ -28,11 +61,26 @@ const rememberedKey = "cocapec.rememberedUser";
           <ellipse cx="45" cy="60" rx="30" ry="48" />
           <path d="M45 22c10 18 10 58 0 76" />
         </svg>
+        @for (bean of scatteredBeans; track $index) {
+          <svg
+            class="bean bean-scattered"
+            viewBox="0 0 90 120"
+            [style.--x]="bean.x"
+            [style.--y]="bean.y"
+            [style.--size]="bean.size"
+            [style.--turn]="bean.turn"
+            [style.--fade]="bean.fade"
+            [style.--flip]="bean.flip"
+          >
+            <ellipse cx="45" cy="60" rx="30" ry="48" />
+            <path d="M45 22c10 18 10 58 0 76" />
+          </svg>
+        }
       </div>
       <header class="login-meta" style="display: flex; justify-content: center;">
         <span class="pill-safra">
           <i></i>
-          PORTAL COOPERADO • SAFRA 2026/2027
+          RECEBIMENTO COCAPEC
         </span>
       </header>
       <section class="login-card">
@@ -46,7 +94,7 @@ const rememberedKey = "cocapec.rememberedUser";
         </div>
         <h1>Recebimento Inteligente<br /><span>COCAPEC</span></h1>
         <p class="lede">
-          Acesse com suas credenciais de cooperado ou operador
+          Entre com o usuário cadastrado no sistema de recebimento.
         </p>
         <div class="tabs" role="tablist" aria-label="Tipo de acesso">
           <button
@@ -61,7 +109,7 @@ const rememberedKey = "cocapec.rememberedUser";
               <path d="M4.5 18.5c.6-3.2 2.6-5 4.5-5s3.9 1.8 4.5 5" />
               <path d="m15 11 2 2 4-4" />
             </svg>
-            Cooperado /<br />Produtor
+            Fornecedor
           </button>
           <button
             type="button"
@@ -107,7 +155,7 @@ const rememberedKey = "cocapec.rememberedUser";
             <div class="field-top">
               <label for="password">Senha de Acesso</label>
               <button type="button" class="forgot" (click)="forgot()">
-                Esqueceu sua senha?
+                Problemas para acessar?
               </button>
             </div>
             <div class="control">
@@ -151,7 +199,7 @@ const rememberedKey = "cocapec.rememberedUser";
           <div class="row-options">
             <label class="remember">
               <input type="checkbox" formControlName="remember" />
-              Lembrar acesso
+              Lembrar usuário
             </label>
           </div>
           <button type="submit" class="submit" [disabled]="busy() || form.invalid">
@@ -234,6 +282,14 @@ const rememberedKey = "cocapec.rememberedUser";
         right: -10px;
         bottom: 28px;
         transform: rotate(22deg);
+      }
+      .bean-scattered {
+        top: var(--y);
+        left: var(--x);
+        width: var(--size);
+        height: calc(var(--size) * 4 / 3);
+        opacity: var(--fade);
+        transform: rotate(var(--turn)) scaleX(var(--flip));
       }
       .login-meta,
       .login-card,
@@ -546,11 +602,16 @@ const rememberedKey = "cocapec.rememberedUser";
         .bean-br {
           display: none;
         }
+        .bean-scattered {
+          width: calc(var(--size) * 0.62);
+          height: calc(var(--size) * 0.82);
+        }
       }
     `,
   ],
 })
 export class Login {
+  readonly scatteredBeans = scatteredBeans(8);
   private api = inject(Api);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -566,15 +627,15 @@ export class Login {
   notice = signal("");
   userLabel = computed(() =>
     this.perfil() === "cooperado"
-      ? "Matrícula do Cooperado ou CPF"
+      ? "Usuário do fornecedor"
       : "Usuário de acesso",
   );
   userHint = computed(() =>
-    this.perfil() === "cooperado" ? "Ex: 2190-3" : "Operador interno",
+    this.perfil() === "cooperado" ? "Cadastro do fornecedor" : "Operador interno",
   );
   userPlaceholder = computed(() =>
     this.perfil() === "cooperado"
-      ? "Ex: 2190-3 ou 000.000.000-00"
+      ? "Informe seu usuário de fornecedor"
       : "Informe seu usuário",
   );
   form = this.fb.nonNullable.group({
@@ -587,7 +648,7 @@ export class Login {
   });
   forgot() {
     this.notice.set(
-      "Na demonstração local, use as credenciais fornecidas para o perfil operador.",
+      "Contate o administrador responsável pelo seu cadastro para conferir o usuário ou redefinir a senha. Este sistema não envia links de recuperação.",
     );
   }
   async submit() {

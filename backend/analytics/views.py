@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
 from decimal import Decimal, localcontext
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
@@ -9,12 +10,50 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from catalog.models import Warehouse
 from core.models import ORIGIN_CHOICES
 from core.permissions import IsInternal, user_role
 from imports.models import HistoricalMovement
-from labor.calculation import money_display
+from labor.calculation import UNATTRIBUTED, money_display
 from labor.models import DailyBulletin
+from labor.services import warehouse_label
 from receiving.models import Appointment, NonReceipt
+
+
+class CostShare:
+    """Parcela de um boletim atribuída a um armazém, com a mesma interface usada por financial_summary."""
+
+    def __init__(self, bulletin, warehouse_id, warehouse_name, calculation):
+        self.bulletin, self.warehouse_id, self.warehouse_name = bulletin, warehouse_id, warehouse_name
+        self.calculation = calculation
+        self.participants = bulletin.participants
+
+    @property
+    def reference_date(self):
+        return self.bulletin.reference_date
+
+
+def cost_shares(bulletins):
+    """Boletim por armazém pertence ao armazém; boletim do dia é rateado pela participação na produção."""
+    codes = {w.code: w for w in Warehouse.objects.all()}
+    shares = []
+    for bulletin in bulletins:
+        split = bulletin.calculation.get("warehouse_costs")
+        if bulletin.warehouse_id or not split:
+            wid, name = warehouse_label(bulletin)
+            shares.append(CostShare(bulletin, wid, name, bulletin.calculation))
+            continue
+        for row in split["warehouses"]:
+            warehouse = codes.get(row["warehouse"])
+            unattributed = row["warehouse"] == UNATTRIBUTED or warehouse is None
+            shares.append(CostShare(
+                bulletin, UNATTRIBUTED if unattributed else str(warehouse.pk),
+                "Não atribuído" if unattributed else warehouse.name,
+                {"production": row["production"], "equivalent_days": row["equivalent_days"],
+                 "total_payable": row["total_payable"], "supplement": row["supplement"],
+                 "display": row["display"]},
+            ))
+    return shares
 
 
 class Filters(serializers.Serializer):
@@ -128,18 +167,25 @@ class LaborCostsView(APIView):
             .prefetch_related("participants")
         )
         if filters.get("warehouse"):
-            query = query.filter(warehouse_id=filters["warehouse"])
+            query = query.filter(
+                Q(warehouse_id=filters["warehouse"])
+                | Q(warehouse__isnull=True, lines__warehouse_id=filters["warehouse"])
+            ).distinct()
         bulletins = list(query)
+        shares = cost_shares(bulletins)
+        if filters.get("warehouse"):
+            shares = [share for share in shares if share.warehouse_id == str(filters["warehouse"])]
         grouped = defaultdict(list)
-        for bulletin in bulletins:
-            grouped[bulletin.warehouse_id].append(bulletin)
+        for share in shares:
+            grouped[(share.warehouse_id, share.warehouse_name)].append(share)
         groups = []
-        for warehouse_id, local in grouped.items():
+        for (warehouse_id, warehouse_name), local in grouped.items():
             result = financial_summary(local)
             groups.append(
                 {
-                    "warehouse": str(warehouse_id),
-                    "warehouse_name": local[0].warehouse.name,
+                    "warehouse": warehouse_id,
+                    "warehouse_name": warehouse_name,
+                    "unattributed": warehouse_id == UNATTRIBUTED,
                     "period": metadata(filters)["period"],
                     **result,
                     "diagnosis": "Produção abaixo do piso a investigar"
@@ -166,15 +212,16 @@ class LaborCostsView(APIView):
         return Response(
             {
                 **metadata(filters),
-                "summary": financial_summary(bulletins),
+                "summary": financial_summary(shares if filters.get("warehouse") else bulletins),
                 "source_records": None if filters["origin"] == "historico_importado" else source_records(
                     request,
                     bulletins,
                     lambda bulletin: {
                         "id": str(bulletin.pk),
                         "reference_date": bulletin.reference_date.isoformat(),
-                        "warehouse_id": str(bulletin.warehouse_id),
-                        "warehouse_name": bulletin.warehouse.name,
+                        "warehouse_id": warehouse_label(bulletin)[0],
+                        "warehouse_name": warehouse_label(bulletin)[1],
+                        "scope": "warehouse" if bulletin.warehouse_id else "day",
                         **{
                             key: bulletin.calculation[key]
                             for key in (
@@ -462,8 +509,8 @@ class StaffingScenarioView(APIView):
         return Response(
             {
                 "bulletin": str(bulletin.pk),
-                "warehouse": str(bulletin.warehouse_id),
-                "warehouse_name": bulletin.warehouse.name,
+                "warehouse": warehouse_label(bulletin)[0],
+                "warehouse_name": warehouse_label(bulletin)[1],
                 "reference_date": bulletin.reference_date.isoformat(),
                 "origin": bulletin.origin,
                 "conditional": True,
