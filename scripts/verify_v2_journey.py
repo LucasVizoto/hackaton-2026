@@ -82,7 +82,8 @@ def main():
         invoices.append(call("supplier", "invoices/upload/", raw=content, content_type="multipart/form-data; boundary="+boundary))
     ap = call("supplier", "appointments/", {"invoice_ids": [item["id"] for item in invoices], "date": args.date,
         "time": "10:00", "packaging": "machine_implement", "vehicle_plate": "DEMO123", "articulated": True,
-        "tractor_plate": "TEST456", "carrier_name": "Transportadora sintética", "idempotency_key": str(uuid.uuid4())})
+        "tractor_plate": "TEST456", "carrier_name": "Transportadora sintética", "driver_name": "Motorista sintético",
+        "idempotency_key": str(uuid.uuid4())})
     apid = ap["id"]
 
     def refresh(role="warehouse"):

@@ -16,6 +16,10 @@ class TimeInput(CommandInput):
     occurred_at = serializers.DateTimeField(required=False)
 
 
+class GateCheckInInput(TimeInput):
+    driver_name = serializers.CharField(max_length=160, required=False, allow_blank=False)
+
+
 class ResourceInput(TimeInput):
     worker_count = serializers.IntegerField(min_value=0, max_value=100)
     equipment_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=True)

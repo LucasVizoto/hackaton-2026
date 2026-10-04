@@ -48,6 +48,7 @@ class ReceivingV2Tests(TestCase):
     def create(self, **changes):
         return workflow.create(self.external, {"invoice_ids": [self.invoice], "date": DAY,
                     "time": "08:00", "packaging": "paletizada", "vehicle_plate": "TEST123",
+                    "driver_name": "Motorista sintético",
                     **changes})
 
     def command(self, ap, code, data=None, user=None):
@@ -68,6 +69,38 @@ class ReceivingV2Tests(TestCase):
                      "observed_quantity": Decimal("10"), "accepted_quantity": Decimal("10"),
                      "rejected_quantity": Decimal("0"), **changes})
         return ap.receipt_lines.get(invoice_item=self.item)
+
+    def test_gate_entry_requires_name_and_persists_normalized_driver_idempotently(self):
+        ap = self.create(driver_name="")
+        self.client.force_authenticate(self.gate)
+        url = f"/api/v2/appointments/{ap.pk}/gate-check-in/"
+        for name in (None, " \t ", "A" * 161):
+            payload = {"expected_revision": ap.revision, "occurred_at": AT.isoformat()}
+            if name is not None:
+                payload["driver_name"] = name
+            response = self.client.post(url, payload, format="json")
+            self.assertEqual(response.status_code, 400)
+            ap.refresh_from_db()
+            self.assertIsNone(ap.gate_checked_in_at)
+            self.assertEqual(ap.driver_name, "")
+        key = str(uuid.uuid4())
+        payload = {"expected_revision": ap.revision, "idempotency_key": key,
+                   "occurred_at": AT.isoformat(), "driver_name": "  Motorista   de teste  "}
+        for _ in range(2):
+            self.assertEqual(self.client.post(url, payload, format="json").status_code, 200)
+        detail = self.client.get(f"/api/v2/appointments/{ap.pk}/").data
+        self.assertEqual(detail["driver_name"], "Motorista de teste")
+        ap.refresh_from_db()
+        self.assertEqual(ap.gate_checked_in_at, AT)
+        self.assertEqual(ap.events.filter(kind="gate_check_in").count(), 1)
+        self.assertEqual(ap.events.get(kind="gate_check_in").data["driver_name"], "Motorista de teste")
+
+    def test_gate_entry_uses_existing_name_without_new_payload_field(self):
+        ap = self.create()
+        self.arrive(ap)
+        ap.refresh_from_db()
+        self.assertEqual(ap.driver_name, "Motorista sintético")
+        self.assertEqual(ap.gate_checked_in_at, AT)
 
     def test_multi_invoice_one_slot_unit_and_same_supplier_only(self):
         second = self.second_invoice()

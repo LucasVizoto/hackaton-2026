@@ -2,6 +2,18 @@
 
 Todos os resultados precisam de período, origem e unidade. `operacional_registrado`, `historico_importado` e `demo_sintetico` são separados. Ausência de medição é nula ou explicitamente sem cobertura; não vira zero. As novas médias não incluem legados sem quatro marcos.
 
+## Logística e Entregas
+
+`/gestao/logistica` consulta somente operação registrada. A data de referência e os sete dias vêm do servidor, no calendário `America/Sao_Paulo`; a última consulta identifica quando o painel foi atualizado. Atualização é manual. Falha mantém os últimos resultados identificados e oferece repetição, sem inserir valores de demonstração.
+
+- Cargas Recebidas Hoje: recebimentos concluídos por `finished_at` hoje, sem duplicar notas ou destinos.
+- Pessoas que passaram na portaria: entradas por `gate_checked_in_at` hoje com nome de motorista identificado. São passagens de motoristas, não pessoas únicas; dois recebimentos do mesmo motorista contam duas entradas. Saídas não aumentam o indicador. Registros antigos sem nome são excluídos e quantificados na cobertura.
+- Caminhões em Fila: entrada na unidade, nenhuma saída, situação aguardando/chegou e sem início de descarga global nem de qualquer visita. Considera todas as datas de entrada, inclusive anteriores aos sete dias.
+- Barras: sete datas de conclusão ordenadas, incluindo hoje; uma consulta completa sem conclusões no dia retorna zero observado.
+- Rosca: cargas concluídas nos sete dias por armazém de destino, uma associação por carga/local. Os percentuais usam o total dessas associações, que pode superar o total global de cargas. Cargas sem destino permanecem nas barras, são excluídas da rosca e aparecem na cobertura.
+
+Entradas e saídas são as do recebimento existente; não há registro avulso de visitantes, deduplicação por nome nem novas tabelas. Novas entradas exigem nome de motorista não vazio de até 160 caracteres. O nome não é inferido de fotos ou de avisos de chegada.
+
 | Indicador | Numerador e base temporal | Limite |
 |---|---|---|
 | Cargas com saída da unidade | Recebimentos distintos por `gate_checked_out_at` no período | Não confundir com número de notas ou visitas |

@@ -20,6 +20,7 @@
     "@capacitor/android": "8.5.2",
     "@capacitor/core": "8.5.2",
     "@ionic/angular": "8.8.19",
+    "chart.js": "4.5.1",
     "ionicons": "8.0.13",
     "pdfjs-dist": "^5.4.296",
     "pdfmake": "^0.3.11",
