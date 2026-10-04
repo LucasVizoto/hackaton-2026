@@ -3,7 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from "@angular/router
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { IonApp, IonButton, IonIcon, IonPopover } from "@ionic/angular/standalone";
 import { addIcons } from "ionicons";
-import { calendarOutline, checkmarkCircleOutline, cubeOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline } from "ionicons/icons";
+import { calendarOutline, checkmarkCircleOutline, cubeOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, statsChartOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline } from "ionicons/icons";
 import { Api } from "./core/api";
 import { GateLive } from "./core/gate-live";
 import { BrandMark, ThemeToggle } from "./shared/ui";
@@ -28,8 +28,8 @@ const MODULES: NavigationItem[] = [
     { route: "/equipamentos", label: "Equipamentos" },
     { route: "/boletins", label: "Boletins" },
   ] },
-  { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"], tabs: [
-    { route: "/gestao", label: "Indicadores" },
+  { route: "/dashboard", label: "Dashboard", icon: "stats-chart-outline", roles: ["management", "warehouse", "purchasing"] },
+  { route: "/gestao/logistica", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"], tabs: [
     { route: "/gestao/logistica", label: "Logística e Entregas" },
     { route: "/chegadas", label: "Chegadas", roles: ["warehouse", "purchasing", "management"] },
     { route: "/nao-recebimentos", label: "Não recebimentos", roles: ["warehouse", "management"] },
@@ -75,7 +75,7 @@ export class AppComponent {
   });
   readonly primaryItems = computed(() => {
     const role = this.api.user()?.role;
-    const priority = ["gatehouse", "portaria"].includes(role ?? "") ? ["/portaria"] : role === "supplier" ? ["/agenda"] : role === "warehouse" ? ["/agenda", "/descarga", "/escala"] : ["/agenda", "/escala", "/gestao"];
+    const priority = ["gatehouse", "portaria"].includes(role ?? "") ? ["/portaria"] : role === "supplier" ? ["/agenda"] : role === "warehouse" ? ["/agenda", "/descarga", "/escala"] : ["/agenda", "/escala", "/dashboard"];
     return priority.map(route => this.navItems().find(item => item.route === route)).filter((item): item is NavigationItem => !!item);
   });
   readonly extraItems = computed(() => this.navItems().filter(item => !this.primaryItems().includes(item)));
@@ -99,7 +99,7 @@ export class AppComponent {
   readonly currentModule = computed(() => this.currentGroup()?.label ?? "Recebimento");
   readonly initials = computed(() => this.api.user()?.username.slice(0, 2).toUpperCase() ?? "");
   constructor() {
-    addIcons({ calendarOutline, checkmarkCircleOutline, cubeOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline });
+    addIcons({ calendarOutline, checkmarkCircleOutline, cubeOutline, documentTextOutline, gridOutline, leafOutline, logOutOutline, menuOutline, moonOutline, notificationsOutline, peopleOutline, shieldCheckmarkOutline, statsChartOutline, sunnyOutline, trailSignOutline, warningOutline, eyeOutline, eyeOffOutline, arrowForwardOutline, closeOutline });
     const timer = window.setInterval(() => {
       if (this.watchesArrivals()) void this.loadArrivals(); else this.unreadArrivals.set(0);
     }, 20000);
@@ -130,7 +130,7 @@ export class AppComponent {
   arrivalCount(route: string) {
     const count = this.unreadArrivals();
     if (!count) return "";
-    return route === "/gestao" && this.watchesArrivals() ? ` (${count})` : "";
+    return route === "/gestao/logistica" && this.watchesArrivals() ? ` (${count})` : "";
   }
   alertQuery() {
     return this.api.user()?.role === "purchasing" ? { decisao: "rejected" } : {};

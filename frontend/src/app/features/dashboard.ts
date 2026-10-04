@@ -144,8 +144,8 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
   imports: [...imports, RouterLink, IonIcon, MetricCard, BarChart, FilterBlock, EmptyState, StaffingBalance, CostComparisonChart],
   template: `<div class="page">
     <app-page-header
-      title="Gestão por local e período"
-      subtitle="Compare produção e piso com a operação registrada e a cobertura disponível."
+      title="Dashboard"
+      subtitle="Compare produção e piso por local e período com a operação registrada e a cobertura disponível."
     ><a routerLink="/gestao/logistica">Logística e Entregas</a></app-page-header>
     <form
       app-filter-block
@@ -735,7 +735,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
   </div>`,
   styles: [`.bottleneck-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .management-analysis { border-left-color:var(--blue); } .management-analysis h2 { display:flex; align-items:center; gap:10px; font-size:20px; } .management-analysis ion-icon { color:var(--blue); flex-shrink:0; } .ai-answer { white-space:pre-wrap; } @media(max-width:600px) { .bottleneck-grid { grid-template-columns:1fr; } }`],
 })
-export class Management implements OnInit, OnDestroy {
+export class Dashboard implements OnInit, OnDestroy {
   constructor() { addIcons({ sparklesOutline }); }
   names(values:{name:string}[]){return values.map(v=>v.name).join(', ')||'Sem registro';}
   print(){window.print();}
