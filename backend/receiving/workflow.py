@@ -239,6 +239,10 @@ def _gate(ap, user, data, entering):
     if entering:
         if ap.operation_status != "waiting":
             raise legacy.DomainConflict("Recebimento não está aguardando chegada.")
+        driver_name = " ".join(data.get("driver_name", ap.driver_name).split())
+        if not driver_name or len(driver_name) > 160:
+            raise ValidationError({"driver_name": "Informe o nome do motorista, com até 160 caracteres."})
+        ap.driver_name = driver_name
         ap.gate_checked_in_at = at
         ap.arrived_at = at  # New observed event supplies the legacy projection, never the reverse.
         ap.operation_status = "arrived"
@@ -248,7 +252,8 @@ def _gate(ap, user, data, entering):
             raise legacy.DomainConflict("Conclua o recebimento ou registre a recusa antes da saída.")
         ap.gate_checked_out_at = at
     temporal_order(ap)
-    legacy._event(ap, user, "gate_check_in" if entering else "gate_check_out", at=at)
+    legacy._event(ap, user, "gate_check_in" if entering else "gate_check_out",
+                  data={"driver_name": ap.driver_name} if entering else None, at=at)
 
 
 def _visit(ap, user, data, entering):

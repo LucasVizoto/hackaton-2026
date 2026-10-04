@@ -140,7 +140,7 @@ const imports = [ReactiveFormsModule, IonButton, PageHeader, LoadingState, Feedb
     <app-page-header
       title="Gestão por local e período"
       subtitle="Compare produção e piso com a operação registrada e a cobertura disponível."
-    />
+    ><a routerLink="/gestao/logistica">Logística e Entregas</a></app-page-header>
     <form
       app-filter-block
       class="filters"

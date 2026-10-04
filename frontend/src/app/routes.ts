@@ -86,6 +86,11 @@ export const routes: Routes = [
       import("./features/management").then((m) => m.Management),
   },
   {
+    path: "gestao/logistica",
+    canActivate: [auth, roles("warehouse", "management", "purchasing")],
+    loadComponent: () => import("./features/logistics").then(m => m.Logistics),
+  },
+  {
     path: "qualidade",
     canActivate: [auth, roles("warehouse", "management", "purchasing")],
     loadComponent: () =>
