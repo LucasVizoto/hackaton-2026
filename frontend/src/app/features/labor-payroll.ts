@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, input, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
 import { IonButton } from "@ionic/angular/standalone";
@@ -31,16 +31,21 @@ const STATUS: Record<string, string> = { fechado: "Fechado", rascunho: "Rascunho
     .rates { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; }
     .rates label { display: grid; gap: 4px; font-size: 13px; }
   `],
-  template: `<div class="page">
+  template: `<div [class.page]="!embedded()">
+  @if (!embedded()) {
   <app-page-header title="Acerto da quinzena" subtitle="Soma dos valores diários de cada chapa no período (1 a 15 e 16 ao fim do mês), mais os ajustes lançados.">
     <div actions class="actions"><ion-button fill="outline" [disabled]="!data()" (click)="export()">Exportar acerto</ion-button><ion-button fill="outline" (click)="print()">Imprimir</ion-button></div>
   </app-page-header>
+  } @else {
+  <p class="muted">Soma dos valores de cada chapa na quinzena (1 a 15 e 16 ao fim do mês), mais os ajustes. É o resumo para conferir com o RH.</p>
+  }
   @if (error()) { <div app-feedback tone="error">{{ error() }}</div> }
   @if (success()) { <div app-feedback tone="success">{{ success() }}</div> }
   <div class="toolbar">
     <ion-button fill="outline" (click)="shift(-1)" [disabled]="busy()">Quinzena anterior</ion-button>
     <label>Data dentro da quinzena<input type="date" [ngModel]="date()" (ngModelChange)="date.set($event); load()" /></label>
     <ion-button fill="outline" (click)="shift(1)" [disabled]="busy()">Próxima quinzena</ion-button>
+    @if (embedded()) { <ion-button fill="outline" [disabled]="!data()" (click)="export()">Exportar acerto</ion-button> }
     <label>Origem<select [ngModel]="origin()" (ngModelChange)="origin.set($event); load()"><option value="operacional_registrado">Operação registrada</option><option value="demo_sintetico">Demonstração sintética</option></select></label>
   </div>
   @if (busy() && !data()) { <app-loading-state label="Somando boletins e ajustes…" /> }
@@ -102,6 +107,7 @@ const STATUS: Record<string, string> = { fechado: "Fechado", rascunho: "Rascunho
 })
 export class LaborPayroll implements OnInit {
   readonly api = inject(Api);
+  embedded = input(false);
   date = signal(today());
   origin = signal("operacional_registrado");
   data = signal<Settlement | null>(null);

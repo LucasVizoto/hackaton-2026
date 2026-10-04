@@ -62,7 +62,7 @@ const SIGNAL: Record<string, string> = { sobra: "Sinal de sobra", falta: "Sinal 
         </tr> }</tbody></table></div>
     </details>
     <ul class="field-help">@for (limit of b.limits; track limit) { <li>{{ limit }}</li> }</ul>
-    <p class="field-help"><a routerLink="/escala">Abrir a escala</a> · <a routerLink="/acerto">Acerto da quinzena</a></p>
+    <p class="field-help"><a routerLink="/escala">Abrir a escala</a> · <a routerLink="/boletins" [queryParams]="{ visao: 'quinzena' }">Acerto da quinzena</a></p>
   }
 </section>`,
 })

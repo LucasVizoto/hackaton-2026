@@ -74,7 +74,8 @@ class ShiftInput(serializers.Serializer):
     date = serializers.DateField()
     origin = serializers.ChoiceField(choices=ORIGIN_CHOICES, default="operacional_registrado")
     warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all(), allow_null=True, required=False)
-    period = serializers.ChoiceField(choices=RosterShift.PERIODS, default="FULL")
+    # Escala é por dia inteiro; meia diária se lança só no boletim.
+    period = serializers.ChoiceField(choices=[("FULL", "Integral")], default="FULL")
     activity = serializers.ChoiceField(choices=RosterShift.ACTIVITIES, required=False)
     notes = serializers.CharField(max_length=500, allow_blank=True, required=False)
 
@@ -146,14 +147,14 @@ class RosterView(APIView):
             "workers": [{"id": str(w.pk), "registration": w.registration, "name": w.name,
                          "contract_type": w.contract_type} for w in workers],
             "rules": ["Até 20 pessoas por dia, cada uma uma vez (o boletim é único por dia).",
-                      "Integral vale 1 diária; manhã ou tarde valem meia diária.",
+                      "Cada pessoa escalada conta 1 diária; meia diária se ajusta no boletim do dia.",
                       "Descarga iniciada não para: quem está na carga das 15h fica até o fim.",
                       "Sábado é organização interna; domingo e feriado não têm expediente."],
         })
 
     @transaction.atomic
     def post(self, request):
-        """Inclui ou altera a escala de uma pessoa num dia (uma linha por pessoa/dia)."""
+        """Inclui a escala de uma pessoa num dia (uma linha por pessoa/dia)."""
         require_role(request.user, "warehouse")
         serializer = ShiftInput(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -176,7 +177,6 @@ class RosterView(APIView):
 
 class AttendanceInput(serializers.Serializer):
     attendance = serializers.ChoiceField(choices=RosterShift.ATTENDANCE)
-    period = serializers.ChoiceField(choices=RosterShift.PERIODS, required=False)
 
 
 class RosterShiftDetailView(APIView):
@@ -193,9 +193,8 @@ class RosterShiftDetailView(APIView):
         if item.attendance == "ABSENT" and data["attendance"] != "ABSENT":
             guard_team_size(item.date, item.origin, exclude=item.pk)
         item.attendance = data["attendance"]
-        item.period = data.get("period", item.period)
         item.updated_by = request.user
-        item.save(update_fields=["attendance", "period", "updated_by", "updated_at"])
+        item.save(update_fields=["attendance", "updated_by", "updated_at"])
         return Response(shift_values(item))
 
     @transaction.atomic

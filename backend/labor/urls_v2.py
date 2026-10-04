@@ -2,6 +2,7 @@ from django.urls import path
 
 from labor.views import BulletinCloseView, BulletinReopenView
 from labor.views_allocation import AllocationNormsView, DayPlanView
+from labor.views_crew import VisitCrewView
 from labor.views_roster import RosterCopyWeekView, RosterShiftDetailView, RosterTeamView, RosterView
 from labor.views_payroll import (AdjustmentCancelView, AdjustmentListView, FortnightSettlementView,
     TariffTableView)
@@ -27,6 +28,7 @@ urlpatterns = [
     path('workers/<uuid:pk>/statement/', WorkerStatementView.as_view()),
     path('allocation/norms/', AllocationNormsView.as_view()),
     path('allocation/day-plan/', DayPlanView.as_view()),
+    path('allocation/visits/<uuid:pk>/crew/', VisitCrewView.as_view()),
     path('tariff-tables/', TariffTableView.as_view()),
     path('labor-adjustments/', AdjustmentListView.as_view()),
     path('labor-adjustments/<uuid:pk>/cancel/', AdjustmentCancelView.as_view()),

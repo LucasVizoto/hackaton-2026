@@ -18,7 +18,6 @@ const MODULES: NavigationItem[] = [
   { route: "/portaria/chegadas", label: "Chegadas enviadas", shortLabel: "Chegadas", icon: "document-text-outline", roles: ["gatehouse"] },
   { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
   { route: "/escala", label: "Escala", icon: "calendar-outline", roles: ["warehouse", "management"] },
-  { route: "/acerto", label: "Acerto da quinzena", shortLabel: "Acerto", icon: "document-text-outline", roles: ["warehouse", "management"] },
   { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse", "management"] },
   { route: "/revisoes", label: "Chegadas recusadas", icon: "warning-outline", roles: ["purchasing", "management"] },
   { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse", "management"] },
