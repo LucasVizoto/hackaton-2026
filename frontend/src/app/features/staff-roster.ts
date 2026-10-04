@@ -21,17 +21,10 @@ const WEEKDAYS_LONG = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábad
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 /** One color rule for the whole screen: the day situation drives card border, dot and text. */
 const TONE: Record<string, string> = { shortage: "danger", attention: "warning", watch: "warning", ok: "success", info: "neutral", closed: "neutral" };
-const SHIFTS = [
-  { value: "", label: "Folga" },
-  { value: "FULL", label: "Dia todo" },
-  { value: "MORNING", label: "Manhã" },
-  { value: "AFTERNOON", label: "Tarde" },
-];
-const PRESENCE = [
-  { value: "PLANNED", label: "Aguardando" },
-  { value: "PRESENT", label: "Veio" },
-  { value: "ABSENT", label: "Faltou" },
-];
+const SHIFT_LABEL: Record<string, string> = { FULL: "Dia todo", MORNING: "Meia diária (manhã)", AFTERNOON: "Meia diária (tarde)" };
+const PRESENCE_LABEL: Record<string, string> = { PLANNED: "Aguardando", PRESENT: "Veio", ABSENT: "Faltou" };
+/** Search only helps when the list is long. */
+const SEARCH_FROM = 12;
 
 function monday(value: string): string {
   const date = new Date(`${value}T12:00:00`);
@@ -101,7 +94,7 @@ function plural(count: number, one: string, many: string): string { return `${nu
       min-height: 44px; min-width: 64px; padding: 0 14px; border: 1px solid transparent; border-radius: 9px; background: transparent;
       color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
     }
-    .seg button:hover:not(:disabled) { color: var(--text); background: var(--surface); }
+    @media (hover: hover) { .seg button:hover:not(:disabled) { color: var(--text); background: var(--surface); } }
     .seg button[aria-pressed="true"] { background: var(--surface); border-color: var(--green); color: var(--green); box-shadow: 0 1px 2px rgba(15,23,42,.08); }
     .seg button:disabled { cursor: not-allowed; }
     .seg.presence button[aria-pressed="true"].PRESENT { border-color: var(--success); color: var(--success); background: var(--success-soft); }
@@ -149,9 +142,22 @@ function plural(count: number, one: string, many: string): string { return `${nu
     .people-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
     .people-count { margin: 0; font-size: 15px; font-weight: 600; }
     .people-filter { display: flex; align-items: center; gap: 8px; }
-    .people-filter input[type="search"] { min-height: 44px; width: 260px; min-width: 0; }
+    .people-filter input[type="search"] { min-height: 44px; width: 100%; max-width: 420px; min-width: 0; }
     .people { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-    .person { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; align-items: center; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .person { display: grid; grid-template-columns: minmax(180px, 1fr) auto; align-items: center; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .person-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; }
+    .toggle {
+      min-height: 48px; min-width: 150px; padding: 0 18px; border: 2px solid var(--green); border-radius: var(--radius-control);
+      background: var(--surface); color: var(--green); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .toggle:hover:not(:disabled) { background: var(--brand-soft); }
+    .toggle.is-on { background: var(--green); color: var(--brand-contrast); }
+    .toggle.is-on:hover:not(:disabled) { background: var(--brand-hover); }
+    .toggle:disabled { opacity: 0.6; cursor: not-allowed; }
+    .half { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--muted); font-size: 13px; font-weight: 400; cursor: pointer; }
+    .half input { width: 18px; height: 18px; margin: 0; }
+    .sel-status { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; font-weight: 700; }
+    .sel-status.danger { color: var(--danger); } .sel-status.warning { color: var(--warning); } .sel-status.success { color: var(--success); }
     .person.is-off .person-name { color: var(--muted); }
     .person-name { display: grid; gap: 2px; font-weight: 600; }
     .person-name small { color: var(--muted); font-weight: 400; font-size: 13px; }
@@ -178,6 +184,7 @@ function plural(count: number, one: string, many: string): string { return `${nu
 
     @media (max-width: 1100px) {
       .person { grid-template-columns: minmax(0, 1fr); }
+      .person-actions { justify-content: flex-start; }
     }
     @media (max-width: 767px) {
       .ros-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
@@ -190,8 +197,10 @@ function plural(count: number, one: string, many: string): string { return `${nu
       .people-filter { width: 100%; }
       .people-filter input[type="search"] { flex: 1 1 auto; width: auto; }
       .seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
-      .seg.presence, .seg.origin { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .seg.origin { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .seg.presence, .seg.origin { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .person-actions .toggle { flex: 1 1 100%; }
+      .person-actions .seg.presence { flex: 1 1 auto; width: auto; }
+      .people-tools .ros-btn { width: 100%; white-space: normal; }
       .seg button { min-width: 0; padding: 0 6px; }
       .ros-filters select { min-width: 0; width: 100%; }
       .ros-filters label, .ros-filters fieldset { width: 100%; }
@@ -273,24 +282,22 @@ function plural(count: number, one: string, many: string): string { return `${nu
               <h2 id="sel-title">{{ longLabel(day.date) }}</h2>
               @if (isOpen(day)) {
                 <p class="sel-summary">
+                  <span [class]="'sel-status ' + tone(day)"><span [class]="'dot ' + tone(day)" aria-hidden="true"></span>{{ daySentence(day) }}</span>
                   @if (day.day_type === "saturday") {
-                    Sábado é dia de organização interna. Você escalou <strong>{{ plural(scheduled(day), "chapa", "chapas") }}</strong>.
+                    Sábado é de organização interna. Você escalou <strong>{{ plural(scheduled(day), "chapa", "chapas") }}</strong>.
                   } @else if (day.plan.peak_chapas) {
-                    A agenda pede até <strong>{{ plural(day.plan.peak_chapas, "chapa", "chapas") }}</strong> ao mesmo tempo{{ peakTime(day) ? " (horário mais cheio: " + peakTime(day) + ")" : "" }}. Você escalou <strong>{{ plural(scheduled(day), "chapa", "chapas") }}</strong>.
+                    A agenda pede <strong>{{ plural(day.plan.peak_chapas, "chapa", "chapas") }}</strong>. Você escalou <strong>{{ plural(scheduled(day), "chapa", "chapas") }}</strong>.
                   } @else {
-                    Nenhum caminhão agendado neste dia. Você escalou <strong>{{ plural(scheduled(day), "chapa", "chapas") }}</strong>.
+                    Nenhum caminhão agendado. Você escalou <strong>{{ plural(scheduled(day), "chapa", "chapas") }}</strong>.
                   }
                 </p>
-                @if (day.day_type === "workday") {
-                  <p class="sel-hint">Para atender também os cooperados, o ideal é ter {{ targetText(day) }} chapas.</p>
-                }
               }
             </div>
             @if (isOpen(day)) {
               @if (day.bulletin; as b) {
                 <a class="ros-btn" [routerLink]="['/boletins', b.id]">Ver boletim do dia{{ b.status === "CLOSED" ? " (fechado)" : "" }}</a>
               } @else if (canEdit() && day.entries.length) {
-                <a class="ros-btn primary" routerLink="/boletins/novo" [queryParams]="{ data: day.date, escala: 1, origem: origin() }">Gerar boletim com esta equipe</a>
+                <a class="ros-btn" routerLink="/boletins/novo" [queryParams]="{ data: day.date, escala: 1, origem: origin() }">Gerar boletim com esta equipe</a>
               }
             }
           </div>
@@ -309,28 +316,38 @@ function plural(count: number, one: string, many: string): string { return `${nu
             }
 
             @if (day.day_type === "workday") {
-              <ul class="slots" aria-label="Chapas pedidos pela agenda em cada horário">
-                @for (time of times; track time) {
-                  @let slot = slotOf(day, time);
-                  <li class="slot" [class.is-peak]="slot && slot.chapas && slot.chapas === day.plan.peak_chapas">
-                    <span class="muted">{{ hour(time) }}</span>
-                    <strong>{{ slot && slot.chapas ? plural(slot.chapas, "chapa", "chapas") : "Sem descarga" }}</strong>
-                    <span class="bar-track" aria-hidden="true"><span [style.width.%]="slotWidth(day, slot)"></span></span>
-                    @if (slot && slot.gas_forklifts) { <span class="muted">{{ plural(slot.gas_forklifts, "empilhadeira", "empilhadeiras") }}</span> }
-                    @for (warning of slot?.warnings ?? []; track warning) { <span class="slot-warn">{{ warning }}</span> }
-                  </li>
-                }
-              </ul>
+              <details class="ros-details">
+                <summary>Ver horários da agenda</summary>
+                <div class="ros-details-body">
+                  <ul class="slots" aria-label="Chapas pedidos pela agenda em cada horário">
+                    @for (time of times; track time) {
+                      @let slot = slotOf(day, time);
+                      <li class="slot" [class.is-peak]="slot && slot.chapas && slot.chapas === day.plan.peak_chapas">
+                        <span class="muted">{{ hour(time) }}</span>
+                        <strong>{{ slot && slot.chapas ? plural(slot.chapas, "chapa", "chapas") : "Sem descarga" }}</strong>
+                        <span class="bar-track" aria-hidden="true"><span [style.width.%]="slotWidth(day, slot)"></span></span>
+                        @if (slot && slot.gas_forklifts) { <span class="muted">{{ plural(slot.gas_forklifts, "empilhadeira", "empilhadeiras") }}</span> }
+                        @for (warning of slot?.warnings ?? []; track warning) { <span class="slot-warn">{{ warning }}</span> }
+                      </li>
+                    }
+                  </ul>
+                  <p class="field-help">O número da agenda é o máximo de chapas pedidos num mesmo horário. Para atender também os cooperados, o ideal é ter {{ targetText(day) }} chapas.</p>
+                </div>
+              </details>
             }
 
             <div class="people-tools">
               <p class="people-count" aria-live="polite">{{ countLine(day) }}</p>
+              @if (canEdit() && day.date <= todayIso && waiting(day).length) {
+                <button type="button" class="ros-btn primary" (click)="markAllPresent(day)" [disabled]="busy()">Marcar todos os escalados como “Veio”</button>
+              }
+            </div>
+            @if (showSearch()) {
               <div class="people-filter">
                 <label class="sr-only" for="ros-search">Buscar pessoa</label>
-                <input id="ros-search" type="search" placeholder="Buscar pessoa" [ngModel]="search()" (ngModelChange)="search.set($event)" />
-                <button type="button" class="ros-btn" [class.is-set]="onlyScheduled()" [attr.aria-pressed]="onlyScheduled()" (click)="onlyScheduled.set(!onlyScheduled())">Só escalados</button>
+                <input id="ros-search" type="search" placeholder="Buscar pessoa pelo nome ou matrícula" [ngModel]="search()" (ngModelChange)="search.set($event)" />
               </div>
-            </div>
+            }
 
             <ul class="people" aria-label="Pessoas do dia">
               @for (person of dayPeople(); track person.id) {
@@ -338,36 +355,39 @@ function plural(count: number, one: string, many: string): string { return `${nu
                 <li class="person" [class.is-off]="!entry">
                   <span class="person-name">
                     <span>{{ person.name }}@if (person.contract_type === "TERCEIRIZADO") { <span class="tag">Terceirizado</span> }</span>
-                    <small>Matrícula {{ person.registration }}</small>
+                    <small>Matrícula {{ person.registration }}@if (entry && entry.period !== "FULL") { · meia diária ({{ entry.period === "MORNING" ? "manhã" : "tarde" }}) }</small>
                   </span>
                   @if (canEdit()) {
-                    <div class="seg" role="group" [attr.aria-label]="'Turno de ' + person.name">
-                      @for (s of shifts; track s.value) {
-                        <button type="button" [attr.aria-pressed]="(entry?.period ?? '') === s.value" [disabled]="busy()" (click)="setPeriod(person.id, day.date, s.value)">{{ s.label }}</button>
+                    <div class="person-actions">
+                      <button type="button" [class]="'toggle' + (entry ? ' is-on' : '')" [attr.aria-pressed]="!!entry" [disabled]="busy()"
+                        [attr.aria-label]="(entry ? 'Tirar ' : 'Escalar ') + person.name"
+                        (click)="toggle(person.id, day.date)">{{ entry ? "Escalado ✓" : "Escalar" }}</button>
+                      @if (entry) {
+                        <div class="seg presence" role="group" [attr.aria-label]="'Presença de ' + person.name">
+                          <button type="button" class="PRESENT" [attr.aria-pressed]="entry.attendance === 'PRESENT'" [disabled]="busy()" (click)="tapPresence(entry, 'PRESENT')">Veio</button>
+                          <button type="button" class="ABSENT" [attr.aria-pressed]="entry.attendance === 'ABSENT'" [disabled]="busy()" (click)="tapPresence(entry, 'ABSENT')">Faltou</button>
+                        </div>
+                        <label class="half">
+                          <input type="checkbox" [checked]="entry.period !== 'FULL'" [disabled]="busy()" (change)="setHalf(entry, $any($event.target).checked)" />
+                          Meia diária
+                        </label>
                       }
                     </div>
-                    @if (entry) {
-                      <div class="seg presence" role="group" [attr.aria-label]="'Presença de ' + person.name">
-                        @for (p of presence; track p.value) {
-                          <button type="button" [class]="p.value" [attr.aria-pressed]="entry.attendance === p.value" [disabled]="busy()" (click)="setAttendance(entry, p.value)">{{ p.label }}</button>
-                        }
-                      </div>
-                    } @else { <span></span> }
                   } @else {
-                    <span [class]="'badge' + (entry ? ' on' : '')">{{ shiftLabel(entry?.period ?? "") }}</span>
-                    @if (entry) {
-                      <span [class]="'badge ' + presenceTone(entry.attendance)">{{ presenceLabel(entry.attendance) }}</span>
-                    } @else { <span></span> }
+                    <div class="person-actions">
+                      <span [class]="'badge' + (entry ? ' on' : '')">{{ entry ? (entry.period === "FULL" ? "Escalado" : "Meia diária") : "Folga" }}</span>
+                      @if (entry) { <span [class]="'badge ' + presenceTone(entry.attendance)">{{ presenceLabel(entry.attendance) }}</span> }
+                    </div>
                   }
                 </li>
               } @empty {
                 <li class="closed">
                   @if (!w.workers.length) { <strong>Ninguém cadastrado</strong> Cadastre os chapas em Pessoas para montar a escala. }
-                  @else if (search()) { Ninguém encontrado com “{{ search() }}”. }
-                  @else { <strong>Ninguém escalado neste dia</strong>@if (canEdit()) { Toque em “Dia todo”, “Manhã” ou “Tarde” ao lado do nome para escalar. } }
+                  @else { Ninguém encontrado com “{{ search() }}”. }
                 </li>
               }
             </ul>
+
           }
         </section>
       }
@@ -420,15 +440,12 @@ export class StaffRoster implements OnInit {
   readonly api = inject(Api);
   readonly catalog = inject(Catalog);
   readonly times = ["08:00", "10:00", "13:00", "15:00"];
-  readonly shifts = SHIFTS;
-  readonly presence = PRESENCE;
   readonly todayIso = today();
   readonly plural = plural;
   private readonly menu = viewChild<ElementRef<HTMLDetailsElement>>("more");
   weekStart = signal(monday(today()));
   origin = signal("operacional_registrado");
   warehouse = signal("");
-  onlyScheduled = signal(false);
   search = signal("");
   filtersOpen = signal(false);
   selected = signal("");
@@ -468,10 +485,10 @@ export class StaffRoster implements OnInit {
     const term = this.search().trim().toLocaleLowerCase("pt-BR");
     const on = new Set(day.entries.map(entry => entry.worker));
     return this.people()
-      .filter(person => !this.onlyScheduled() || on.has(person.id))
       .filter(person => !term || person.name.toLocaleLowerCase("pt-BR").includes(term) || person.registration.toLocaleLowerCase("pt-BR").includes(term))
       .sort((a, b) => Number(on.has(b.id)) - Number(on.has(a.id)));
   });
+  showSearch = computed(() => this.people().length > SEARCH_FROM);
   weekPeople = computed(() => {
     const on = new Set((this.week()?.days ?? []).flatMap(day => day.entries.map(entry => entry.worker)));
     return this.people().filter(person => on.has(person.id));
@@ -507,10 +524,6 @@ export class StaffRoster implements OnInit {
     }
   }
   targetText(day: RosterDay) { const t = day.season_target; return t.max !== t.min ? `de ${t.min} a ${t.max}` : `${t.min}`; }
-  peakTime(day: RosterDay) {
-    const peak = day.slots.filter(slot => slot.chapas).sort((a, b) => b.chapas - a.chapas)[0];
-    return peak ? this.hour(peak.time) : "";
-  }
   slotOf(day: RosterDay, time: string) { return day.slots.find(slot => slot.time === time); }
   slotWidth(day: RosterDay, slot: RosterSlot | undefined) {
     const max = Math.max(day.plan.peak_chapas, this.scheduled(day), 1);
@@ -521,8 +534,9 @@ export class StaffRoster implements OnInit {
     const absent = day.entries.filter(entry => entry.attendance === "ABSENT").length;
     return `${plural(day.entries.length, "escalado", "escalados")} · ${present} ${present === 1 ? "veio" : "vieram"} · ${absent} ${absent === 1 ? "faltou" : "faltaram"}`;
   }
-  shiftLabel(value: string) { return SHIFTS.find(s => s.value === value)?.label ?? value; }
-  presenceLabel(value: string) { return PRESENCE.find(p => p.value === value)?.label ?? value; }
+  waiting(day: RosterDay) { return day.entries.filter(entry => entry.attendance === "PLANNED"); }
+  shiftLabel(value: string) { return SHIFT_LABEL[value] ?? value; }
+  presenceLabel(value: string) { return PRESENCE_LABEL[value] ?? value; }
   presenceTone(value: string) { return value === "PRESENT" ? "success" : value === "ABSENT" ? "danger" : ""; }
   symbol(entry: RosterEntry | undefined) { return !entry ? "—" : entry.attendance === "ABSENT" ? "✕" : entry.period === "FULL" ? "●" : "◐"; }
   cell(worker: string, date: string) { return this.index().get(`${worker}|${date}`); }
@@ -545,15 +559,28 @@ export class StaffRoster implements OnInit {
     try { await action(); this.success.set(message); } catch (e) { this.error.set(apiError(e)); } finally { this.busy.set(false); }
     await this.load();
   }
-  async setPeriod(worker: string, date: string, period: string) {
+  /** One tap: schedule for the whole day, or take the person out (Folga). */
+  async toggle(worker: string, date: string) {
     const entry = this.cell(worker, date);
-    if ((entry?.period ?? "") === period) return;
-    if (!period) { if (entry) await this.run(() => this.api.delete(`roster/${entry.id}/`), "Folga registrada."); return; }
-    await this.run(() => this.api.post("roster/", { worker, date, origin: this.origin(), period, warehouse: entry?.warehouse ?? (this.warehouse() || null) }), "Escala atualizada.");
+    if (entry) { await this.run(() => this.api.delete(`roster/${entry.id}/`), `${entry.name} saiu da escala.`); return; }
+    await this.run(() => this.api.post("roster/", { worker, date, origin: this.origin(), period: "FULL", warehouse: this.warehouse() || null }), "Pessoa escalada.");
   }
-  async setAttendance(entry: RosterEntry, attendance: string) {
-    if (entry.attendance === attendance) return;
-    await this.run(() => this.api.patch(`roster/${entry.id}/`, { attendance }), attendance === "ABSENT" ? "Falta registrada." : attendance === "PRESENT" ? "Presença registrada." : "Presença desmarcada.");
+  async setHalf(entry: RosterEntry, half: boolean) {
+    const period = half ? "MORNING" : "FULL";
+    if ((entry.period !== "FULL") === half) return;
+    await this.run(() => this.api.post("roster/", { worker: entry.worker, date: entry.date, origin: this.origin(), period, warehouse: entry.warehouse }), half ? "Marcado como meia diária." : "Marcado como dia todo.");
+  }
+  /** Veio / Faltou; tapping the selected one again goes back to "aguardando". */
+  async tapPresence(entry: RosterEntry, attendance: "PRESENT" | "ABSENT") {
+    const next = entry.attendance === attendance ? "PLANNED" : attendance;
+    await this.run(() => this.api.patch(`roster/${entry.id}/`, { attendance: next }), next === "ABSENT" ? "Falta registrada." : next === "PRESENT" ? "Presença registrada." : "Presença desmarcada.");
+  }
+  async markAllPresent(day: RosterDay) {
+    const pending = this.waiting(day);
+    if (!pending.length) return;
+    await this.run(async () => {
+      for (const entry of pending) await this.api.patch(`roster/${entry.id}/`, { attendance: "PRESENT" });
+    }, `${plural(pending.length, "pessoa marcada", "pessoas marcadas")} como “Veio”.`);
   }
   async copyPrevious() {
     await this.run(async () => {
