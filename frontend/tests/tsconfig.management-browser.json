@@ -1,1 +1,1 @@
-{"extends":"../tsconfig.json","compilerOptions":{"types":[],"noEmit":true},"files":["browser-management.ts"]}
+{"extends":"../tsconfig.json","compilerOptions":{"types":[],"noEmit":true},"files":["browser-management.ts","../src/pdfmake.d.ts"]}
