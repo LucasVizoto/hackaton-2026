@@ -160,7 +160,7 @@ components:
 
 Interface de operação para agenda, conferência, armazém, boletins e gestão. O redesign aprovado usa como referência visual o Coffee Logistics Dashboard do Google Stitch, projeto `8449242214206285579`. A direção foi aplicada a partir do código, preservando tarefas, permissões, conteúdo de domínio e contratos da API. A referência não acrescenta funcionalidades ao produto.
 
-O sistema organiza a leitura com cabeçalhos compactos, superfícies claras, cartões de indicadores, tabelas e estados escritos. Verde identifica ação e seleção; azul ajuda a localizar dados e informação. A marca em uso é o texto “Cocapec / Recebimento” acompanhado de uma folha em contorno do Ionicons; não é um logotipo oficial fornecido pela cooperativa. Não há imagens raster na interface entregue.
+O sistema organiza a leitura com cabeçalhos compactos, superfícies claras, cartões de indicadores, tabelas e estados escritos. Verde identifica ação e seleção; azul ajuda a localizar dados e informação. A marca em uso é o texto “Cocapec / Recebimento” acompanhado de uma folha em contorno do Ionicons; não é um logotipo oficial fornecido pela cooperativa. A área operacional usa componentes e ícones. A home reproduz conteúdo institucional com imagens e links do site Cocapec; clima e cotações são uma captura de referência, identificada e sem atualização automática. A barra de acesso local precede esse conteúdo e preserva sua atribuição.
 
 **Características:** hierarquia de tarefa, dados com origem e cobertura, componentes compartilhados, temas completos e navegação adaptada ao perfil. Este arquivo substitui as regras visuais anteriores. Os valores do frontmatter foram extraídos de [styles.scss](frontend/src/styles.scss); esse arquivo continua sendo a fonte de implementação e de compatibilidade com Ionic.
 
@@ -185,7 +185,7 @@ Os nomes do frontmatter correspondem aos papéis reais das variáveis CSS. As en
 - **Texto e apoio** (`text`, `muted`): conteúdo principal e contexto secundário.
 - **Divisória e controle** (`line`, `control-line`): borda suave de estrutura e borda visível de campo/ação. `control-line` permanece igual nos dois temas; o contraste registrado é 3,48:1 sobre branco e 4,21:1 sobre a superfície escura. Não usar a divisória estrutural para delimitar um campo.
 
-O tema inicial segue `prefers-color-scheme` quando não há preferência válida. A escolha manual persiste em `cocapec.visual-theme`; depois dela, mudanças do sistema não sobrescrevem a escolha. `index.html` aplica o tema antes da montagem para evitar clarão. Se o armazenamento falhar, a troca continua funcionando na sessão. Essa persistência visual não altera o token de autenticação, que continua somente em memória.
+O tema inicial segue `prefers-color-scheme` quando não há preferência válida. A escolha manual persiste em `cocapec.visual-theme`; depois dela, mudanças do sistema não sobrescrevem a escolha. `index.html` aplica o tema antes da montagem para evitar clarão. Se o armazenamento falhar, a troca continua funcionando na sessão. Essa persistência visual não altera o token de autenticação, mantido em memória e em cookie de sessão para restauração após recarregamento; “Lembrar usuário” persiste apenas o identificador.
 
 ## Typography
 
@@ -229,6 +229,9 @@ Os componentes reutilizáveis estão em [shared/ui.ts](frontend/src/app/shared/u
 - **Status e Origin:** cápsula com ponto decorativo e label de estado; origem sintética e histórica aparecem em avisos explícitos. Compras, Armazém e Operação são estados independentes, exibidos lado a lado na tabela e no detalhe. A linha do tempo mostra eventos registrados, responsável e data; não desenha uma aprovação sequencial inexistente.
 - **Tabelas e BarChart:** identidade principal/apoio em cada célula, números alinhados e região de rolagem local. Os três gráficos gerenciais são barras HTML/CSS com rótulo e valor, acompanhadas de tabela em `details`. Contagens usam calendário/local/motivo reais; duração ausente não vira zero. Explicações preservam a diferença entre total global e por destino, recursos por descarga e efetivo diário.
 - **Boletins e origem dos dados:** apuração destaca o total e mantém produção, pessoas, diárias e complemento acessíveis; frações e cálculos oficiais continuam no backend. Avisos, cobertura, pendências e links de registros da API continuam disponíveis em Gestão e Origem dos dados.
+- **Unidades e consulta:** presença é apresentada em pessoas-dia, com deduplicação por pessoa/data explicada na cobertura. Chegadas recusadas são consulta das decisões do Armazém; a interface não promete reversão por Compras. Regras financeiras pendentes mantêm fechamento bloqueado e não autorizam pagamento pela prévia.
+- **Assinaturas e detalhes técnicos:** assinatura consulta o registro persistido, responsável, data, revisão e resumo do manifesto. Hash e identificador ficam em detalhes; campos de qualidade têm nomes deliberados e datas legíveis, com a resposta agregada disponível para diagnóstico.
+- **Entrada e endereço inválido:** a home mostra acesso local antes da referência institucional atribuída; clima/cotações da captura não anunciam atualização. A rota inexistente oferece retorno ao sistema ou ao login, sem redirecionamento silencioso.
 
 ## Do's and Don'ts
 

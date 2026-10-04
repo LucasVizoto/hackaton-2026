@@ -16,7 +16,7 @@ from rest_framework.test import APIClient
 
 from core.models import UserProfile
 from . import services, workflow
-from .models import (Appointment, Invoice, InvoiceItem, InternalNotification, PurchaseOrder,
+from .models import (Appointment, Invoice, InvoiceItem, InternalNotification, PurchaseOrder, NonReceipt,
                      PurchaseOrderLine, ReceivingException)
 from .tests import fixtures, DAY, AT, XML, RESOURCES
 
@@ -79,6 +79,20 @@ class ReceivingV2Tests(TestCase):
             self.create(invoice_ids=[self.second_invoice(self.other_supplier)], time="10:00")
         with self.assertRaises(ValidationError):
             self.create(invoice_ids=[self.invoice, self.invoice], time="10:00")
+
+    def test_non_receipts_pagination_keeps_records_beyond_first_hundred(self):
+        NonReceipt.objects.bulk_create([NonReceipt(supplier=self.supplier, reason='other',
+            description=f'Ocorrência sintética {index}', occurred_at=AT + timedelta(seconds=index),
+            created_by=self.operator, origin='demo_sintetico') for index in range(121)])
+        self.client.force_authenticate(self.operator)
+        first = self.client.get('/api/v2/non-receipts/?page=1').data
+        second = self.client.get('/api/v2/non-receipts/?page=2').data
+        self.assertEqual(first['count'], 121)
+        self.assertEqual(len(first['results']), 100)
+        self.assertTrue(first['next'])
+        self.assertEqual(len(second['results']), 21)
+        self.assertFalse(second['next'])
+        self.assertEqual(len({row['id'] for row in first['results'] + second['results']}), 121)
 
     def test_only_supplier_can_create_through_either_api_including_admin(self):
         admin = User.objects.create_superuser("admin-booking", password="synthetic-only")

@@ -131,6 +131,12 @@ class IntegrationTests(TestCase):
         payload = {"expected_revision": ap.revision, "signer_name": "Conferente sintético", "declaration": "Conferência verificada"}
         self.assertEqual(self.client.post(url, payload, format="json").status_code, 201)
         self.assertEqual(self.client.post(url, payload, format="json").status_code, 200)
+        saved = self.client.get(url).data['results'][0]
+        self.assertEqual(saved['signer_name'], payload['signer_name'])
+        self.assertEqual(saved['appointment_revision'], ap.revision)
+        self.assertTrue(saved['current_revision'])
+        self.assertTrue(saved['signed_at'])
+        self.assertEqual(saved['declaration'], payload['declaration'])
         item = ReceiptSignature.objects.get()
         self.assertEqual(item.document_manifest["invoices"][0]["sha256"], "a"*64)
         self.assertIsNone(item.document_manifest["gate_checked_out_at"])
