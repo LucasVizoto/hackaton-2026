@@ -1,14 +1,27 @@
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from django.db import connection
-from rest_framework import status
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from rest_framework import serializers, status
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from .permissions import user_role
+from .models import UserProfile
+from .permissions import HasProfile, user_role
+
+
+def switchable_users():
+    return (
+        get_user_model().objects.filter(is_active=True)
+        .filter(Q(is_superuser=True) | Q(profile__role__in=[role for role, _ in UserProfile.ROLES]))
+        .select_related("profile")
+        .order_by("username", "id")
+    )
 
 
 def user_payload(user, request=None):
@@ -52,6 +65,34 @@ class LogoutView(APIView):
 class MeView(APIView):
     def get(self, request):
         return Response(user_payload(request.user, request))
+
+
+class UserListView(APIView):
+    permission_classes = [HasProfile]
+
+    def get(self, request):
+        users = switchable_users()
+        search = request.query_params.get("search", "").strip()
+        if search:
+            users = users.filter(username__icontains=search)
+        pagination = PageNumberPagination()
+        page = pagination.paginate_queryset(users, request, view=self)
+        return pagination.get_paginated_response([user_payload(user, request) for user in page])
+
+
+class SwitchUserSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(min_value=1, max_value=9223372036854775807)
+
+
+class SwitchUserView(APIView):
+    permission_classes = [HasProfile]
+
+    def post(self, request):
+        serializer = SwitchUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = get_object_or_404(switchable_users(), pk=serializer.validated_data["user_id"])
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({"token": token.key, "user": user_payload(user, request)})
 
 
 class HealthView(APIView):

@@ -8,6 +8,7 @@ import { Api } from "./core/api";
 import { GateLive } from "./core/gate-live";
 import { BrandMark, ThemeToggle } from "./shared/ui";
 import { ArrivalAlert } from "./shared/arrival-alert";
+import { UserSwitcher } from "./shared/user-switcher";
 
 interface NavigationTab { route: string; label: string; roles?: string[]; }
 interface NavigationItem { route: string; label: string; shortLabel?: string; icon: string; roles?: string[]; tabs?: NavigationTab[]; }
@@ -36,7 +37,7 @@ const MODULES: NavigationItem[] = [
   ] },
 ];
 @Component({ selector: "app-root", standalone: true,
-  imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle, ArrivalAlert],
+  imports: [RouterOutlet, RouterLink, IonApp, IonButton, IonIcon, IonPopover, BrandMark, ThemeToggle, ArrivalAlert, UserSwitcher],
   template: `<ion-app>
     @if (api.user()) {
       <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
@@ -48,7 +49,7 @@ const MODULES: NavigationItem[] = [
           <div class="user"><span class="avatar" aria-hidden="true">{{ initials() }}</span><div><strong>{{ api.user()?.username }}</strong><small>{{ roleLabel() }}</small></div></div>
         </aside>
         <main #mainContent class="main" id="main-content" tabindex="-1">
-          <header class="topbar"><div class="topbar-context"><button type="button" class="icon-button tablet-menu" aria-label="Abrir módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /></button><span>{{ currentModule() }}</span><span class="context-divider" aria-hidden="true"></span><small>Recebimento Cocapec</small></div><div class="topbar-actions">@if (unreadArrivals()) { <a routerLink="/chegadas" [queryParams]="alertQuery()" class="arrival-alert">{{ alertLabel() }}</a> }<span class="topbar-user">{{ roleLabel() }}</span><app-theme-toggle /><ion-button fill="clear" size="small" (click)="api.logout()"><ion-icon name="log-out-outline" aria-hidden="true" slot="start" />Sair</ion-button></div></header>
+          <header class="topbar"><div class="topbar-context"><button type="button" class="icon-button tablet-menu" aria-label="Abrir módulos" (click)="menuOpen.set(true)"><ion-icon name="menu-outline" aria-hidden="true" /></button><span>{{ currentModule() }}</span><span class="context-divider" aria-hidden="true"></span><small>Recebimento Cocapec</small></div><div class="topbar-actions">@if (unreadArrivals()) { <a routerLink="/chegadas" [queryParams]="alertQuery()" class="arrival-alert">{{ alertLabel() }}</a> }<span class="topbar-user">{{ roleLabel() }}</span><app-user-switcher /><app-theme-toggle /><ion-button fill="clear" size="small" (click)="api.logout()"><ion-icon name="log-out-outline" aria-hidden="true" slot="start" />Sair</ion-button></div></header>
           @if (live.status() === "disconnected") { <p class="notice" role="status">Atualização em tempo real desconectada. Reconectando; use Atualizar para consultar os registros.</p> }
           @if (tabs().length > 1) { <nav class="module-tabs" [attr.aria-label]="'Seções de ' + currentModule()">@for (tab of tabs(); track tab.route) { <a [routerLink]="tab.route" [class.active]="path() === tab.route" [attr.aria-current]="path() === tab.route ? 'page' : null">{{ tab.label }}</a> }</nav> }
           <router-outlet />

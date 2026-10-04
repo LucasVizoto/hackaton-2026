@@ -6,6 +6,12 @@ Autenticação mantém `POST auth/login/`, `GET auth/me/`, `POST auth/logout/` e
 
 Listas paginadas usam `count`, `next`, `previous`, `results`. Erros usam `error.code` e `error.details`. Mutações de recebimento v2 exigem `expected_revision`; as de boletim exigem `revision`. Conflito de estado da agenda retorna 409; conflito de revisão do boletim retorna 400. O cliente deve recuperar a versão atual e preservar os dados não salvos. `available_actions` contém `{code,allowed,reason}` por ação e é calculado pelo servidor.
 
+## Troca de usuário
+
+Qualquer usuário autenticado com perfil válido pode usar `GET auth/users/?search=...&page=...`, com paginação padrão e busca por nome de usuário. Retorna contas ativas com perfil suportado, incluindo administradores, nos campos `id`, `username`, `role`, `supplier_id`.
+
+`POST auth/switch/` recebe `{ "user_id": 123 }` e retorna `{ "token": "...", "user": {...} }`. Substitui a identidade no cliente sem pedir senha; ações posteriores seguem as permissões e o vínculo da conta escolhida. A troca reutiliza ou cria o token do destino, sem revogar outros tokens. Destino inválido retorna 400; inexistente, inativo ou sem perfil retorna 404. As rotas também existem na v1, com o nome `portaria` preservado. A funcionalidade está sempre disponível, sem flag de ativação.
+
 ## Catálogos e documentos
 
 | Rota | Contrato |

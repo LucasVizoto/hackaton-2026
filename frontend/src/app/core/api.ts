@@ -15,6 +15,7 @@ export interface User {
   role: string;
   supplier_id: string | null;
 }
+export interface AuthSession { token: string; user: User; }
 export interface Page<T> {
   count: number;
   results: T[];
@@ -97,14 +98,22 @@ export class Api {
     return firstValueFrom(this.http.delete(`${this.base}/${path}`));
   }
   async login(username: string, password: string) {
-    const r = await this.post<{ token: string; user: User }>("auth/login/", {
+    const r = await this.post<AuthSession>("auth/login/", {
       username,
       password,
     });
-    this.token.set(r.token);
-    this.user.set(r.user);
-    writeSessionCookie(r.token);
+    this.applySession(r);
     return r;
+  }
+  async switchUser(userId: number) {
+    const session = await this.post<AuthSession>("auth/switch/", { user_id: userId });
+    this.applySession(session);
+    return session;
+  }
+  private applySession(session: AuthSession) {
+    writeSessionCookie(session.token);
+    this.token.set(session.token);
+    this.user.set(session.user);
   }
   async restoreSession() {
     const token = readSessionCookie();

@@ -2,6 +2,8 @@
 
 Preparar banco separado, usuários por perfil, notas artificiais, dois locais e pessoas sintéticas. Ensaiar o percurso com a mesma revisão que será mostrada. Confirmar no relatório de validação quais plataformas foram executadas; não atribuir os testes anteriores de Android ao fluxo novo.
 
+Entrar uma vez e usar **Trocar usuário** no topo para passar entre Fornecedor, Portaria, Compras, Armazém e Gestão. Buscar pelo nome e selecionar a conta: a sessão é substituída sem senha ou confirmação e abre o início do perfil. Salvar cada ação antes da troca, pois formulários não salvos são descartados. Para voltar, selecionar a conta anterior novamente.
+
 | Tempo | Demonstração | Evidência observável |
 |---|---|---|
 | 00:00–00:40 | Apresentar problema, perfis e origem sintética | Escopo: recebimento, trabalho das pessoas e custo, com dados identificados |

@@ -191,6 +191,25 @@ app-brand { display: inline-flex; gap: 12px; align-items: center; }
 .topbar-context small { font-size: 12px; }
 .context-divider { width: 1px; height: 18px; background: var(--line); }
 .topbar-user { color: var(--muted); font-size: 13px; }
+.user-switch-trigger { display: grid; gap: 2px; min-height: 44px; max-width: 160px; padding: 6px 10px; border: 1px solid var(--control-line); border-radius: var(--radius-control); background: var(--surface); color: var(--text); cursor: pointer; font: 500 12px/1.4 var(--font-body); text-align: left; }
+.user-switch-trigger strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-switch-trigger:hover { background: var(--surface-hover); }
+.user-switch-popover { --width: min(360px, calc(100vw - 24px)); --max-height: min(600px, calc(100dvh - 96px)); --background: var(--surface); }
+.user-switch-panel { padding: 16px; color: var(--text); }
+.user-switch-panel header,.user-switch-panel footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.user-switch-panel h2 { font-size: 17px; margin: 0; }
+.user-switch-panel label { display: grid; gap: 6px; margin: 16px 0; font-size: 13px; }
+.user-switch-panel input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--control-line); border-radius: var(--radius-control); background: var(--surface); color: var(--text); }
+.user-switch-panel button { min-height: 44px; border: 0; border-radius: var(--radius-control); background: var(--surface); color: var(--green); padding: 8px 12px; cursor: pointer; font: 500 13px/1.4 var(--font-body); }
+.user-switch-panel button:hover { background: var(--surface-hover); }
+.user-switch-panel button:disabled,.user-switch-trigger:disabled { opacity: .6; cursor: default; }
+.user-switch-list { max-height: 300px; overflow-y: auto; }
+.user-switch-list button { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; color: var(--text); }
+.user-switch-list button span { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.user-switch-list small { color: var(--muted); }
+.user-switch-list .current { background: var(--brand-soft); }
+.user-switch-panel footer { margin-top: 12px; font-size: 12px; }
+@media (max-width: 767px) { .user-switch-trigger { max-width: 110px; padding: 6px 8px; font-size: 11px; } .topbar:has(app-user-switcher) { flex-wrap: wrap; } .topbar:has(app-user-switcher) .topbar-actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; } }
 .icon-button { background: transparent; border: 0; color: var(--muted); border-radius: var(--radius-control); width: 44px; height: 44px; display: inline-grid; place-items: center; cursor: pointer; flex-shrink: 0; }
 .icon-button:hover { color: var(--green); background: var(--brand-soft); }
 .tablet-menu,.pill-nav { display: none; }
