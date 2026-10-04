@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from receiving.models import Appointment, GateArrival
 from imports.models import SeedRun
 from labor.models import DailyBulletin, IndividualAllocation
+from labor.services import values
 
 class PresentationSeedTests(TestCase):
     def setUp(self):
@@ -37,6 +38,9 @@ class PresentationSeedTests(TestCase):
             self.assertTrue(ap.receipt_lines.exists())
         self.assertEqual(GateArrival.objects.get().decision, 'rejected')
         self.assertGreater(IndividualAllocation.objects.count(), 0)
+        for bulletin in DailyBulletin.objects.all():
+            calculation = values(bulletin)['calculation']
+            self.assertEqual(calculation['resumo']['totalAPagar'], calculation['display']['total_payable'])
         pending = Appointment.objects.exclude(operation_status='completed').get()
         self.assertFalse(pending.invoice.items.filter(receiptline__isnull=False).exists())
 

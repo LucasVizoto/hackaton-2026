@@ -1,6 +1,8 @@
 # Remediação pré-banca — 03/10/2026
 
-Alterações locais sobre `5b57e1d`, sem commit, push, implantação ou distribuição de APK. As skills `anti-ai-slop` e `ui-anti-slop-codex` orientaram a revisão de linguagem, superfície e verificação visual. A remediação mantém os componentes, tokens e regras financeiras existentes.
+A rodada inicial foi realizada sobre `5b57e1d`, sem commit, push, implantação ou distribuição de APK naquele momento. As skills `anti-ai-slop` e `ui-anti-slop-codex` orientaram a revisão de linguagem, superfície e verificação visual. A remediação mantém os componentes, tokens e regras financeiras existentes.
+
+Na preparação Git posterior, solicitada com `$converge preparar`, as alterações foram salvas e conciliadas com `0c71b1d` (contrato do boletim e consulta da Gestão) e `9abfcc6` (leitura PDF/XML e tela do Fornecedor). A consulta de assinaturas usa um único componente, a paginação mantém Gestão sem permissão de reconhecer avisos e uma nova migration vazia reúne as duas folhas existentes sem reescrever migrations aplicadas. Os testes abaixo descrevem a rodada inicial; a validação do commit conciliado e os hashes exatos ficam no registro local da Converge. Esta preparação não publica nem integra na principal.
 
 ## Correções e rastreabilidade
 
