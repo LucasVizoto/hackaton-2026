@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { invoiceCodeFromText, invoiceDocumentFromText, invoiceFieldsFromText, invoiceFieldsFromXml, linesFromPdfItems, readInvoicePdf } from "../src/app/features/invoice-code";
+import { invoiceCodeFromText, invoiceDocumentFromText, invoiceFieldsFromText, invoiceFieldsFromXml, linesFromPdfItems, readInvoicePdf, reliableInvoiceFromText } from "../src/app/features/invoice-code";
 
 test("preenche o número da nota e não a chave de acesso completa", () => {
   const danfe = [
@@ -122,15 +122,57 @@ test("XML preenche o nNF e a chave", () => {
   assert.deepEqual(invoiceFieldsFromXml(xml), { number: "315497", accessKey });
 });
 
-test("PDF com texto preenche o número da chave, também na segunda nota", async () => {
+test("PDF com texto coerente usa leitura local sem chamar o provedor", async () => {
   const { createRequire } = await import("node:module");
   const { pathToFileURL } = await import("node:url");
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const require = createRequire(import.meta.url);
   pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.worker.min.mjs")).href;
-  const file = samplePdf(["NF-e No 000315407", "Nº 123", "CHAVE DE ACESSO", accessKey]);
-  assert.deepEqual(await readInvoicePdf(file), { number: "315497", accessKey });
-  assert.deepEqual(await readInvoicePdf(file), { number: "315497", accessKey });
+  const file = samplePdf(["NF-e No 000315497", "Pedido 123", "CHAVE DE ACESSO", accessKey]);
+  const remote = async () => { throw new Error("Não deve chamar OCR remoto"); };
+  assert.deepEqual(await readInvoicePdf(file, remote), { number: "315497", accessKey });
+  assert.deepEqual(await readInvoicePdf(file, remote), { number: "315497", accessKey });
+});
+
+test("texto conflitante, ambíguo, chave inválida e número de pedido exigem OCR remoto", () => {
+  const cases = [`NF-e No 000315407\nCHAVE DE ACESSO\n${accessKey}`,
+    `NF-e No 123\nNF-e No 456`, `CHAVE DE ACESSO\n${accessKey}\n${accessKey.slice(0, 43)}1`,
+    `NF-e No 000315497\nCHAVE DE ACESSO\n${accessKey.slice(0, 43)}1`, "Pedido Nº 123", "CHAVE DE ACESSO 1234"];
+  for (const source of cases) assert.equal(reliableInvoiceFromText(source), null, source);
+  assert.deepEqual(reliableInvoiceFromText("NF-e Nº 000123"), { number: "123", accessKey: "" });
+});
+
+test("PDF sem texto confiável envia o original completo e normaliza zeros no cadastro", async () => {
+  const file = samplePdf(["NF-e No 000315407", "CHAVE DE ACESSO", accessKey]);
+  let calls = 0;
+  const controller = new AbortController();
+  const result = await readInvoicePdf(file, async (original, signal) => {
+    calls++;
+    assert.equal(original, file);
+    assert.equal(signal, controller.signal);
+    return { number: "000315497", accessKey };
+  }, controller.signal);
+  assert.equal(calls, 1);
+  assert.deepEqual(result, { number: "315497", accessKey });
+});
+
+test("PDF escaneado sem camada textual usa o provedor e preserva erro para entrada manual", async () => {
+  const file = samplePdf([]);
+  assert.deepEqual(await readInvoicePdf(file, async () => ({ number: "000123", accessKey: "" })), { number: "123", accessKey: "" });
+  await assert.rejects(readInvoicePdf(file, async () => { throw new Error("OCR indisponível"); }), /OCR indisponível/);
+});
+
+test("cancelamento impede retorno do OCR do PDF e evita envio com sinal já cancelado", async () => {
+  const file = samplePdf([]);
+  const controller = new AbortController();
+  const request = readInvoicePdf(file, async () => {
+    controller.abort();
+    return { number: "123", accessKey: "" };
+  }, controller.signal);
+  await assert.rejects(request, { name: "AbortError" });
+  let calls = 0;
+  await assert.rejects(readInvoicePdf(file, async () => { calls++; return { number: "123", accessKey: "" }; }, controller.signal), { name: "AbortError" });
+  assert.equal(calls, 0);
 });
 
 test("números impressos conflitantes não permitem fallback para uma chave plausível", () => {

@@ -10,9 +10,11 @@ from django.conf import settings
 from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -26,6 +28,7 @@ from receiving.serializers_v2 import AppointmentV2Serializer
 from receiving.views import supplier_scoped
 from .models import DocumentSuggestion, ReadinessRevision, ReceiptSignature, WarehouseReadiness
 from .providers import ProviderUnavailable, configuration, json_request, openai_response, require_configuration
+from .invoice_reading import extract_invoice
 
 
 class IntegrationUnavailable(APIException):
@@ -234,6 +237,31 @@ class WeatherView(APIView):
             unavailable(error)
         return Response({"source": "https://open-meteo.com/", "informational_only": True, "forecast": data,
                          "note": "Previsão informativa; não bloqueia nem reagenda recebimentos."})
+
+
+class InvoiceReadingInput(serializers.Serializer):
+    file = serializers.FileField()
+
+
+class InvoiceReadingOutput(serializers.Serializer):
+    number = serializers.CharField(allow_null=True)
+    access_key = serializers.CharField(allow_null=True)
+    status = serializers.ChoiceField(choices=["suggested", "unreadable", "ambiguous"])
+    requires_confirmation = serializers.BooleanField()
+
+
+class InvoiceReadingView(APIView):
+    parser_classes = [MultiPartParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "invoice_reading"
+
+    @extend_schema(request=InvoiceReadingInput, responses={200: InvoiceReadingOutput})
+    def post(self, request):
+        require_role(request.user, "gatehouse", "supplier", "warehouse", "purchasing")
+        try:
+            return Response(extract_invoice(request.FILES.get("file")))
+        except ProviderUnavailable as error:
+            raise IntegrationUnavailable({"code": error.code, "message": "Leitura indisponível. Preserve o documento e preencha manualmente."}) from None
 
 
 class HgWeatherView(APIView):

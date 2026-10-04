@@ -1,3 +1,51 @@
+# Correções da revisão do OCR — 04/10/2026
+
+Corrigidos o import do script de avaliação que bloqueava o Ruff de deploy, a conversão de imagens transparentes e a validação estrutural de PDFs. A cópia de análise compõe transparência sobre branco, sem apagar texto preto; os testes verificam RGBA, escala de cinza com alpha e paleta transparente, sem alterar os bytes originais. O parser `pypdf` rejeita PDFs malformados, sem páginas, criptografados ou com página de dimensão zero antes de construir o cliente OpenAI. O endpoint retorna 400 nesses casos.
+
+Por instrução posterior do usuário, a chamada usa os parâmetros padrão do modelo: não envia `max_output_tokens` nem `reasoning`. A ausência foi conferida tanto na chamada do serviço quanto no JSON serializado pelo SDK real. Continuam o timeout de 60 segundos e zero repetições automáticas. Os tempos próximos de quatro segundos registrados abaixo foram obtidos com esforço baixo e teto de saída; não medem a configuração atual.
+
+**26 testes direcionados passaram**, em `integrations.test_invoice_reading` e `integrations.test_ocr_evaluation`. Ruff sobre backend/scripts/deploy, CLI de avaliação com `--help`, Django check e consistência de migrations passaram. Os locks foram atualizados para Python 3.14 preservando os demais pins. A instalação local e a instalação completa do lock de produção com wheels no contêiner `python:3.14-slim` passaram, incluindo os imports de OpenAI/Pillow/HEIF/pypdf.
+
+A conferência offline aceitou os três PDFs originais da banca já usados na amostra e sua cópia rasterizada, preservando os bytes enviados e os hashes dos originais. Isso verifica compatibilidade com o novo parser; não constitui outra avaliação de precisão.
+
+No navegador, com conta sintética em banco isolado, a imagem transparente manteve a prévia legível, a sugestão `000123` e a exigência de confirmação antes de habilitar o envio. Uma falha 503 controlada conservou o arquivo e permitiu preencher `888` manualmente. O fluxo passou pelo frontend, API autenticada, validação de imagem e parser do SDK, usando exclusivamente transporte HTTP local. As contagens de notas, chegadas e notificações permaneceram em zero antes e depois. Capturas privadas em `.private/ocr-fixes-20261004/`.
+
+**Nenhuma chamada paga foi feita nesta correção.** A suíte completa, o comparativo de 100 documentos, o dispositivo Android e a latência real com os parâmetros atuais não foram testados novamente. A flag permanece desativada fora dos processos isolados; não houve deploy.
+
+---
+
+# Validação com notas da banca — 04/10/2026
+
+Foram testadas três notas reais do pacote privado `DADOS_HACKATHON_2026`, de fornecedores diferentes, com número/chave conferidos pelos XMLs correspondentes e revisão visual dos DANFEs. A inspeção local encontrou 461 PDFs e 460 XMLs; 459 PDFs pareados foram lidos sem erro e todos tinham camada textual. Esses totais não significam homologação de todas as notas.
+
+A amostra paga exercitou três caminhos: um PDF original completo, uma cópia JPEG de outra nota com orientação EXIF e um PDF rasterizado sem camada textual de uma terceira nota. As duas cópias foram geradas para o teste a partir dos DANFEs da banca; não são fotos de câmera física nem PDFs originalmente escaneados no pacote. Os originais permaneceram intactos, confirmados por SHA-256.
+
+**3/3 números e 3/3 chaves foram lidos corretamente**, com os nove dígitos impressos e seus zeros preservados, estado `suggested` e confirmação humana obrigatória. Foram exatamente três chamadas reais a `gpt-6-astra`, sem repetição automática, esforço baixo e teto de 1.024 tokens de saída por chamada. Durações: 4,946 s, 3,653 s e 4,253 s. Consumo total: 10.231 tokens de entrada e 241 de saída. Custo estimado de **US$ 0,139916**, incluindo tokens de escrita de cache conforme as [tarifas Standard do modelo](https://developers.openai.com/api/docs/models/gpt-6-astra); não é consulta ao saldo ou à cobrança final da conta. Cada tentativa foi registrada com trava para impedir repetição acidental.
+
+A conferência adicional local dos três XMLs e três PDFs originais passou usando os parsers reais do frontend, com zero chamadas externas. O PDF rasterizado acionou corretamente o caminho remoto, verificado por callback sem enviar outra requisição. O ensaio em Node exibiu avisos de fontes padrão do PDF.js; os identificadores extraídos coincidiram com os XMLs. A versão web já fornece os arquivos de fonte no carregamento do PDF.js.
+
+A chave permanece apenas no `.env` ignorado pelo Git e a flag permanece desativada fora dos processos de teste. Não foram criadas notas/chegadas no banco nem executada novamente a suíte completa. Documentos, variantes, rótulos, identificadores e resultados detalhados permanecem em `.private/ocr-banca-validation/`; esta seção publica apenas agregados. **A amostra de três documentos valida a integração nesses casos, mas não comprova ganho de precisão sobre Tesseract nem substitui a comparação dos 100 documentos.**
+
+---
+
+# OCR de notas com OpenAI — 03/10/2026
+
+Implementação sobre a revisão `9abfcc6943346e51d2e80cb4f3b3c1f64b5d4d1f`. A nova leitura transitória usa o SDK oficial no Django; fotos e PDFs escaneados seguem para a API, e XML/PDF textual confiável conservam a extração local. A flag independente permanece desativada. Procedimento de configuração, comparação e ativação em [OCR](v2/ocr.md). Nenhuma alteração foi aplicada em produção.
+
+A suíte completa executou **247 testes backend em PostgreSQL**: 246 passaram e um teste Redis foi ignorado por falta de `TEST_REDIS_URL`. Esse teste foi executado separadamente com Redis isolado e passou. **50 testes frontend passaram**. Ruff, Django check, consistência de migrations, ESLint e build Angular passaram. Foi necessário unir duas migrations preexistentes de `receiving` com uma migration vazia; sua aplicação foi verificada no banco isolado. O aviso CommonJS do OCR foi eliminado; os avisos preexistentes de pdfmake permanecem.
+
+Os testes cobrem autorização e isolamento da capability, ausência de gravações na leitura, limite por usuário, arquivos vazios/adulterados/grandes, conversão HEIF real, orientação EXIF, orçamento de patches, PDF completo, zeros, chave/DV, divergência, ambiguidades, recusas, respostas incompletas, timeout e erros de provedor. O SDK real também foi exercitado com transporte HTTP controlado, incluindo seu parser e schema. O frontend cobre leitura local, envio do original, cancelamento, sessões independentes e resposta atrasada.
+
+No navegador, com usuários, arquivos e transporte do provedor sintéticos em banco isolado: a Portaria preservou `000123`, manteve a foto e exigiu a conferência humana antes de habilitar o envio; falhas e ambiguidades liberaram a digitação; cancelar a leitura preservou `777` mesmo depois da resposta tardia. O cadastro leu um PDF sem camada textual pelo backend, normalizou a sugestão para `123` e preservou `456` digitado durante uma segunda leitura. Essas verificações não enviaram chegadas ou notas. Capturas privadas em `.private/ocr-ui/`.
+
+Os locks foram resolvidos para Python 3.14 no Windows e Linux. A instalação das dependências de produção com wheels e os imports OpenAI/Pillow/HEIF passaram em contêiner `python:3.14-slim`. `cap sync android` e `assembleDebug` passaram. Não havia aparelho/emulador conectado; o uso deste OCR no dispositivo, câmera física e iOS não foram homologados nesta rodada.
+
+A ferramenta de referência Tesseract foi preparada antes da remoção da dependência de runtime e conserva o código/versões da revisão original em diretório privado. A avaliação pareada verifica IDs/hashes e registra acertos, sugestões incorretas, ausência de leitura, falhas, ambiguidades, latência e tokens. Seus testes e um ensaio offline sintético passaram. **A comparação dos 100 documentos reais não foi executada**, pois falta o corpus rotulado. O ganho de precisão continua sem comprovação; ativação depende dessa homologação.
+
+Validação real mínima adicional: a credencial foi guardada somente no `.env` local, ignorado pelo Git, com modelo `gpt-6-astra` e flag desativada. Uma única chamada ao serviço real, habilitada apenas no processo do teste, leu exatamente o número sintético `000315497` e sua chave válida, devolvendo `suggested` e confirmação humana obrigatória. A imagem tinha 800 × 300 pixels e 16.155 bytes. Com teto de 1.024 tokens de saída, esforço baixo e zero repetições, consumiu 608 tokens de entrada e 126 de saída (734 totais, incluindo 84 de raciocínio), em 6,469 segundos. Custo estimado de US$ 0,01238 pelas [tarifas Standard do modelo](https://developers.openai.com/api/docs/models/gpt-6-astra), sem afirmar saldo/cobrança final da conta. Evidência privada em `.private/ocr-live-validation/result.json`; a tentativa possui trava para impedir uma segunda chamada. A suíte completa e o comparativo real não foram repetidos nesta etapa.
+
+---
+
 # Ajustes de produção e tempo real — 03/10/2026
 
 Base: main `5f54856`, preservando os commits anteriores. Incorporados descoberta de câmera Android, inventário privado aditivo e verificações de Portaria; adicionados união de migrations, ASGI/Daphne, Redis, permissões de origem, decisão concorrente e recuperação de notificações. Nenhuma alteração foi aplicada em produção.
@@ -226,6 +274,14 @@ Incorporado o commit `9df952f`, preservando `c9434f4` e os históricos anteriore
 A migração `receiving.0011_merge_logistics_update` une as duas migrações `0010` publicadas, sem operações sobre dados. Aplicação em cópia PostgreSQL isolada preservou os fingerprints das 57 tabelas e dos 130.854 registros conferidos. `makemigrations --check` não identificou divergências.
 
 Validação desta integração: 213 testes de backend/PostgreSQL aprovados, incluindo Portaria e tempo real com Redis; 35 testes de frontend aprovados; Ruff, lint, build Angular e `assembleDebug` aprovados. Na web, a foto sintética existente abriu em nova aba. No emulador Android API 36, login, consulta do aviso recusado e abertura/fechamento do visualizador interno passaram. A foto utilizada nessa jornada era a fixture mínima de 1 pixel; legibilidade de uma nota real, aparelho físico e iOS não foram verificados nesta rodada. O bloqueio de popup foi tratado no código, mas não induzido na jornada web. Os avisos de build CommonJS de OCR/PDF e `flatDir` do Android permanecem. Nenhum deploy ou alteração do banco de produção foi executado.
+
+## Acabamento web dos fluxos de OCR de 04/10/2026
+
+Os formulários da Portaria e das notas do novo agendamento receberam acabamento com os padrões existentes. Crítica de design e auditoria técnica independentes precederam as alterações. A interface renderizada foi conferida em 1440×900, 1280×720, 768×1024 e 390×844, incluindo uma segunda passagem, temas claro/escuro, teclado, estados de leitura/falha, edição manual e cancelamento.
+
+Uma chegada sintética foi salva pela UI em banco isolado e relida na listagem e no ORM, preservando `000123` e os bytes da foto original. A leitura não criou notas, agendamentos ou notificações. Os 51 testes frontend, typecheck, lint e build passaram após a última alteração de código. Não houve chamada paga ao provedor, alteração de regra de negócio, deploy, commit ou push nesta etapa.
+
+A ferramenta de navegador bloqueou a abertura da prévia local do PDF por política de segurança; a conferência dessa abertura permanece pendente. A cópia do PDF e a câmera/HEIC no Android não foram homologadas nesta rodada. Evidências, mudanças e demais limites estão no [relatório de acabamento](v2/ocr-ui-polish.md).
 
 # Remediação pré-banca
 

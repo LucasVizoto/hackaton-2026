@@ -23,6 +23,7 @@ def configuration():
     return {
         "assistant": enabled and bool(settings.OPENAI_API_KEY and settings.OPENAI_MODEL),
         "ocr": enabled and bool(settings.OPENAI_API_KEY and settings.OPENAI_VISION_MODEL),
+        "invoice_reading": settings.OPENAI_INVOICE_READING_ENABLED and bool(settings.OPENAI_API_KEY and settings.OPENAI_VISION_MODEL),
         "email": enabled and bool(settings.EMAIL_HOST and settings.DEFAULT_FROM_EMAIL and (settings.DIGEST_EMAIL_RECIPIENTS or notification_email_recipients())),
         "google_calendar": enabled and bool(settings.GOOGLE_CALENDAR_ID and settings.GOOGLE_CALENDAR_ACCESS_TOKEN),
         "whatsapp": enabled and bool(settings.WHATSAPP_TOKEN and settings.WHATSAPP_PHONE_ID and settings.WHATSAPP_API_VERSION and settings.WHATSAPP_RECIPIENTS and settings.WHATSAPP_TEMPLATE),
