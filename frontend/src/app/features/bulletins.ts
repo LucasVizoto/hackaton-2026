@@ -20,6 +20,7 @@ import { Catalog } from "../core/catalog";
 import { IndividualAllocation, RuleOccurrence } from "../core/labor-v2";
 import { exportCsv, quantity } from "../core/workflow";
 import { ProductionRecords, ProductionRecord } from "./production-records";
+import { LaborPayroll } from "./labor-payroll";
 import { decimal, occurrenceLabel } from "../core/presentation";
 import {
   EmptyState,
@@ -100,7 +101,13 @@ export interface Bulletin {
     LoadingState,
     PageHeader,
     Status,
+    LaborPayroll,
   ],
+  styles: [`
+    .view-tabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--surface); }
+    .view-tabs button { min-height: 44px; padding: 0 18px; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+    .view-tabs button[aria-selected="true"] { background: var(--green); color: var(--brand-contrast); }
+  `],
   template: `<div class="page">
     <app-page-header
       title="Boletins diários"
@@ -112,6 +119,13 @@ export interface Bulletin {
         }
       </div>
     </app-page-header>
+    <div class="view-tabs" role="tablist" aria-label="Visão dos boletins">
+      <button type="button" role="tab" [attr.aria-selected]="view() === 'dias'" (click)="setView('dias')">Por dia</button>
+      <button type="button" role="tab" [attr.aria-selected]="view() === 'quinzena'" (click)="setView('quinzena')">Quinzena (acerto)</button>
+    </div>
+    @if (view() === "quinzena") {
+      <app-labor-payroll [embedded]="true" />
+    } @else {
     <form
       app-filter-block
       class="filters"
@@ -221,12 +235,20 @@ export interface Bulletin {
       Valores da apuração oficial. Complemento indica produção abaixo do
       piso; sozinho não comprova ociosidade.
     </p>
+    }
   </div>`,
 })
 export class BulletinList implements OnInit {
   api = inject(Api);
   catalog = inject(Catalog);
   private fb = inject(FormBuilder);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  view = signal<"dias" | "quinzena">(this.route.snapshot.queryParamMap.get("visao") === "quinzena" ? "quinzena" : "dias");
+  setView(view: "dias" | "quinzena") {
+    this.view.set(view);
+    void this.router.navigate([], { queryParams: { visao: view === "quinzena" ? "quinzena" : null }, queryParamsHandling: "merge", replaceUrl: true });
+  }
   filters = this.fb.nonNullable.group({
     warehouse: [""],
     date_from: [""],
