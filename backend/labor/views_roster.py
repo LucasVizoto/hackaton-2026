@@ -260,9 +260,11 @@ class RosterTeamView(APIView):
         participants = [{"worker": str(s.worker_id), "registration": s.worker.registration, "name": s.worker.name,
                          "fraction": "1.0" if s.period == "FULL" else "0.5", "confirmed": s.attendance == "PRESENT"}
                         for s in shifts]
+        absent = [{"worker": str(s.worker_id), "registration": s.worker.registration, "name": s.worker.name}
+                  for s in RosterShift.objects.filter(date=day, origin=origin, attendance="ABSENT").select_related("worker")]
         return Response({
             "date": day.isoformat(), "origin": origin, "participants": participants,
             "unconfirmed": sum(1 for p in participants if not p["confirmed"]),
-            "absences": RosterShift.objects.filter(date=day, origin=origin, attendance="ABSENT").count(),
+            "absences": len(absent), "absent": absent,
             "note": "Confira a equipe antes de fechar: pessoas ainda não confirmadas aparecem como escaladas.",
         })
