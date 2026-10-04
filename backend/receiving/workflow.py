@@ -274,6 +274,12 @@ def _visit(ap, user, data, entering):
         ap.operation_status = "in_progress"
     else:
         workers, equipment = _resource_values(data)
+        from catalog.models import Equipment
+        foreign = Equipment.objects.filter(pk__in=equipment, mobile=False, warehouse__isnull=False).exclude(
+            warehouse_id=visit.warehouse_id)
+        if foreign.exists():
+            raise ValidationError({"equipment_ids": "Equipamento fixo de outro armazém não pode ser usado nesta etapa: "
+                                                    + ", ".join(foreign.values_list("name", flat=True))})
         legacy._same_day(visit.checked_in_at, at)
         visit.checked_out_at = at
         visit.finished_at = at
@@ -288,10 +294,8 @@ def _visit(ap, user, data, entering):
             raise legacy.DomainConflict(reason)
         ap.finished_at = at
         ap.operation_status = "completed"
-        ap.worker_count = data["worker_count"]
-        maximum = max(v.worker_count or 0 for v in ap.visits.all())
-        if ap.worker_count < maximum:
-            raise ValidationError("Chapas globais confirmados não podem ser menores que uma etapa; não some as equipes.")
+        # Etapas são sequenciais e a mesma equipe circula: o caminhão usa a maior equipe, sem somar etapas.
+        ap.worker_count = max(v.worker_count or 0 for v in ap.visits.all())
         ap.resources_confirmed = True
         used = {eid for v in ap.visits.all() for eid in v.equipment.values_list("id", flat=True)}
         ap.equipment.set(used)

@@ -23,6 +23,7 @@ import { ScheduleCalendar, ScheduleRange } from "./schedule-calendar";
 import { Notifications } from "../shared/notifications";
 import { ReceiptCheck, ReceiptLine } from "./receipt-check";
 import { ReceiptSignatures } from "../shared/receipt-signatures";
+import { Crew, VisitCrew } from "./visit-crew";
 import { EmptyState, FeedbackState, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
 interface Visit {
   checked_in_at?: string | null;
@@ -207,7 +208,7 @@ export class AppointmentList implements OnInit {
     Status,
     Origin,
     PageHeader,
-    LoadingState, FeedbackState, SlotPicker, ReceiptCheck, AppointmentEdit, ReceiptSignatures,
+    LoadingState, FeedbackState, SlotPicker, ReceiptCheck, AppointmentEdit, ReceiptSignatures, VisitCrew,
   ],
   template: `<div class="page">
     <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
@@ -449,6 +450,7 @@ export class AppointmentList implements OnInit {
             >
           }
           @if (action() === "finish" || action() === "visit-finish" || action() === "visit-check-out") {
+            @if (crewHint()) { <p class="field-help section">{{ crewHint() }}</p> }
             <div class="form-grid section">
               <label
                 >Chapas utilizados<input
@@ -460,7 +462,7 @@ export class AppointmentList implements OnInit {
               <div>
                 <h3>Equipamentos utilizados</h3>
                 <div class="checks">
-                  @for (e of catalog.equipment(); track e.id) {
+                  @for (e of checkoutEquipment() ?? catalog.equipment(); track e.id) {
                     <label class="check"
                       ><input
                         type="checkbox"
@@ -582,6 +584,14 @@ export class AppointmentList implements OnInit {
         } @else {
           <p class="muted">Destinos ainda não confirmados.</p>
         }
+        @if (item.workflow_version === 2) {
+          @for (v of item.visits; track v.id) {
+            <details class="section" [open]="!!v.checked_in_at && !v.checked_out_at">
+              <summary><strong>Equipe da descarga · {{ v.warehouse_name }}</strong></summary>
+              <app-visit-crew [visitId]="v.id" [canEdit]="api.can('warehouse')" />
+            </details>
+          }
+        }
         <p class="site-note">
           Os destinos são sequenciais. Um caminhão conta uma vez no total
           global. Tempo sem registro de etapa fica indisponível por local.
@@ -635,6 +645,8 @@ export class AppointmentDetail implements OnInit {
   action = signal("");
   selectedWarehouses = signal<string[]>([]);
   selectedEquipment = signal<string[]>([]);
+  checkoutEquipment = signal<{ id: string; name: string }[] | null>(null);
+  crewHint = signal("");
   private visitId = "";
   dt = dateTime;
   origin = originLabel;
@@ -723,7 +735,10 @@ export class AppointmentDetail implements OnInit {
       this.a()?.visits?.map((v) => v.warehouse) ?? [],
     );
     this.selectedEquipment.set([]);
+    this.checkoutEquipment.set(null);
+    this.crewHint.set("");
     this.form.controls.resources_confirmed.setValue(false);
+    if (action === "visit-check-out" && visitId) void this.prefillCrew(visitId);
     if (action === "assign-cancelled") {
       this.form.controls.hold_id.setValue(this.activeHolds()[0]?.id ?? "");
       void this.loadCandidates();
@@ -737,6 +752,19 @@ export class AppointmentDetail implements OnInit {
     this.selectedWarehouses.update((v) =>
       v.includes(id) ? v.filter((x) => x !== id) : [...v, id],
     );
+  }
+  /** A saída do armazém vem preenchida com a equipe e os equipamentos alocados; o responsável confirma ou corrige. */
+  async prefillCrew(visitId: string) {
+    try {
+      const crew = await this.api.get<Crew>(`allocation/visits/${visitId}/crew/`);
+      if (this.visitId !== visitId) return;
+      const names = crew.people.filter(p => crew.crew.includes(p.id)).map(p => p.name);
+      const planned = crew.equipment.filter(e => e.planned).map(e => e.id);
+      this.checkoutEquipment.set(crew.equipment.map(e => ({ id: e.id, name: e.own || !e.warehouse_name ? e.name : `${e.name} (do ${e.warehouse_name})` })));
+      this.selectedEquipment.set(planned.length ? planned : crew.suggestion.equipment);
+      this.form.controls.worker_count.setValue(names.length || crew.suggestion.people);
+      this.crewHint.set(names.length ? `Equipe alocada: ${names.join(", ")}. Confira e corrija se mudou.` : `Ninguém alocado nesta etapa; preenchido com a sugestão (${crew.suggestion.text}).`);
+    } catch { this.crewHint.set(""); }
   }
   toggleEquipment(id: string) {
     this.selectedEquipment.update((v) =>
