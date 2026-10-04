@@ -99,5 +99,5 @@ export const routes: Routes = [
   { path: "pessoas", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "pessoas/:id", canActivate: [auth, roles("warehouse", "management")], loadComponent: () => import("./features/people").then(m => m.People) },
   { path: "integracoes", canActivate: [auth, roles("warehouse", "purchasing", "management")], loadComponent: () => import("./features/integrations").then(m => m.IntegrationsPage) },
-  { path: "**", redirectTo: "" },
+  { path: "**", loadComponent: () => import("./features/not-found").then(m => m.NotFound) },
 ];

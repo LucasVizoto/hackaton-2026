@@ -6,7 +6,7 @@ Agenda e operação de recebimentos, boletins diários e diagnóstico financeiro
 
 Acabou de clonar? Siga o [guia de instalação e primeira execução](docs/como_rodar.md), com ferramentas necessárias, contas de demonstração e solução dos erros mais comuns.
 
-Pré-requisitos: Docker Desktop ativo, Python 3.14, uv e Node 24/npm. O backend roda nativamente; Compose sobe somente o PostgreSQL, na porta local 55433. Android é um passo separado, sem download automático de SDK.
+Pré-requisitos: Docker Desktop ativo, Python 3.14, uv e Node 24/npm. O backend roda nativamente; Compose sobe PostgreSQL e Redis, nas portas locais 55433 e 56479. Android é um passo separado, sem download automático de SDK.
 
 ```powershell
 Set-Location C:\Projects\hackaton-2026
@@ -23,7 +23,9 @@ O setup cria `.env` privado com segredos aleatórios se o arquivo ainda não exi
 
 `-SeedDemo` acrescenta as contas `fornecedor_demo`, `fornecedor_b_demo`, `compras_demo`, `armazem_demo`, `gestao_demo` e `portaria_demo`; a senha é `DEMO_PASSWORD` do `.env` local. Essas fixtures são sintéticas e identificadas. O seed histórico cria somente uma conta técnica inativa, sem senha utilizável. Nenhuma senha existente é alterada.
 
-O token fica apenas em memória: ao recarregar, entre novamente. Recebimentos e boletins são recuperados do PostgreSQL. Logout revoga o token; este MVP tem um token por usuário e não implementa expiração/refresh. Credenciais não devem ser usadas em serviço público.
+Para a banca, use **um banco exclusivo e novo** e `manage.py seed_demo --presentation`, após migrations. Esse cenário contém recebimentos v2, boletins fechados com parcelas, presenças e uma recusa sintética consultável por Compras. O seed padrão preserva as fixtures de desenvolvimento e os exemplos legados; não é o caminho limpo de apresentação. Veja [preparação, cobertura e limites da remediação](docs/remediacao_pre_banca.md).
+
+O token é mantido em memória e em um cookie de sessão, sem prazo persistente, para restaurar o acesso após recarregar. A opção “Lembrar usuário” guarda somente o identificador no navegador, nunca a senha. Recebimentos e boletins são recuperados do PostgreSQL. Logout revoga o token; este MVP tem um token por usuário e não implementa expiração/refresh. Credenciais não devem ser usadas em serviço público.
 
 ## Inicializar um banco novo e preservar anexos privados
 
@@ -56,8 +58,10 @@ Anexos de NF-e são gravados em `.private/media` (`MEDIA_ROOT` configurável), s
 - Chegada independe das aprovações. Entrada exige Compras, armazém, destinos e reserva ativa. Etapas por armazém são sequenciais; chapas globais são confirmados e nunca somados por descarga/etapa.
 - Cancelamentos retêm capacidade para atribuição nominal do armazém. Reagendamento por natureza registra justificativa/exceção. Não recebimento sem agendamento é ocorrência avulsa.
 - Boletim: 14 categorias × descarga/remoção/transferência; até 20 matrículas únicas e fração 1 ou 0,5. `P=Σquantidade×tarifa`, `E=Σfrações`, `T=max(P,E×90.1731)`, `C=T−P`. Decimais exatos; centavos somente na apresentação. Sem custo de RH/encargos/equipamentos.
-- Fechamento preserva preços/cálculo; correções exigem reabertura com motivo. Rateio entre locais limita provisoriamente a uma diária por matrícula/data, sob bloqueio transacional. Não houve confirmação dessa hipótese com a Cocapec.
+- Fechamento preserva preços/cálculo; correções exigem reabertura com motivo. No v2, cada pessoa pertence financeiramente a um único boletim por dia e pode atuar em vários locais. Exceções sem regra financeira aprovada bloqueiam o fechamento; não se convertem automaticamente em meia diária ou em não aplicáveis.
 - Gestão separa operação, histórico documental e demonstração. Ausência de boletim não vira zero. Complemento não comprova ociosidade; cenários mantêm produção por hipótese e não garantem economia.
+- Presença e utilização são pessoas-dia: a mesma pessoa em dois dias conta duas vezes; várias atividades no mesmo dia não duplicam o indicador. Recusas avulsas são decisões do Armazém, consultáveis por Compras; essa consulta não implementa reversão da decisão.
+- Login usa o nome de usuário cadastrado, sem resolução por CPF/matrícula. Suporte orienta procurar o administrador; não há envio de recuperação de senha. A home conserva a referência institucional com acesso local destacado; clima/cotações da captura não são informações atuais.
 
 Feriados devem ser configurados pelo operador, sem inventar calendário oficial:
 
@@ -73,6 +77,8 @@ Feriados devem ser configurados pelo operador, sem inventar calendário oficial:
 
 O script executa Compose, lint, checks/migrations, testes reais PostgreSQL, lint/testes/build Angular e sincronização Capacitor. Não compila Android nem simula sucesso iOS. Veja [instruções Android/iOS](mobile/README.md), [roteiro de oito minutos](docs/roteiro_8_minutos.md) e [validação realizada](docs/validacao.md).
 
+A validação desta remediação está registrada separadamente em [remediação pré-banca](docs/remediacao_pre_banca.md). Resultados de APK, importação e publicação dos parágrafos seguintes pertencem a rodadas anteriores; não validam automaticamente as alterações atuais.
+
 Seed completo: PASS em 105 testes PostgreSQL, lint, check Django e consistência de migrations. Os 938 arquivos reais foram carregados em banco descartável; reexecução e dois bootstraps concorrentes preservaram IDs, contagens, arquivos e cálculo do boletim. O banco atual não foi alterado. Veja os agregados e as pendências no [relatório de validação](docs/validacao.md).
 
 Rodada anterior à ampliação do seed: PASS em sete testes de apresentação, lint, migrations, Compose, build Angular e sincronização Capacitor. Build, testes locais e instrumentação agregada Android passaram em AVD. O APK atual passou em login, consulta e gravação de chegada com aprovações pendentes, refletida na web. O checkpoint posterior passou após reiniciar API/PostgreSQL. A falha de conexão foi conferida com a API desligada: erro visível, sem sucesso e sem registrar entrada. O relatório distingue essa inspeção visual da asserção Maestro que falhou ao localizar o alerta na hierarquia WebView. O anexo pelo SAF foi verificado em rodada anterior. Nenhum aparelho físico foi testado. iOS segue NOT RUN até execução real em Mac/Xcode.
@@ -81,7 +87,7 @@ Instalação isolada PASS: checkout arquivado, ambiente Python novo com dependê
 
 Artefatos de entrega: [relatório gerencial](docs/relatorio_gerencial.md), [UML de casos de uso](docs/casos_uso.md), [BPMN](docs/processo.md), [DER](docs/der.md). Fontes editáveis e imagens estão em `docs/fontes` e `docs/imagens`. [Hipóteses e limites](docs/hipoteses.md) e [origem/importação](docs/importacao.md) delimitam as conclusões.
 
-A documentação está no [índice da entrega](docs/README.md). Originais, dados identificáveis, anexos, banco/dumps, credenciais e traces devem permanecer privados. O `.gitignore` permite apenas os caminhos exatos dos documentos finais, mantendo planos e auditorias fora da entrega. Índice e quatro artefatos foram abertos no GitHub em 03/10/2026; textos, imagens e fontes editáveis foram conferidos. Não há integração real com SAP, machine learning, chatbot ou economia medida.
+A documentação está no [índice da entrega](docs/README.md). Originais, dados identificáveis, anexos, banco/dumps, credenciais e traces devem permanecer privados. O `.gitignore` permite apenas os caminhos exatos dos documentos finais, mantendo planos e auditorias fora da entrega. Índice e quatro artefatos foram abertos no GitHub em 03/10/2026; textos, imagens e fontes editáveis foram conferidos. Não há integração com SAP, modelo preditivo de machine learning ou economia medida. Há um assistente opcional de consulta por provedor externo, condicionado à configuração; a existência do adaptador não comprova homologação com o provedor.
 
 ## Backup e restauração da demonstração
 

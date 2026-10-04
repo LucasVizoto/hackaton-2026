@@ -9,7 +9,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from analytics.views_v2 import LaborCostsV2View, OperationsV2View, StaffingScenarioV2View
 from catalog.models import Supplier
 from core.models import UserProfile
-from labor.models import LaborActivity
+from labor.models import LaborActivity, WorkerDay
 from labor.services import close_bulletin
 from labor.tests import REFERENCE, labor_fixtures, stored_bulletin
 from receiving.models import Appointment, GlobalSlot, Invoice, WarehouseVisit
@@ -58,6 +58,18 @@ class V2IndicatorTests(TestCase):
         self.assertIsNone(data["reconciliation"]["individual_display_total"])
         self.assertIsNone(data["reconciliation"]["difference"])
         self.assertEqual(data["individuals"]["count"], 0)
+
+    def test_presence_counts_person_days_not_unique_people_or_activity_rows(self):
+        for offset in (0, 1):
+            day = WorkerDay.objects.create(worker=self.workers[0], reference_date=REFERENCE + timedelta(days=offset), origin='demo_sintetico')
+            for warehouse in (self.warehouse, self.other_warehouse):
+                LaborActivity.objects.create(worker_day=day, warehouse=warehouse, activity_type='INTERNAL',
+                    attendance_state='PRESENT', used=True, created_by=self.operator)
+        data = self.call(LaborCostsV2View, {**self.filters, 'date_to': str(REFERENCE + timedelta(days=1))}).data
+        self.assertEqual(data['presence']['present'], 2)
+        self.assertEqual(data['presence']['used'], 2)
+        self.assertEqual(data['presence']['coverage'], 2)
+        self.assertEqual(data['presence']['unit'], 'pessoa/dia distinta com atividade registrada')
 
     def test_gatehouse_cannot_query_pay_or_scenarios(self):
         gate = User.objects.create_user("analytics-gate")

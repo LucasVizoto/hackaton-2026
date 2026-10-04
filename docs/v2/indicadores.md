@@ -8,8 +8,8 @@ Todos os resultados precisam de período, origem e unidade. `operacional_registr
 | Espera após Portaria | Primeira entrada em local menos chegada à Portaria, para cargas com saída no período | Apenas pares válidos; N informado |
 | Permanência total | Saída menos entrada na Portaria | Descarga concluída não é saída física |
 | Permanência no local | Saída menos entrada da visita, por saída da visita no período | Locais atendidos não formam uma duração global aditiva sem examinar marcos |
-| Pessoas/dia previstas, presentes e utilizadas | WorkerDay distintos com atividade no estado correspondente/uso confirmado | Estado previsto é ainda previsto; a mesma pessoa pode ter atividades em estados diferentes |
-| Pessoas presentes por local | Local da atividade física | Não atribui automaticamente custo àquele local |
+| Pessoas-dia previstas, presentes e utilizadas | WorkerDay distintos com atividade no estado correspondente/uso confirmado | A mesma pessoa em dois dias conta duas vezes; vários locais no mesmo dia não duplicam o indicador global. Estado previsto é ainda previsto; atividades distintas podem estar em estados diferentes |
+| Pessoas-dia presentes por local | Local da atividade física | Não atribui automaticamente custo àquele local |
 | Produção, piso, complemento e total | Somatório de boletins fechados do responsável financeiro | Fórmula aplicada por boletim antes da soma; sem encargos, custo de máquina ou folha RH |
 | Parcela individual | Fração proporcional e centavos gravados no fechamento | Não reconstruir valores nominais de legados |
 | Reconciliação | Soma dos totais individuais gravados contra soma dos totais exibidos por boletim | Diferença nula quando houver legado sem parcelas; não afirmar cobertura completa |

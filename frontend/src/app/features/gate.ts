@@ -56,7 +56,7 @@ function applyArrival(rows: Arrival[], message: GateMessage, board: "warehouse" 
             <span class="pass">A portaria pode liberar a entrada.</span>
           }
           @if (item.decision === "rejected") {
-            <span class="hold">Encaminhada para revisão de Compras.</span>
+            <span class="hold">Recusa registrada pelo Armazém. Compras pode consultar a nota.</span>
           }
         </div>
         <div class="arrival-actions">
@@ -274,7 +274,7 @@ export class GateDesk {
         this.notice.set(
           message.event === "authorized"
             ? `${driver} pode passar.`
-            : `Chegada de ${driver} recusada. O processo foi encaminhado para Compras.`,
+            : `Chegada de ${driver} recusada pelo Armazém. Nota disponível para consulta de Compras.`,
         );
       });
     });
@@ -343,7 +343,7 @@ export class GateDesk {
   standalone: true,
   imports: [RouterLink, IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
-    <app-page-header title="Chegadas na portaria" subtitle="Aceite libera a entrada na portaria. A recusa segue para Compras. Abrir a foto marca o aviso como visto."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
+    <app-page-header title="Chegadas na portaria" subtitle="Aceite libera a entrada na portaria. A recusa fica registrada para consulta de Compras. Abrir a foto marca o aviso como visto."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar avisos</ion-button></app-page-header>
     <p class="notice">Um aviso com foto não cria agendamento nem registra entrada ou saída automaticamente. <a routerLink="/operacao">Consultar recebimentos</a></p>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
@@ -386,7 +386,7 @@ export class ArrivalInbox implements OnInit {
   standalone: true,
   imports: [IonButton, PageHeader, FeedbackState, ArrivalList],
   template: `<div class="page">
-    <app-page-header title="Revisão de chegadas" subtitle="Chegadas recusadas na portaria, encaminhadas para Compras."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar revisões</ion-button></app-page-header>
+    <app-page-header title="Chegadas recusadas" subtitle="Consulta das recusas registradas pelo Armazém. Esta tela não altera decisões de entrada."><ion-button fill="outline" [disabled]="busy()" (click)="load()">Atualizar ocorrências</ion-button></app-page-header>
     @if (error()) {
       <div app-feedback tone="error" class="error">{{ error() }}</div>
     }
@@ -398,7 +398,7 @@ export class ArrivalInbox implements OnInit {
     }
     <section class="panel">
       <app-arrival-list [rows]="rows()" board="review" />
-      <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} revisões</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
+      <div class="pagination"><ion-button fill="outline" [disabled]="busy()||page===1" (click)="load(page-1)">Anterior</ion-button><span>Página {{page}} · {{count()}} ocorrências</span><ion-button fill="outline" [disabled]="busy()||!hasNext()" (click)="load(page+1)">Próxima</ion-button></div>
     </section>
   </div>`,
 })
@@ -418,7 +418,7 @@ export class ArrivalReview implements OnInit {
       if (!message || message.event !== "rejected") return;
       untracked(() => {
         this.rows.update((rows) => applyArrival(rows, message, "review"));
-        this.notice.set(`Chegada de ${message.arrival.driver_name} recusada na portaria. Revise o processo.`);
+        this.notice.set(`Recusa de ${message.arrival.driver_name} registrada pelo Armazém. Nota disponível para consulta.`);
       });
     });
   }
@@ -482,7 +482,7 @@ export class SentArrivals implements OnInit {
         this.notice.set(
           message.event === "authorized"
             ? `${driver} pode passar.`
-            : `Chegada de ${driver} recusada. O processo foi encaminhado para Compras.`,
+            : `Chegada de ${driver} recusada pelo Armazém. Nota disponível para consulta de Compras.`,
         );
         void this.load(this.page);
       });

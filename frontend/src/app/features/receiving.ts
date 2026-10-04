@@ -22,6 +22,7 @@ import { AppointmentEdit } from "./appointment-edit";
 import { ScheduleCalendar, ScheduleRange } from "./schedule-calendar";
 import { Notifications } from "../shared/notifications";
 import { ReceiptCheck, ReceiptLine } from "./receipt-check";
+import { ReceiptSignatures } from "../shared/receipt-signatures";
 import { EmptyState, FeedbackState, LoadingState, Origin, PageHeader, Status } from "../shared/ui";
 interface Visit {
   checked_in_at?: string | null;
@@ -206,7 +207,7 @@ export class AppointmentList implements OnInit {
     Status,
     Origin,
     PageHeader,
-    LoadingState, FeedbackState, SlotPicker, ReceiptCheck, AppointmentEdit,
+    LoadingState, FeedbackState, SlotPicker, ReceiptCheck, AppointmentEdit, ReceiptSignatures,
   ],
   template: `<div class="page">
     <app-page-header title="Detalhes do recebimento" subtitle="Documentos, validações e eventos da carga.">
@@ -223,6 +224,7 @@ export class AppointmentList implements OnInit {
     }
     @if (a(); as item) {
       <app-origin [value]="item.origin" /><p class="notice">{{nextStep(item)}}</p>@if(item.divergence_reported_at){<div class="notice"><strong>Divergência encaminhada a Compras</strong><p>{{item.divergence_notes}}</p><small>{{dt(item.divergence_reported_at)}}</small></div>}
+      <details class="panel"><summary>Assinaturas de conferência</summary><app-receipt-signatures [receipt]="item.id" [refresh]="item.revision" /></details>
       <section class="panel receiving-summary" aria-labelledby="receiving-summary-title">
         <div class="summary-identity">
           <div>
@@ -1064,6 +1066,7 @@ const reasons: Record<string, string> = {
           </tbody>
         </table>
       </div>
+      <div class="pagination"><ion-button fill="outline" [disabled]="busy() || page === 1" (click)="load(page - 1)">Anterior</ion-button><span>Página {{page}} · {{count()}} ocorrências</span><ion-button fill="outline" [disabled]="busy() || !hasNext()" (click)="load(page + 1)">Próxima</ion-button></div>
     } @else if (!error()) {
       <div app-empty-state class="empty">
         <h2>Nenhuma ocorrência registrada</h2>
@@ -1079,6 +1082,9 @@ export class NonReceipts implements OnInit {
   api = inject(Api);
   private route = inject(ActivatedRoute);
   selectedId = this.route.snapshot.paramMap.get("id");
+  page = 1;
+  count = signal(0);
+  hasNext = signal(false);
   rows = signal<NonReceipt[]>([]);
   error = signal("");
   busy = signal(false);
@@ -1088,7 +1094,7 @@ export class NonReceipts implements OnInit {
   ngOnInit() {
     void this.load();
   }
-  async load() {
+  async load(page = this.page) {
     this.busy.set(true);
     this.error.set("");
     try {
@@ -1098,8 +1104,11 @@ export class NonReceipts implements OnInit {
         ]);
       else {
         const r = await this.api.get<Page<NonReceipt>>(
-          "non-receipts/?page_size=100",
+          `non-receipts/?page=${page}`,
         );
+        this.page = page;
+        this.count.set(r.count);
+        this.hasNext.set(!!r.next);
         this.rows.set(r.results);
       }
     } catch (e) {

@@ -32,7 +32,7 @@ const rememberedKey = "cocapec.rememberedUser";
       <header class="login-meta" style="display: flex; justify-content: center;">
         <span class="pill-safra">
           <i></i>
-          PORTAL COOPERADO • SAFRA 2026/2027
+          RECEBIMENTO COCAPEC
         </span>
       </header>
       <section class="login-card">
@@ -46,7 +46,7 @@ const rememberedKey = "cocapec.rememberedUser";
         </div>
         <h1>Recebimento Inteligente<br /><span>COCAPEC</span></h1>
         <p class="lede">
-          Acesse com suas credenciais de cooperado ou operador
+          Entre com o usuário cadastrado no sistema de recebimento.
         </p>
         <div class="tabs" role="tablist" aria-label="Tipo de acesso">
           <button
@@ -61,7 +61,7 @@ const rememberedKey = "cocapec.rememberedUser";
               <path d="M4.5 18.5c.6-3.2 2.6-5 4.5-5s3.9 1.8 4.5 5" />
               <path d="m15 11 2 2 4-4" />
             </svg>
-            Cooperado /<br />Produtor
+            Fornecedor
           </button>
           <button
             type="button"
@@ -107,7 +107,7 @@ const rememberedKey = "cocapec.rememberedUser";
             <div class="field-top">
               <label for="password">Senha de Acesso</label>
               <button type="button" class="forgot" (click)="forgot()">
-                Esqueceu sua senha?
+                Problemas para acessar?
               </button>
             </div>
             <div class="control">
@@ -151,7 +151,7 @@ const rememberedKey = "cocapec.rememberedUser";
           <div class="row-options">
             <label class="remember">
               <input type="checkbox" formControlName="remember" />
-              Lembrar acesso
+              Lembrar usuário
             </label>
           </div>
           <button type="submit" class="submit" [disabled]="busy() || form.invalid">
@@ -566,15 +566,15 @@ export class Login {
   notice = signal("");
   userLabel = computed(() =>
     this.perfil() === "cooperado"
-      ? "Matrícula do Cooperado ou CPF"
+      ? "Usuário do fornecedor"
       : "Usuário de acesso",
   );
   userHint = computed(() =>
-    this.perfil() === "cooperado" ? "Ex: 2190-3" : "Operador interno",
+    this.perfil() === "cooperado" ? "Cadastro do fornecedor" : "Operador interno",
   );
   userPlaceholder = computed(() =>
     this.perfil() === "cooperado"
-      ? "Ex: 2190-3 ou 000.000.000-00"
+      ? "Informe seu usuário de fornecedor"
       : "Informe seu usuário",
   );
   form = this.fb.nonNullable.group({
@@ -587,7 +587,7 @@ export class Login {
   });
   forgot() {
     this.notice.set(
-      "Na demonstração local, use as credenciais fornecidas para o perfil operador.",
+      "Contate o administrador responsável pelo seu cadastro para conferir o usuário ou redefinir a senha. Este sistema não envia links de recuperação.",
     );
   }
   async submit() {

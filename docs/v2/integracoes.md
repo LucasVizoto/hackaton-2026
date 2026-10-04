@@ -2,6 +2,8 @@
 
 O sistema funciona com todas as integrações externas desligadas. `OPTIONAL_INTEGRATIONS_ENABLED=false` é o padrão. A entrega inclui adaptadores e testes com respostas simuladas; não comprova envio real, conta externa conectada ou homologação de provedor.
 
+A assinatura de conferência é um registro local, disponível independentemente desses adaptadores. Armazém registra nome e declaração na revisão concluída de um recebimento v2. A página de Integrações consulta novamente as assinaturas após gravar; o detalhe do recebimento também mostra a consulta, conforme as permissões da API. O registro informa data, revisão atual/anterior, declaração e resumo do manifesto; identificador e hash ficam nos detalhes técnicos. Isso não constitui assinatura fiscal/criptográfica homologada nem valida retroativamente recebimentos legados.
+
 O OCR local do aviso fotográfico da Portaria é um recurso separado: usa Tesseract no cliente, preservado na conciliação com `main`, e não depende do adaptador `integrations/ocr/`. Ele sugere apenas o número da NF e exige conferência humana. A primeira utilização pode depender da obtenção dos recursos de execução/idioma; a existência do código não comprova funcionamento offline ou qualidade da leitura de uma foto real. Os testes do parser textual não equivalem à validação do motor OCR com câmera.
 
 ## Disponibilidade e responsabilidades

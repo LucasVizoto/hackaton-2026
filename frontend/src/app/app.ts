@@ -17,7 +17,7 @@ const MODULES: NavigationItem[] = [
   { route: "/portaria/chegadas", label: "Chegadas enviadas", shortLabel: "Chegadas", icon: "document-text-outline", roles: ["gatehouse"] },
   { route: "/pessoas", label: "Pessoas", icon: "people-outline", roles: ["warehouse", "management"] },
   { route: "/chegadas", label: "Chegadas", icon: "notifications-outline", roles: ["warehouse"] },
-  { route: "/revisoes", label: "Revisões", icon: "warning-outline", roles: ["purchasing"] },
+  { route: "/revisoes", label: "Chegadas recusadas", icon: "warning-outline", roles: ["purchasing"] },
   { route: "/nao-recebimentos", label: "Não recebimentos", icon: "warning-outline", roles: ["warehouse"] },
   { route: "/boletins", label: "Boletins", icon: "document-text-outline", roles: ["warehouse"] },
   { route: "/gestao", label: "Gestão", icon: "grid-outline", roles: ["management", "warehouse", "purchasing"] },
@@ -110,7 +110,7 @@ export class AppComponent {
   }
   alertLabel() {
     const count = this.unreadArrivals();
-    if (this.api.user()?.role === "purchasing") return count === 1 ? "1 revisão" : `${count} revisões`;
+    if (this.api.user()?.role === "purchasing") return count === 1 ? "1 chegada recusada" : `${count} chegadas recusadas`;
     return `${count} chegada${count === 1 ? "" : "s"}`;
   }
   private watchesArrivals() {

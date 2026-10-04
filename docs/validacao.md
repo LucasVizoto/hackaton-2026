@@ -226,3 +226,7 @@ Incorporado o commit `9df952f`, preservando `c9434f4` e os históricos anteriore
 A migração `receiving.0011_merge_logistics_update` une as duas migrações `0010` publicadas, sem operações sobre dados. Aplicação em cópia PostgreSQL isolada preservou os fingerprints das 57 tabelas e dos 130.854 registros conferidos. `makemigrations --check` não identificou divergências.
 
 Validação desta integração: 213 testes de backend/PostgreSQL aprovados, incluindo Portaria e tempo real com Redis; 35 testes de frontend aprovados; Ruff, lint, build Angular e `assembleDebug` aprovados. Na web, a foto sintética existente abriu em nova aba. No emulador Android API 36, login, consulta do aviso recusado e abertura/fechamento do visualizador interno passaram. A foto utilizada nessa jornada era a fixture mínima de 1 pixel; legibilidade de uma nota real, aparelho físico e iOS não foram verificados nesta rodada. O bloqueio de popup foi tratado no código, mas não induzido na jornada web. Os avisos de build CommonJS de OCR/PDF e `flatDir` do Android permanecem. Nenhum deploy ou alteração do banco de produção foi executado.
+
+# Remediação pré-banca
+
+Os resultados das rodadas anteriores deste documento foram preservados. A remediação local sobre `5b57e1d`, sem commit/push ou novo APK, tem [relatório próprio com correções, testes, cenário limpo e limites](remediacao_pre_banca.md). Não atribua testes antigos de Android, publicação ou importação às alterações atuais.

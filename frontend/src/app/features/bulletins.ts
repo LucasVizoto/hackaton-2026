@@ -20,7 +20,7 @@ import { Catalog } from "../core/catalog";
 import { IndividualAllocation, RuleOccurrence } from "../core/labor-v2";
 import { exportCsv, quantity } from "../core/workflow";
 import { ProductionRecords, ProductionRecord } from "./production-records";
-import { decimal } from "../core/presentation";
+import { decimal, occurrenceLabel } from "../core/presentation";
 import {
   EmptyState,
   FeedbackState,
@@ -232,6 +232,7 @@ export class BulletinList implements OnInit {
   busy = signal(false);
   money = money;
   decimal = decimal;
+  occurrenceLabel = occurrenceLabel;
   origin = originLabel;
   ngOnInit() {
     void this.catalog.load().catch((e) => this.error.set(apiError(e)));
@@ -588,7 +589,7 @@ export class BulletinList implements OnInit {
               (click)="close()"
               [disabled]="busy() || dirty() || !!bulletin()?.unresolved_occurrences?.length"
               >Fechar boletim</ion-button
-            ><small>Salve alterações antes de fechar.</small>
+            ><small>{{bulletin()?.unresolved_occurrences?.length ? "Fechamento bloqueado: consulte Regras pendentes abaixo." : "Salve alterações antes de fechar."}}</small>
           }
         }
         @if (closed() && !legacy() && api.can("warehouse")) {
@@ -601,7 +602,7 @@ export class BulletinList implements OnInit {
         }
       </div>
     </fieldset></form>
-    @if(bulletin();as b){@if(!legacy()){<app-production-records [bulletin]="b" [dirty]="dirty()" (changed)="refresh()" />}<section class="panel section"><h2>Regras pendentes</h2><p class="muted">Uma ocorrência aberta bloqueia o fechamento deste boletim. A resolução não inventa uma tarifa ou fração.</p>@for(o of b.unresolved_occurrences??[];track o.id){<div class="record-context"><strong>{{o.code}} · {{o.worker?workerLabel(o.worker):'Coletivo'}}</strong><p>{{o.description}}</p>@if(api.can('management')&&!legacy()){<label>Motivo de não aplicabilidade<input #reason type="text" /></label><ion-button type="button" fill="outline" [disabled]="busy()||dirty()" (click)="resolveOccurrence(o.id,reason.value)">Marcar como não aplicável</ion-button>@if(dirty()){<p class="field-help">Salve as alterações do boletim antes de resolver esta ocorrência.</p>}}</div>}@if(!b.unresolved_occurrences?.length){<p class="muted">Sem regra pendente registrada.</p>}@if(api.can('warehouse')&&!closed()&&!legacy()){<form [formGroup]="occurrenceForm" (ngSubmit)="addOccurrence()"><div class="form-grid"><label>Pessoa<select formControlName="worker"><option value="">Coletivo</option>@for(p of b.participants;track p.worker){<option [value]="p.worker">{{workerLabel(p.worker)}}</option>}</select></label><label>Motivo<select formControlName="code"><option value="EARLY_LEAVE">Saída antecipada sem fração definida</option><option value="OVERTIME">Horas extras</option><option value="SPECIAL_DAILY">Diária especial</option><option value="FRACTION">Fração sem regra definida</option><option value="OTHER">Outra regra pendente</option></select></label><label class="span-2">Descrição<textarea formControlName="description" required></textarea></label></div><ion-button type="submit" fill="outline" [disabled]="busy()||occurrenceForm.invalid||dirty()">Registrar pendência</ion-button></form>}</section>
+    @if(bulletin();as b){@if(!legacy()){<app-production-records [bulletin]="b" [dirty]="dirty()" (changed)="refresh()" />}<section class="panel section"><h2>Regras pendentes</h2><p class="muted">O fechamento permanece bloqueado enquanto houver ocorrência aberta. Saída antecipada, horas extras, diária especial e frações excepcionais ainda não têm regra financeira definida. Gestão deve conferir a ocorrência; se ela for válida, o boletim continua pendente até existir uma regra aprovada e implementada. Marque como não aplicável somente quando a ocorrência não ocorreu ou não afeta o cálculo vigente.</p>@for(o of b.unresolved_occurrences??[];track o.id){<div class="record-context"><strong>{{occurrenceLabel(o.code)}} · {{o.worker?workerLabel(o.worker):'Coletivo'}}</strong><p>{{o.description}}</p>@if(api.can('management')&&!legacy()){<label>Motivo de não aplicabilidade<input #reason type="text" /></label><ion-button type="button" fill="outline" [disabled]="busy()||dirty()" (click)="resolveOccurrence(o.id,reason.value)">Marcar como não aplicável</ion-button>@if(dirty()){<p class="field-help">Salve as alterações do boletim antes de resolver esta ocorrência.</p>}}</div>}@if(!b.unresolved_occurrences?.length){<p class="muted">Sem regra pendente registrada.</p>}@if(api.can('warehouse')&&!closed()&&!legacy()){<form [formGroup]="occurrenceForm" (ngSubmit)="addOccurrence()"><div class="form-grid"><label>Pessoa<select formControlName="worker"><option value="">Coletivo</option>@for(p of b.participants;track p.worker){<option [value]="p.worker">{{workerLabel(p.worker)}}</option>}</select></label><label>Motivo<select formControlName="code"><option value="EARLY_LEAVE">Saída antecipada sem fração definida</option><option value="OVERTIME">Horas extras</option><option value="SPECIAL_DAILY">Diária especial</option><option value="FRACTION">Fração sem regra definida</option><option value="OTHER">Outra regra pendente</option></select></label><label class="span-2">Descrição<textarea formControlName="description" required></textarea></label></div><ion-button type="submit" fill="outline" [disabled]="busy()||occurrenceForm.invalid||dirty()">Registrar pendência</ion-button></form>}</section>
     @if(api.can('warehouse')&&!legacy()){<details class="panel section"><summary>Transferir responsabilidade financeira</summary><p class="muted">A transferência mantém uma participação no dia, registra o motivo e reabre boletins fechados envolvidos. As atividades nos locais permanecem registradas.</p><form [formGroup]="transferForm" (ngSubmit)="transfer()"><div class="form-grid"><label>Pessoa<select formControlName="worker"><option value="">Selecione</option>@for(p of b.participants;track p.worker){<option [value]="p.worker">{{workerLabel(p.worker)}}</option>}</select></label><label>Boletim de destino<select formControlName="target_bulletin"><option value="">Selecione boletim da mesma data</option>@for(target of transferTargets();track target.id){<option [value]="target.id">{{target.warehouse_name}} · {{target.status}}</option>}</select></label><label class="span-2">Motivo<textarea formControlName="reason" required></textarea></label></div><ion-button type="submit" fill="outline" [disabled]="busy()||transferForm.invalid||dirty()">Transferir participante</ion-button></form></details>}}
     @if(bulletin()){<details class="panel section" (toggle)="historyToggled($event)"><summary>Histórico auditado do boletim</summary><p class="muted">Cada linha registra a revisão, o responsável e o motivo preservados no servidor.</p><ion-button type="button" fill="outline" [disabled]="historyBusy()" (click)="loadHistory()">Atualizar histórico</ion-button>@if(historyBusy()){<app-loading-state label="Consultando histórico…" />}@if(historyError()){<div app-feedback tone="error">{{historyError()}}</div>}@if(auditHistory().length){<div class="table-wrap" tabindex="0" role="region" aria-label="Revisões auditadas do boletim"><table><thead><tr><th>Revisão</th><th>Registrada em</th><th>Estado preservado</th><th>Responsável</th><th>Motivo</th></tr></thead><tbody>@for(entry of auditHistory();track entry.id){<tr><td>{{entry.revision}}</td><td>{{entry.recorded_at|date:'dd/MM/yyyy HH:mm'}}</td><td>@if(entry.snapshot.status){<app-status [value]="entry.snapshot.status" />}@else{Não informado}</td><td>{{entry.actor!==null?'Usuário #'+entry.actor:'Não informado'}}</td><td class="wrap">{{entry.reason||'Sem motivo informado'}}</td></tr>}</tbody></table></div>}@else if(historyLoaded()&&!historyBusy()){<p class="muted">Nenhuma revisão retornada para este registro.</p>}</details>}
     @if (showReopen() && !legacy()) {
@@ -651,6 +652,7 @@ export class BulletinEditor implements OnInit {
   auditHistory=signal<BulletinAudit[]>([]);historyBusy=signal(false);historyError=signal('');historyLoaded=signal(false);
   money = money;
   decimal = decimal;
+  occurrenceLabel = occurrenceLabel;
   private line = (category: string, l?: Line) =>
     this.fb.nonNullable.group({
       category: [category],
@@ -866,7 +868,7 @@ export class BulletinEditor implements OnInit {
   displayOrigin(){if(this.bulletin())return this.bulletin()!.origin;const ids=this.participants.getRawValue().map(p=>p.worker).filter(Boolean);return ids.length&&ids.every(id=>this.catalog.workers().find(w=>w.id===id)?.origin==='demo_sintetico')?'demo_sintetico':'operacional_registrado';}
   workerLabel(id:string){const worker=this.catalog.workers().find(w=>w.id===id);return worker?`${worker.registration} · ${worker.name}`:id;}
   async refresh(){const b=this.bulletin();if(!b)return;try{this.apply(await this.api.get<Bulletin>(`bulletins/${b.id}/`));}catch(e){this.error.set(apiError(e));throw e;}}
-  async loadTargets(){const b=this.bulletin();this.transferTargets.set([]);if(!b||this.legacy())return;try{const result=await this.api.get<Page<Bulletin>>(`bulletins/?date_from=${b.reference_date}&date_to=${b.reference_date}&origin=${b.origin}&page_size=100`);this.transferTargets.set(result.results.filter(x=>x.id!==b.id&&x.financial_version==='boletim-v2'));}catch(e){this.error.set(apiError(e));}}
+  async loadTargets(){const b=this.bulletin();this.transferTargets.set([]);if(!b||this.legacy())return;try{const result=await this.api.getAll<Bulletin>(`bulletins/?date_from=${b.reference_date}&date_to=${b.reference_date}&origin=${b.origin}&page_size=100`);this.transferTargets.set(result.filter(x=>x.id!==b.id&&x.financial_version==='boletim-v2'));}catch(e){this.error.set(apiError(e));}}
   async addOccurrence(){const b=this.bulletin();if(!b||this.legacy()||this.busy()||this.dirty()||this.occurrenceForm.invalid)return;this.busy.set(true);this.error.set('');try{const v=this.occurrenceForm.getRawValue();await this.api.post('labor-rule-occurrences/',{...v,bulletin:b.id,worker:v.worker||null});await this.refresh();this.occurrenceForm.controls.description.setValue('');this.success.set('Pendência registrada. O fechamento aguarda a regra aplicável.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
   async resolveOccurrence(id:string,reason:string){if(this.legacy()||this.busy()||this.dirty())return;if(!reason.trim()){this.error.set('Informe por que a ocorrência não se aplica.');return;}this.busy.set(true);this.error.set('');try{await this.api.post(`labor-rule-occurrences/${id}/resolve/`,{resolution_type:'NOT_APPLICABLE',reason});await this.refresh();this.success.set('Não aplicabilidade registrada com motivo.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
   async transfer(){const b=this.bulletin();const v=this.transferForm.getRawValue();const target=this.transferTargets().find(t=>t.id===v.target_bulletin);if(!b||this.legacy()||!target||target.financial_version!=='boletim-v2'||this.busy()||this.dirty()||this.transferForm.invalid)return;this.busy.set(true);this.error.set('');try{await this.api.post(`bulletins/${b.id}/transfer-worker/`,{...v,revision:b.revision,target_revision:target.revision});await this.refresh();this.transferForm.reset();this.success.set('Responsabilidade financeira transferida com histórico.');}catch(e){this.error.set(apiError(e));}finally{this.busy.set(false);}}
@@ -883,7 +885,7 @@ export class BulletinEditor implements OnInit {
       .slice(0, 11);
     if (workers.length < 11) {
       this.error.set(
-        "Execute o seed sintético: os exemplos precisam de 11 matrículas de demonstração.",
+        "Exemplo indisponível: a equipe sintética de 11 participantes não está cadastrada. Contate o administrador do ambiente.",
       );
       return;
     }

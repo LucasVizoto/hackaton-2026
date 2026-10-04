@@ -93,7 +93,7 @@ No clone novo, deixe o setup gerar o `.env`; copiar `.env.example` antes disso d
 
 O setup exige o pacote privado completo: passe `-PrivateDataPath` ou preencha `PRIVATE_DATA_DIR`. O `.env`, os arquivos e os anexos ficam privados e não devem ser enviados ao Git. O seed histórico cria uma conta técnica inativa; os logins abaixo são acrescentados somente com `-SeedDemo`.
 
-Para uma demonstração exclusivamente sintética, prepare as dependências e o PostgreSQL, execute `manage.py migrate --noinput` e `manage.py seed_demo` diretamente. Esse caminho não usa `setup.ps1`, que agora monta o banco com o baseline completo.
+Para uma apresentação exclusivamente sintética, prepare dependências, PostgreSQL e Redis, configure um banco exclusivo e novo, execute `manage.py migrate --noinput` e `manage.py seed_demo --presentation` diretamente. Esse caminho não usa `setup.ps1`, que monta o banco com o baseline completo. Consulte o [procedimento de apresentação](remediacao_pre_banca.md). O `seed_demo` sem a opção preserva as fixtures de desenvolvimento e exemplos legados.
 
 ## 4. Iniciar a API e o frontend
 
@@ -118,9 +118,10 @@ Deixe os dois terminais em execução e abra [http://localhost:4200](http://loca
 | Serviço | Endereço / porta |
 |---|---|
 | Aplicação web | `http://localhost:4200` |
-| API | `http://127.0.0.1:8000/api/v1/` |
-| Verificação da API e do banco | `http://127.0.0.1:8000/api/v1/health/` |
+| API atual | `http://127.0.0.1:8000/api/v2/` |
+| Verificação da API e do banco | `http://127.0.0.1:8000/api/v2/health/` |
 | PostgreSQL | `127.0.0.1:55433` |
+| Redis | `127.0.0.1:56479` |
 
 O frontend encaminha `/api` para a API na porta 8000 pelo proxy configurado no repositório. A raiz da API pode retornar 404; use a rota `health/` para verificar o funcionamento.
 
@@ -137,16 +138,17 @@ Abra o `.env` local em um editor e copie o valor depois de `DEMO_PASSWORD=`. Ess
 | `gestao_demo` | Gestão |
 | `portaria_demo` | Portaria |
 
-Para conferir os indicadores sintéticos, entre com `gestao_demo`, selecione a origem **Demonstração sintética** e um período que inclua **01/10/2026 a 02/10/2026**. Há também boletins de referência em 17 e 18/11/2025. O painel começa com a origem de operação registrada, que pode estar sem dados em um banco novo.
+Para conferir os indicadores sintéticos, entre com `gestao_demo`, selecione a origem **Demonstração sintética** e o período **01/10/2026 a 02/10/2026**. No seed padrão de desenvolvimento há também boletins legados de referência em 17 e 18/11/2025; eles não são criados por `--presentation`. O painel começa com a origem de operação registrada, que pode estar sem dados em um banco novo.
 
 Em um terceiro terminal, confira a conexão da API com o banco:
 
 ```powershell
-Invoke-RestMethod 'http://127.0.0.1:8000/api/v1/health/'
-Invoke-RestMethod 'http://localhost:4200/api/v1/health/'
+Invoke-RestMethod 'http://127.0.0.1:8000/api/v2/health/'
+Invoke-RestMethod 'http://localhost:4200/api/v2/health/'
+.\scripts\check-demo.ps1
 ```
 
-Ambas devem retornar `status: ok` e `database: postgresql`; a segunda também verifica o proxy do frontend. Recarregar a página mantém o login: o token fica em um cookie de sessão do navegador e some ao fechar o navegador. Os registros continuam no PostgreSQL.
+Ambas devem retornar `status: ok` e `database: postgresql`; a segunda também verifica o proxy do frontend. O script verifica API/banco e entrega do frontend, mas não substitui login nem o ensaio do WebSocket. Recarregar a página mantém o login pelo cookie de sessão. “Lembrar usuário” guarda só o identificador; a senha não é salva. O cookie não tem prazo persistente; restauração de sessões do próprio navegador pode conservá-lo. Use Sair para revogar o token. Os registros continuam no PostgreSQL.
 
 ## 6. Parar e voltar a rodar
 
