@@ -77,9 +77,11 @@ export class Api {
     url.searchParams.set("stream_version", "2");
     return url.toString();
   }
-  async post<T>(path: string, body: unknown) {
+  async post<T>(path: string, body: unknown, signal?: AbortSignal) {
     await this.configure();
-    return firstValueFrom(this.http.post<T>(`${this.base}/${path}`, body));
+    if (signal?.aborted) throw new DOMException("Consulta cancelada", "AbortError");
+    const request = this.http.post<T>(`${this.base}/${path}`, body);
+    return firstValueFrom(signal ? request.pipe(takeUntil(fromEvent(signal, "abort"))) : request);
   }
   async patch<T>(path: string, body: unknown) {
     await this.configure();
@@ -179,17 +181,20 @@ export function apiError(error: unknown, context?: "login"): string {
         ? "Usuário ou senha inválidos. Confira as credenciais e tente novamente."
         : "Sessão encerrada. Entre novamente.";
     const body = error.error as unknown;
+    const fallback = error.status >= 500
+      ? "O serviço não conseguiu concluir a solicitação. Tente novamente mais tarde."
+      : `Requisição recusada (${error.status}).`;
     if (typeof body === "string")
-      return `Requisição recusada (${error.status}).`;
+      return fallback;
     if (body && typeof body === "object") {
       const wrapped = (body as RecordData)["error"];
       const details =
         wrapped && typeof wrapped === "object"
           ? ((wrapped as RecordData)["details"] ?? wrapped)
           : body;
-      return errorDetails(details);
+      return errorDetails(details) || fallback;
     }
-    return `Requisição recusada (${error.status}).`;
+    return fallback;
   }
   return error instanceof Error
     ? error.message
@@ -202,7 +207,7 @@ function errorDetails(value: unknown): string {
       .filter(([key]) => key !== "code")
       .map(
         ([key, v]) =>
-          `${["detail", "non_field_errors"].includes(key) ? "" : key + ": "}${errorDetails(v)}`,
+          `${["detail", "message", "non_field_errors"].includes(key) ? "" : key + ": "}${errorDetails(v)}`,
       )
       .join(" · ");
   return String(value);

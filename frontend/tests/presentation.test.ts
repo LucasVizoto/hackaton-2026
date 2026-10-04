@@ -38,6 +38,15 @@ test("login recusado orienta corrigir credenciais e 401 autenticado indica sess�
   );
   assert.equal(apiError(error), "Sessão encerrada. Entre novamente.");
 });
+test("falha de leitura exibe a mensagem sem expor o nome da propriedade técnica", () => {
+  const e = new HttpErrorResponse({status:503,error:{error:{code:"provider_unavailable",details:{message:"Leitura indisponível. Informe o número manualmente.",code:"timeout"}}}});
+  assert.equal(apiError(e), "Leitura indisponível. Informe o número manualmente.");
+  const fieldError = new HttpErrorResponse({status:400,error:{error:{details:{number:["Número inválido."]}}}});
+  assert.equal(apiError(fieldError), "number: Número inválido.");
+  const unavailable = "O serviço não conseguiu concluir a solicitação. Tente novamente mais tarde.";
+  assert.equal(apiError(new HttpErrorResponse({status:500,error:"Proxy error"})),unavailable);
+  assert.equal(apiError(new HttpErrorResponse({status:503,error:{}})),unavailable);
+});
 test("falha de conexão no login continua informando indisponibilidade da API", () => {
   const error = new HttpErrorResponse({ status: 0 });
   assert.equal(
